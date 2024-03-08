@@ -1,0 +1,36 @@
+name: "Unit-tests"
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "**.py"
+  pull_request:
+    branches:
+      - dev
+    types:
+      - opened
+      - edited
+      - synchronize
+    paths:
+      - "**.py"
+  workflow_dispatch:
+    inputs:
+      PYTHON_VERSION:
+        required: false
+        default: 3.11
+
+jobs:
+  run-unit-test:
+    runs-on: [self-hosted, Linux, standard]
+    strategy:
+      matrix:
+        python-version: [3.11]
+    steps:
+      - uses: actions/checkout@v3
+      - name: "running unit-tests"
+        uses: "adeo/dataplatform--bigdata--the-parrot/.github/templates/Python/unittests@main"
+        with:
+          pkg_folder: "kdp"
+          PYTHON_VERSION: ${{ matrix.python-version }}

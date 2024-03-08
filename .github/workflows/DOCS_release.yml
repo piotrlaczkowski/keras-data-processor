@@ -1,0 +1,35 @@
+name: "MIKE DOC Release Manual"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  MIKE_RELEASE_DOCs:
+    runs-on: [self-hosted, Linux, standard]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.11
+
+      - name: Install Python DOCs dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          # installing poetry
+          pip install poetry
+          # disable venvs
+          poetry config virtualenvs.create false
+          # assuring we have all extras for testing as well
+          poetry install --only doc --no-interaction
+
+      - name: "Releasing new documentation with mike"
+        continue-on-error: true
+        shell: bash
+        run: |
+          echo "CURRENT TAG: $(poetry version -s)"
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          mike deploy --push --update-aliases $(poetry version -s) latest

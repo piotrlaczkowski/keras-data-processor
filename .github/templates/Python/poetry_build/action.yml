@@ -1,0 +1,71 @@
+name: Building and deploying python Package
+description: Building And Deploying python package using poetry and twine.
+
+inputs:
+  PYTHON_VERSION:
+    description: "Python version to use for this action. Default is 3.9"
+    required: false
+    default: 3.11
+  SEMANTIC_VERSION:
+    description: "Semantic Realsede version to use for teh package build"
+    required: true
+  VAULT_PYPI_JFROG_SECRET_PATH:
+    description: "Path to the vault namespace form which take all the publish settings"
+    required: true
+  VAULT_NAMESPACE:
+    description: "Vault namespace to use for this action"
+    required: true
+  VAULT_URL:
+    description: "URL to the Vault server"
+    required: false
+    default: "https://vault.factory.adeo.cloud"
+    type: string
+  VAULT_ROLE_ID:
+    required: true
+  VAULT_SECRET_ID:
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "${{ inputs.PYTHON_VERSION }}"
+
+    - name: Install package dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+
+        # installing poetry
+        pip install poetry
+
+        # assuring we have all extras for testing as well
+        poetry install --all-extras --no-interaction
+
+        # incrementing package version based on semantic release
+        poetry version ${{ inputs.SEMANTIC_VERSION }}
+
+        # adding source to poetry -> TODO: do we need to add the source or only yhe config
+        poetry source add jfrog ${{ steps.get_repository_url.outputs.jfrog_repository_url }}
+
+        # adding configuration to publish to the right JFrog repo
+        poetry config repositories.jfrog ${{ steps.get_repository_url.outputs.jfrog_repository_url }}
+
+    - name: Display Publish Config List
+      shell: bash
+      run: |
+        echo 'Display Publish Config List'
+        poetry config --list
+
+    - name: Poetry Build and Publish
+      shell: bash
+      run: |
+        # building and publishing the package
+        poetry publish \
+        -r jfrog \
+        -u ${{ steps.jfrog-pypi-secrets.outputs.writer_user_name }} \
+        -p ${{ steps.jfrog-pypi-secrets.outputs.writer_user_token }} \
+        --build
+        echo "ALL DONE !"

@@ -1,0 +1,64 @@
+name: "Semantic Release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      DRY_RUN:
+        required: false
+        default: true
+
+jobs:
+  SEMANTIC_RELEASE:
+    runs-on: [self-hosted, Linux, standard]
+    steps:
+      - uses: actions/checkout@v3
+      - name: "Semantic Release for PARROT"
+        id: semantic-release
+        uses: "adeo/dataplatform--bigdata--ds-cerebro--github-actions/.github/templates/github/semantic_release@master"
+        with:
+          PROJECT_NAME: PARROT
+          PROJECT_DIRECTORY: .
+          BRANCHES: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.DRY_RUN }}
+
+      - name: "testing TAG fetch"
+        shell: bash
+        run: |
+          echo "CURRENT TAG:"
+          echo ${{ steps.semantic-release.outputs.new_release_version }}
+          echo "CURRENT Notes:"
+          echo ${{ steps.semantic-release.outputs.new_release_notes }}
+
+      - name: Set up Python
+        if: steps.semantic-release.outcome == 'success'
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.11
+
+      - name: Install Poetry and publish to PyPI
+        if: steps.semantic-release.outcome == 'success'
+        shell: bash
+        run: |
+          pip install poetry
+
+      - name: Install Python dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          # installing poetry
+          pip install poetry
+          # disable venvs
+          poetry config virtualenvs.create false
+          # assuring we have all extras for testing as well
+          poetry install --only doc --no-interaction
+
+      - name: "Releasing new documentation with mike"
+        continue-on-error: true
+        shell: bash
+        run: |
+          echo "CURRENT TAG:"
+          echo "${{ steps.semantic-release.outputs.new_release_version }}"
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          mike deploy --push --update-aliases ${{ steps.semantic-release.outputs.new_release_version }} latest
