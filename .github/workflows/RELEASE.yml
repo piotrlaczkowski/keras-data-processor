@@ -12,7 +12,7 @@ jobs:
     runs-on: [self-hosted, Linux, standard]
     steps:
       - uses: actions/checkout@v3
-      - name: "Semantic Release for PARROT"
+      - name: "Semantic Release"
         id: semantic-release
         uses: "adeo/dataplatform--bigdata--ds-cerebro--github-actions/.github/templates/github/semantic_release@master"
         with:
@@ -36,22 +36,32 @@ jobs:
         with:
           python-version: 3.11
 
-      - name: Install Poetry and publish to PyPI
-        if: steps.semantic-release.outcome == 'success'
-        shell: bash
-        run: |
-          pip install poetry
-
       - name: Install Python dependencies
         shell: bash
         run: |
+          # updating python
           python -m pip install --upgrade pip
+
           # installing poetry
           pip install poetry
+
           # disable venvs
           poetry config virtualenvs.create false
+
           # assuring we have all extras for testing as well
-          poetry install --only doc --no-interaction
+          poetry install --all-extras --no-interaction
+
+      - name: Publishing to PyPI
+        shell: bash
+        run: |
+          # Configuring PyPi
+          poetry config pypi-token.pypi {{ secrets.PYPI_TOKEN }}
+
+          # Setting correct package version
+          poetry version ${{ steps.semantic-release.outputs.new_release_version }}
+
+          # Publishing to PyPi
+          poetry publish --build
 
       - name: "Releasing new documentation with mike"
         continue-on-error: true
