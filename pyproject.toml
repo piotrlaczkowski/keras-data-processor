@@ -13,7 +13,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.11,<3.12"
 loguru = ">=0.6.0"
 numpy = ">=1.23"
 tensorflow = ">=2.11"
