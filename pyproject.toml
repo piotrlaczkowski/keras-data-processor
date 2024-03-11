@@ -24,6 +24,8 @@ ipython = ">=8.8.0"
 pytest = ">=7.2.1"
 pytest-cov = ">=4.0.0"
 pytest-mock = ">=3.10.0"
+ipykernel = "^6.29.3"
+pandas = "^2.2.1"
 
 [tool.poetry.group.doc.dependencies]
 mkdocs = ">=1.5.3"
