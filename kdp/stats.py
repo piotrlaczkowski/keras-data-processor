@@ -38,6 +38,11 @@ class WelfordAccumulator:
             dtype=tf.float32,
             trainable=False,
         )
+        self.var = tf.Variable(
+            0.0,
+            dtype=tf.float32,
+            trainable=False,
+        )
 
     @tf.function
     def update(self, values: tf.Tensor) -> None:
@@ -56,7 +61,7 @@ class WelfordAccumulator:
     @property
     def variance(self) -> float:
         """Returns the variance of the accumulated values."""
-        return self.M2 / (self.n - 1) if self.n > 1 else 0.0
+        return self.M2 / (self.n - 1) if self.n > 1 else self.var
 
     @property
     def count(self) -> int:
@@ -231,7 +236,7 @@ class DatasetStatistics:
                     # value = keras.ops.cast(value, "int32")
                     logger.debug(f"Value {value} of {feature} can be cast to int32")
                     inferred_dtype = tf.int32
-                except ValueError:
+                except Exception:
                     _type = type(value)
                     logger.debug(f"Value {value} of {feature} is of type {_type} and cannot be cast to int32")
                     inferred_dtype = tf.string
@@ -274,8 +279,8 @@ class DatasetStatistics:
         for feature in self.numeric_cols:
             final_stats["numeric_stats"][feature] = {
                 "mean": self.numeric_stats[feature].mean.numpy(),
-                "var": self.numeric_stats[feature].variance.numpy(),
                 "count": self.numeric_stats[feature].count.numpy(),
+                "var": self.numeric_stats[feature].variance.numpy(),
             }
 
         for feature in self.categorical_cols:
@@ -285,7 +290,8 @@ class DatasetStatistics:
                 unique_values = [int(_byte) for _byte in self.categorical_stats[feature].get_unique_values()]
                 unique_values.sort()
             else:
-                unique_values = [_byte.decode("utf-8") for _byte in self.categorical_stats[feature].get_unique_values()]
+                _unique_values = self.categorical_stats[feature].get_unique_values()
+                unique_values = [(_byte).decode("utf-8") for _byte in _unique_values]
             final_stats["categorical_stats"][feature] = {
                 "size": len(unique_values),
                 "vocab": unique_values,

@@ -1,0 +1,194 @@
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import numpy as np
+import tensorflow as tf
+
+from kdp.stats import CategoricalAccumulator, DatasetStatistics, FeatureType, WelfordAccumulator
+
+
+class TestWelfordAccumulator(unittest.TestCase):
+    """Unit tests for the WelfordAccumulator class."""
+
+    def setUp(self) -> None:
+        """Set up test cases for WelfordAccumulator."""
+        self.accumulator = WelfordAccumulator()
+
+    def test_initial_state(self):
+        """Ensure initial state is correctly set."""
+        self.assertEqual(self.accumulator.n.numpy(), 0.0)
+        self.assertEqual(self.accumulator.mean.numpy(), 0.0)
+        self.assertEqual(self.accumulator.M2.numpy(), 0.0)
+
+    def test_update_single_value(self):
+        """Test updating the accumulator with a single value."""
+        self.accumulator.update(tf.constant([5.0]))
+        self.assertEqual(self.accumulator.count.numpy(), 1)
+        self.assertEqual(self.accumulator.mean.numpy(), 5.0)
+
+    def test_update_multiple_values(self):
+        """Test updating the accumulator with multiple values."""
+        values = tf.constant([1.0, 2.0, 3.0, 4.0, 5.0])
+        self.accumulator.update(values)
+        self.assertAlmostEqual(self.accumulator.mean.numpy(), 3.0, places=5)
+        self.assertEqual(self.accumulator.count.numpy(), 5)
+        self.assertAlmostEqual(self.accumulator.variance.numpy(), 2.5, places=5)
+
+    def test_variance_n_equals_1(self):
+        """Verify that variance is 0 when n equals 1."""
+        self.accumulator.update(tf.constant([5.0]))
+        self.assertEqual(self.accumulator.variance, 0.0)
+
+
+class TestCategoricalAccumulator(unittest.TestCase):
+    """Unit tests for the CategoricalAccumulator class."""
+
+    def setUp(self) -> None:
+        """Set up test cases for CategoricalAccumulator."""
+        self.accumulator = CategoricalAccumulator()
+
+    def test_initial_state(self):
+        """Ensure initial state is correctly set."""
+        self.assertEqual(len(self.accumulator.values.numpy()), 0)
+        self.assertEqual(len(self.accumulator.int_values.numpy()), 0)
+
+    def test_update_string_values(self):
+        """Test updating the accumulator with string values."""
+        self.accumulator.update(tf.constant(["apple", "banana"]))
+        self.assertIn("apple", [_bytes.decode("utf-8") for _bytes in self.accumulator.get_unique_values()])
+        self.assertIn("banana", [_bytes.decode("utf-8") for _bytes in self.accumulator.get_unique_values()])
+
+    def test_update_int_values(self):
+        """Test updating the accumulator with integer values."""
+        self.accumulator.update(tf.constant([1, 2, 2]))
+        unique_values = [int(_el) for _el in self.accumulator.get_unique_values()]
+        self.assertIn(1, unique_values)
+        self.assertIn(2, unique_values)
+        self.assertEqual(len(unique_values), 2)
+
+    def test_update_unsupported_dtype(self):
+        """Test updating the accumulator with an unsupported data type."""
+        with self.assertRaises(ValueError):
+            self.accumulator.update(tf.constant([1.0, 2.0], dtype=tf.float32))
+
+
+class TestDatasetStatistics(unittest.TestCase):
+    """Unit tests for the DatasetStatistics class."""
+
+    def setUp(self) -> None:
+        """Set up test cases for DatasetStatistics."""
+        self.path_data = "path/to/dataset"
+        self.batch_size = 2
+        self.stats = DatasetStatistics(
+            path_data=self.path_data,
+            numeric_cols=["num_feature"],
+            categorical_cols=["cat_feature"],
+            batch_size=self.batch_size,
+        )
+
+    @patch("pathlib.Path.open")
+    @patch("json.dump")
+    def test_save_stats(self, mock_json_dump, mock_open):
+        """Test saving feature stats to a file."""
+        self.stats.features_stats = {
+            "numeric_stats": {
+                "feat_a": {"mean": 0.46489500999450684, "count": 10.0, "var": 1.3447670936584473},
+            },
+            "categorical_stats": {
+                "feat_b": {"size": 5, "vocab": [0, 1, 2, 3, 4]},
+            },
+        }
+        self.stats._save_stats()
+        mock_open.assert_called_once()
+        mock_json_dump.assert_called_once()
+
+    @patch("pathlib.Path.is_file", return_value=True)
+    @patch("pathlib.Path.open", new_callable=MagicMock)
+    @patch("json.load")
+    def test_load_stats_file_exists(self, mock_json_load, mock_open, mock_is_file):
+        """Test loading stats from an existing file."""
+        self.stats._load_stats()
+        mock_open.assert_called_once()
+        mock_json_load.assert_called_once()
+
+    @patch("pathlib.Path.is_file", return_value=False)
+    def test_load_stats_file_not_exists(self, mock_is_file):
+        """Test behavior when stats file does not exist."""
+        self.stats.features_stats = {}
+        loaded_stats = self.stats._load_stats()
+        self.assertEqual(loaded_stats, {})
+
+    # Continuing from the previous TestDatasetStatistics class...
+
+    def test_parse_features_specs(self):
+        """Test parsing of feature specifications."""
+        features_specs = {
+            "num_feature": FeatureType.FLOAT.value,
+            "cat_feature_int": FeatureType.INTEGER_CATEGORICAL.value,
+            "cat_feature_str": FeatureType.STRING_CATEGORICAL.value,
+        }
+        stats = DatasetStatistics(
+            path_data=self.path_data,
+            features_specs=features_specs,
+            batch_size=self.batch_size,
+        )
+        stats._parse_features_specs()
+        self.assertIn("num_feature", stats.numeric_cols)
+        self.assertIn("cat_feature_int", stats.categorical_cols)
+        self.assertIn("cat_feature_str", stats.categorical_cols)
+
+    @patch("tensorflow.data.experimental.make_csv_dataset")
+    def test_read_data_into_dataset(self, mock_make_csv_dataset):
+        """Test reading data into a tf.data.Dataset."""
+        mock_make_csv_dataset.return_value = tf.data.Dataset.from_tensor_slices(
+            {"num_feature": tf.constant([1.0, 2.0]), "cat_feature": tf.constant(["apple", "banana"])}
+        )
+        dataset = self.stats._read_data_into_dataset()
+        self.assertIsInstance(dataset, tf.data.Dataset)
+
+    @patch("tensorflow.data.Dataset.take")
+    def test_infer_feature_dtypes(self, mock_dataset_take):
+        """Test inferring feature data types from a dataset."""
+        batch = {
+            "num_feature": tf.constant([1.0, 2.0], dtype=tf.float32),
+            "cat_feature": tf.constant(["apple", "banana"], dtype=tf.string),
+        }
+        mock_dataset_take.return_value = iter([batch])
+        self.stats.categorical_cols = ["cat_feature"]
+        self.stats.numeric_cols = ["num_feature"]
+        self.stats._infer_feature_dtypes(tf.data.Dataset.from_tensor_slices(batch))
+        self.assertEqual(self.stats.features_dtypes["num_feature"], tf.float32)
+        self.assertEqual(self.stats.features_dtypes["cat_feature"], tf.string)
+
+    def test_process_batch(self):
+        """Test processing a single batch of data."""
+        batch = {
+            "num_feature": tf.constant([1.0, 2.0], dtype=tf.float32),
+            "cat_feature": tf.constant(["apple", "banana"], dtype=tf.string),
+        }
+        self.stats.numeric_cols = ["num_feature"]
+        self.stats.categorical_cols = ["cat_feature"]
+        self.stats.numeric_stats = {"num_feature": WelfordAccumulator()}
+        self.stats.categorical_stats = {"cat_feature": CategoricalAccumulator()}
+        self.stats._process_batch(batch)
+        self.assertNotEqual(self.stats.numeric_stats["num_feature"].count.numpy(), 0)
+        self.assertNotEqual(len(self.stats.categorical_stats["cat_feature"].get_unique_values()), 0)
+
+    def test_compute_final_statistics(self):
+        """Test computation of final statistics."""
+        # Simulate data processing
+        self.stats.numeric_stats = {"num_feature": WelfordAccumulator()}
+        self.stats.categorical_stats = {"cat_feature": CategoricalAccumulator()}
+        self.stats.numeric_stats["num_feature"].update(tf.constant([1.0, 2.0]))
+        self.stats.categorical_stats["cat_feature"].update(tf.constant(["apple", "banana"]))
+
+        final_stats = self.stats._compute_final_statistics()
+        self.assertIn("num_feature", final_stats["numeric_stats"])
+        self.assertIn("cat_feature", final_stats["categorical_stats"])
+        self.assertEqual(final_stats["numeric_stats"]["num_feature"]["count"], 2)
+        self.assertIn("apple", final_stats["categorical_stats"]["cat_feature"]["vocab"])
+
+
+if __name__ == "__main__":
+    unittest.main()
