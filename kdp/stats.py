@@ -280,7 +280,12 @@ class DatasetStatistics:
 
         for feature in self.categorical_cols:
             # Convert TensorFlow string tensor to Python list for unique values
-            unique_values = self.categorical_stats[feature].get_unique_values()
+            _dtype = self.features_dtypes.get(feature, tf.string)
+            if _dtype == tf.int32:
+                unique_values = [int(_byte) for _byte in self.categorical_stats[feature].get_unique_values()]
+                unique_values.sort()
+            else:
+                unique_values = [_byte.decode("utf-8") for _byte in self.categorical_stats[feature].get_unique_values()]
             final_stats["categorical_stats"][feature] = {
                 "size": len(unique_values),
                 "vocab": unique_values,
