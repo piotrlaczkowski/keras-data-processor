@@ -23,9 +23,21 @@ class WelfordAccumulator:
 
     def __init__(self):
         """Initializes the accumulators for the Welford algorithm."""
-        self.n = tf.Variable(0.0, dtype=tf.float32, trainable=False)
-        self.mean = tf.Variable(0.0, dtype=tf.float32, trainable=False)
-        self.M2 = tf.Variable(0.0, dtype=tf.float32, trainable=False)
+        self.n = tf.Variable(
+            0.0,
+            dtype=tf.float32,
+            trainable=False,
+        )
+        self.mean = tf.Variable(
+            0.0,
+            dtype=tf.float32,
+            trainable=False,
+        )
+        self.M2 = tf.Variable(
+            0.0,
+            dtype=tf.float32,
+            trainable=False,
+        )
 
     @tf.function
     def update(self, values: tf.Tensor) -> None:
@@ -56,8 +68,18 @@ class CategoricalAccumulator:
     def __init__(self) -> None:
         """Initializes the accumulator for categorical values."""
         # Using a single accumulator since tf.string can hold both strings and bytes
-        self.values = tf.Variable([], dtype=tf.string, shape=tf.TensorShape(None), trainable=False)
-        self.int_values = tf.Variable([], dtype=tf.int32, shape=tf.TensorShape(None), trainable=False)
+        self.values = tf.Variable(
+            [],
+            dtype=tf.string,
+            shape=tf.TensorShape(None),
+            trainable=False,
+        )
+        self.int_values = tf.Variable(
+            [],
+            dtype=tf.int32,
+            shape=tf.TensorShape(None),
+            trainable=False,
+        )
 
     @tf.function
     def update(self, new_values: tf.Tensor) -> None:
