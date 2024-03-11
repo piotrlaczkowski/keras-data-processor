@@ -25,15 +25,21 @@ class ProcessingStep:
         """Connect this step's layer to an input layer and return the output layer."""
         return self.layer(input_layer)
 
+    @property
+    def name(self) -> object:
+        """Return the name of the layer."""
+        return self.layer
+
 
 class Pipeline:
-    def __init__(self, steps: list[ProcessingStep] = None) -> None:
+    def __init__(self, steps: list[ProcessingStep] = None, name: str = "") -> None:
         """Initialize a pipeline with a list of processing steps.
 
         Args:
             steps: A list of processing steps.
+            name: The name of the pipeline.
         """
-        logger.info(f"🔂 Initializing Pipeline with {steps = }")
+        logger.info(f"🔂 Initializing New Pipeline for: {name}")
         self.steps = steps or []
 
     def add_step(self, step: ProcessingStep) -> None:
@@ -42,7 +48,7 @@ class Pipeline:
         Args:
             step: A processing step.
         """
-        logger.info(f"Adding {step = } to the pipeline ➕")
+        logger.info(f"Adding new preprocessing layer: {step.name} to the pipeline ➕")
         self.steps.append(step)
 
     def apply(self, input_data) -> tf.data.Dataset:
@@ -76,7 +82,7 @@ class FeaturePreprocessor:
             name: The name of the feature preprocessor.
         """
         self.name = name
-        self.pipeline = Pipeline()
+        self.pipeline = Pipeline(name=name)
 
     def add_processing_step(self, layer_creator: Callable[..., tf.keras.layers.Layer], **layer_kwargs) -> None:
         """Add a processing step to the feature preprocessor.
