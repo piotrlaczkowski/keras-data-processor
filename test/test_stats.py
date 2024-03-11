@@ -1,8 +1,10 @@
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
+import pandas as pd
 import tensorflow as tf
 
 from kdp.stats import CategoricalAccumulator, DatasetStatistics, FeatureType, WelfordAccumulator
@@ -188,6 +190,76 @@ class TestDatasetStatistics(unittest.TestCase):
         self.assertIn("cat_feature", final_stats["categorical_stats"])
         self.assertEqual(final_stats["numeric_stats"]["num_feature"]["count"], 2)
         self.assertIn("apple", final_stats["categorical_stats"]["cat_feature"]["vocab"])
+
+
+class TestDatasetStatisticsPandasComparison(unittest.TestCase):
+    @staticmethod
+    def generate_fake_data(features_scope: dict, num_rows: int = 10) -> pd.DataFrame:
+        """Generate a dummy dataset with a given number of rows.
+
+        Args:
+            features_scope: A dictionary with the features and their types.
+            num_rows: The number of rows to generate.
+        """
+        data = {}
+        for feature, spec in features_scope.items():
+            if spec in {FeatureType.FLOAT, FeatureType.FLOAT.value}:
+                data[feature] = np.random.randn(num_rows)  # Normal distribution for floats
+            elif spec in {FeatureType.INTEGER_CATEGORICAL, FeatureType.INTEGER_CATEGORICAL.value}:
+                data[feature] = np.random.randint(0, 5, size=num_rows)  # Integer categories from 0 to 4
+            elif spec in {FeatureType.STRING_CATEGORICAL, FeatureType.STRING_CATEGORICAL.value}:
+                categories = ["cat", "dog", "fish", "bird"]
+                data[feature] = np.random.choice(categories, size=num_rows)  # Randomly chosen string categories
+        # Create the DataFrame
+        df = pd.DataFrame(data)
+        return df
+
+    @classmethod
+    def setUpClass(cls):
+        # create the temp file in setUp method if you want a fresh directory for each test.
+        # This is useful if you don't want to share state between tests.
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.temp_file = Path(cls.temp_dir.name)
+
+        # prepare the PATH_LOCAL_TRAIN_DATA
+        cls._path_data = Path("data/rawdata.csv")
+        cls._path_data = cls.temp_file / cls._path_data
+        cls._path_data.parent.mkdir(exist_ok=True, parents=True)
+
+        cls.features_scope = {
+            "feat_a": FeatureType.FLOAT,
+            "feat_b": FeatureType.INTEGER_CATEGORICAL,
+            "feat_c": FeatureType.STRING_CATEGORICAL,
+            "feature_d": "float",
+        }
+        # building fake data
+        cls.df = cls.generate_fake_data(
+            features_scope=cls.features_scope,
+            num_rows=10,
+        )
+        cls.df.to_csv(cls._path_data, index=False)
+
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+
+        # Remove the temporary file after the test is done
+        cls.temp_dir.cleanup()
+
+    def test_stats_pandas_vs_tf(self):
+        _data_stats = DatasetStatistics(
+            path_data=self._path_data,
+            features_specs=self.features_scope,
+        )
+        stats = _data_stats.main()
+        # numerical stats comparison
+        self.assertAlmostEqual(self.df["feat_a"].mean(), stats["numeric_stats"]["feat_a"]["mean"], places=5)
+        self.assertAlmostEqual(self.df["feat_a"].var(), stats["numeric_stats"]["feat_a"]["var"], places=5)
+        # categorical data comparison
+        self.assertEqual(self.df["feat_b"].nunique(), stats["categorical_stats"]["feat_b"]["size"])
+        self.assertEqual(list(np.unique(self.df["feat_b"])), stats["categorical_stats"]["feat_b"]["vocab"])
 
 
 if __name__ == "__main__":
