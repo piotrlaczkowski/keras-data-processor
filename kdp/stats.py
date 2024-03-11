@@ -161,24 +161,26 @@ class DatasetStatistics:
         """Parses the features specifications and updates the numeric and categorical columns accordingly."""
         logger.info("Parsing features specifications ...")
         for feature, spec in self.features_specs.items():
-            logger.debug(f"Processing {feature =} with {spec =}")
-            if spec in {FeatureType.FLOAT, FeatureType.FLOAT.value}:
+            # Ensure spec is always the string representation, whether it's an enum member or a string
+            spec_value = spec if isinstance(spec, str) else spec.value
+            logger.debug(f"Processing {feature =} with {spec_value =}")
+            if spec_value == FeatureType.FLOAT.value:
                 self.numeric_cols.append(feature)
                 self.features_dtypes[feature] = tf.float32
                 logger.debug(f"Adding {feature =} as a numeric feature")
 
-            elif spec in {FeatureType.INTEGER_CATEGORICAL, FeatureType.INTEGER_CATEGORICAL.value}:
+            elif spec_value == FeatureType.INTEGER_CATEGORICAL.value:
                 self.categorical_cols.append(feature)
                 self.features_dtypes[feature] = tf.int32
                 logger.debug(f"Adding {feature =} as a integer categorical feature")
 
-            elif spec in {FeatureType.STRING_CATEGORICAL, FeatureType.STRING_CATEGORICAL.value}:
+            elif spec_value == FeatureType.STRING_CATEGORICAL.value:
                 self.categorical_cols.append(feature)
                 self.features_dtypes[feature] = tf.string
                 logger.debug(f"Adding {feature =} as a string categorical feature")
             else:
-                _availble_specs = [spec.lower() for spec in FeatureType.__members__]
-                raise ValueError(f"Invalid feature type: {spec}, You must use {_availble_specs =}")
+                _availble_specs = [spec.value for spec in FeatureType]
+                raise ValueError(f"Invalid {feature = }, {spec_value =}, You must use {_availble_specs =}")
 
     def _get_csv_file_pattern(self, path) -> str:
         """Get the csv file pattern that will handle directories and file paths.
@@ -281,6 +283,7 @@ class DatasetStatistics:
                 "mean": self.numeric_stats[feature].mean.numpy(),
                 "count": self.numeric_stats[feature].count.numpy(),
                 "var": self.numeric_stats[feature].variance.numpy(),
+                "dtype": self._get_dtype_for_feature(feature_name=feature),
             }
 
         for feature in self.categorical_cols:
@@ -295,6 +298,7 @@ class DatasetStatistics:
             final_stats["categorical_stats"][feature] = {
                 "size": len(unique_values),
                 "vocab": unique_values,
+                "dtype": self._get_dtype_for_feature(feature_name=feature),
             }
 
         return final_stats
@@ -369,6 +373,7 @@ class DatasetStatistics:
             logger.info("features_stats loaded ✅")
         else:
             logger.info("No serialized features stats were detected ...")
+            self.features_stats = {}
         return self.features_stats
 
     def main(self) -> dict:

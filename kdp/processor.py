@@ -4,7 +4,8 @@ from typing import Any
 
 import tensorflow as tf
 from loguru import logger
-from stats import DatasetStatistics, FeatureType
+
+from kdp.stats import DatasetStatistics, FeatureType
 
 
 class ProcessingStep:
@@ -234,7 +235,7 @@ class PreprocessorLayerFactory:
 class PreprocessingModel:
     def __init__(
         self,
-        features_stats: dict[str, Any],
+        features_stats: dict[str, Any] = None,
         path_data: str = None,
         batch_size: int = 50_000,
         numeric_features: list[str] = None,
@@ -275,14 +276,28 @@ class PreprocessingModel:
             logger.info("Logging to file enabled 🗂️")
             logger.add("PreprocessModel.log")
 
+        # initializing stats
+        self._init_stats()
+
+    def _init_stats(self) -> None:
+        """Initialize the statistics for the model."""
         # Initializing Data Stats object
         # we only need numeric and cat features stats for layers
         # crosses and numeric do not need layers init
-        self.stats_instance = DatasetStatistics(
-            path_data=self.path_data,
-            numeric_cols=self.numeric_features,
-            categorical_cols=self.categorical_features,
-        )
+        _data_stats_kwrgs = {"path_data": self.path_data}
+        if self.numeric_features:
+            _data_stats_kwrgs["numeric_cols"] = self.numeric_features
+            logger.debug(f"Numeric Features: {self.numeric_features}")
+
+        if self.categorical_features:
+            _data_stats_kwrgs["categorical_cols"] = self.categorical_features
+            logger.debug(f"Categorical Features: {self.categorical_features}")
+
+        if self.features_specs:
+            _data_stats_kwrgs["features_specs"] = self.features_specs
+            logger.debug(f"Features Specs: {self.features_specs}")
+
+        self.stats_instance = DatasetStatistics(**_data_stats_kwrgs)
         self.features_stats = self.stats_instance._load_stats()
 
     def _embedding_size_rule(self, nr_categories: int) -> int:
@@ -495,30 +510,33 @@ class PreprocessingModel:
         if not self.features_stats or self.overwrite_stats:
             logger.info("No input features_stats detected !")
             self.features_stats = self.stats_instance.main()
+            logger.debug(f"Features Stats were calculated: {self.features_stats}")
 
         # NUMERICAL AND CATEGORICAL FEATURES
-        for feature_name, stats in self.features_stats.items():
-            dtype = stats.get("dtype")
-            logger.info(f"Processing {feature_name = }, {dtype = } 📊")
-            # adding inputs
-            self._add_input_column(feature_name=feature_name, dtype=dtype)
-            self._add_input_signature(feature_name=feature_name, dtype=dtype)
-            input_layer = self.inputs[feature_name]
+        for _key in self.features_stats:
+            logger.info(f"Processing {_key = }")
+            for feature_name, stats in self.features_stats[_key].items():
+                dtype = stats.get("dtype")
+                logger.info(f"Processing {feature_name = }, {dtype = }, {stats =} 📊")
+                # adding inputs
+                self._add_input_column(feature_name=feature_name, dtype=dtype)
+                self._add_input_signature(feature_name=feature_name, dtype=dtype)
+                input_layer = self.inputs[feature_name]
 
-            # NUMERIC FEATURES
-            if "mean" in stats:
-                self._add_pipeline_numeric(
-                    feature_name=feature_name,
-                    input_layer=input_layer,
-                    stats=stats,
-                )
-            # CATEGORICAL FEATURES
-            elif "vocab" in stats:
-                self._add_pipeline_categorical(
-                    feature_name=feature_name,
-                    input_layer=input_layer,
-                    stats=stats,
-                )
+                # NUMERIC FEATURES
+                if "mean" in stats:
+                    self._add_pipeline_numeric(
+                        feature_name=feature_name,
+                        input_layer=input_layer,
+                        stats=stats,
+                    )
+                # CATEGORICAL FEATURES
+                elif "vocab" in stats:
+                    self._add_pipeline_categorical(
+                        feature_name=feature_name,
+                        input_layer=input_layer,
+                        stats=stats,
+                    )
         # BUCKETIZED NUMERIC FEATURES
         if self.numeric_feature_buckets:
             self._add_pipeline_bucketize(
@@ -551,13 +569,3 @@ class PreprocessingModel:
             "signature": self.signature,
             "output_dims": self.output_dims,
         }
-
-
-# Example Usage
-features_stats = {
-    "num_feature_1": {"mean": 0.0, "var": 1.0, "dtype": tf.float32},
-    "cat_feature_1": {"vocab": ["A", "B", "C"], "dtype": tf.string},
-    # Add more features stats as needed
-}
-preprocessing_model = PreprocessingModel(features_stats=features_stats)
-preprocessor = preprocessing_model.build_preprocessor()
