@@ -1,101 +1,290 @@
 from collections import OrderedDict
-from collections.abc import Generator
-from enum import auto
+from collections.abc import Callable
 from typing import Any
 
-import numpy as np
 import tensorflow as tf
 from loguru import logger
-from stats import DatasetStatistics
+from stats import DatasetStatistics, FeatureType
 
 
-class CategoryEncodingOptions(auto):
-    ONE_HOT_ENCODING = "ONE_HOT_ENCODING"
-    EMBEDDING = "EMBEDDING"
+class ProcessingStep:
+    def __init__(self, layer_creator: Callable[..., tf.keras.layers.Layer], **layer_kwargs) -> None:
+        """Initialize a processing step."""
+        self.layer = layer_creator(**layer_kwargs)
 
-
-class PreprocessNumMixin:
-    def _setup_normalization_layers(self, col_name: str) -> tf.keras.layers.Layer:
-        """Setting up the normalization layer based on either: provided stats or from the input data.
+    def process(self, input_data) -> tf.keras.layers.Layer:
+        """Apply the processing step to the input data.
 
         Args:
-            col_name (str): name of the column to be normalized.
+            input_data: The input data to be processed.
         """
-        # defining outputs
-        if self.features_stats:
-            logger.info("Features stats 📊 were provided, initializing Layers based on these stats")
-            _mean = self.features_stats[col_name]["mean"]
-            _var = self.features_stats[col_name]["var"]
-            logger.info(f"Mean: {_mean}, Var: {_var}")
-            _norm_features = tf.keras.layers.Normalization(
-                mean=_mean,
-                variance=_var,
-                name=f"norm_{col_name}",
-            )(self.inputs[col_name])
-        else:
-            raise "You need to provide feature-stats or data-path to extract them 🚨!"  # noqa: B016"
-        return _norm_features
+        return self.layer(input_data)
 
-    def _prepare_numeric_features(self) -> None:
-        """Prepare numeric features using Normalization layer (initialized from columns stats: mean, var).
+    def connect(self, input_layer) -> tf.keras.layers.Layer:
+        """Connect this step's layer to an input layer and return the output layer."""
+        return self.layer(input_layer)
 
-        Note:
-            We will also prepare inputs, outputs and signature for the model.
+
+class Pipeline:
+    def __init__(self, steps: list[ProcessingStep] = None) -> None:
+        """Initialize a pipeline with a list of processing steps.
+
+        Args:
+            steps: A list of processing steps.
         """
-        logger.info("Preparing numeric features")
-        for _col_name in self.numeric_features:
-            logger.info(f"Preparing numeric feature inputs and specs for: {_col_name}")
-            self._add_input_column(col_name=_col_name, col_type=tf.float32)
+        logger.info(f"🔂 Initializing Pipeline with {steps = }")
+        self.steps = steps or []
 
-            logger.info("Preparing numerical preprocessing layers")
-            _norm_features = self._setup_normalization_layers(col_name=_col_name)
+    def add_step(self, step: ProcessingStep) -> None:
+        """Add a processing step to the pipeline.
 
-            # defining outputs
-            logger.info("Appending numerical outputs")
-            self.outputs[_col_name] = _norm_features
-            self.features_to_concat.append(_norm_features)
+        Args:
+            step: A processing step.
+        """
+        logger.info(f"Adding {step = } to the pipeline ➕")
+        self.steps.append(step)
 
-            # updating output vector dim
-            self.output_dims += 1
+    def apply(self, input_data) -> tf.data.Dataset:
+        """Apply the pipeline to the input data.
 
-    def _bucketize_numeric_columns(self) -> None:
-        """Bucketizes numeric columns based on specified boundaries."""
-        for _col_name, boundaries in self.numeric_feature_buckets.items():
-            logger.info(f"Adding bucketized col for: {_col_name}")
-            # using keras layers
-            discretization_layer = tf.keras.layers.Discretization(
-                bin_boundaries=boundaries,
-            )
-            one_hot_layer = tf.keras.layers.CategoryEncoding(
-                num_tokens=len(boundaries),
-                output_mode="one_hot",
-            )
-            # prepare inputs for bucketizing
-            inputs = self.inputs.get(_col_name)
+        Args:
+            input_data: The input data to be processed.
 
-            if inputs is None:
-                logger.info(f"Creating: {_col_name} inputs and signature")
-                _col_dtype = self.features_stats[_col_name].get("dtype")
-                inputs, _ = self._add_input_column(col_name=_col_name, col_type=_col_dtype)
+        """
+        for step in self.steps:
+            input_data = step.process(input_data=input_data)
+        return input_data
 
-            # transforming the data
-            bucketized_col = one_hot_layer(discretization_layer(inputs))
+    def chain(self, input_layer) -> tf.keras.layers.Layer:
+        """Chain the pipeline steps by connecting each step in sequence, starting from the input layer.
 
-            # Cast the crossed feature to float32
-            bucketized_col_float = tf.cast(bucketized_col, tf.float32)
-
-            # Store the bucketized feature
-            logger.info("Appending numerical outputs")
-
-            self.outputs[f"{_col_name}_bucketized"] = bucketized_col_float
-            self.features_to_concat.append(bucketized_col_float)
-
-            # updating output vector dim
-            self.output_dims += 1
-            logger.info("Bucketized Column ✅")
+        Args:
+            input_layer: The input layer to start the chain.
+        """
+        output_layer = input_layer
+        for step in self.steps:
+            output_layer = step.connect(output_layer)
+        return output_layer
 
 
-class PreprocessCatMixin:
+class FeaturePreprocessor:
+    def __init__(self, name: str) -> None:
+        """Initialize a feature preprocessor.
+
+        Args:
+            name: The name of the feature preprocessor.
+        """
+        self.name = name
+        self.pipeline = Pipeline()
+
+    def add_processing_step(self, layer_creator: Callable[..., tf.keras.layers.Layer], **layer_kwargs) -> None:
+        """Add a processing step to the feature preprocessor.
+
+        Args:
+            layer_creator: A callable that creates a Keras layer.
+            layer_kwargs: Keyword arguments to be passed to the layer creator.
+        """
+        step = ProcessingStep(layer_creator=layer_creator, **layer_kwargs)
+        self.pipeline.add_step(step=step)
+
+    def preprocess(self, input_data) -> tf.data.Dataset:
+        """Apply the feature preprocessor to the input data.
+
+        Args:
+            input_data: The input data to be processed.
+        """
+        return self.pipeline.apply(input_data)
+
+    def chain(self, input_layer) -> tf.keras.layers.Layer:
+        """Chain the preprocessor's pipeline steps starting from the input layer.
+
+        Args:
+            input_layer: The input layer to start the chain.
+        """
+        return self.pipeline.chain(input_layer)
+
+
+class PreprocessorLayerFactory:
+    @staticmethod
+    def create_normalization_layer(mean: float, variance: float, name: str) -> tf.keras.layers.Layer:
+        """Create a normalization layer.
+
+        Args:
+            mean: The mean of the feature.
+            variance: The variance of the feature.
+            name: The name of the layer.
+        """
+        return tf.keras.layers.Normalization(
+            mean=mean,
+            variance=variance,
+            name=name,
+        )
+
+    @staticmethod
+    def create_discretization_layer(boundaries: list, name: str) -> tf.keras.layers.Layer:
+        """Create a discretization layer.
+
+        Args:
+            boundaries: The boundaries of the buckets.
+            name: The name of the layer.
+        """
+        return tf.keras.layers.Discretization(
+            bin_boundaries=boundaries,
+            name=name,
+        )
+
+    @staticmethod
+    def create_embedding_layer(input_dim: int, output_dim: int, name: str) -> tf.keras.layers.Layer:
+        """Create an embedding layer.
+
+        Args:
+            input_dim: The input dimension.
+            output_dim: The output dimension.
+            name: The name of the layer.
+        """
+        return tf.keras.layers.Embedding(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            name=name,
+        )
+
+    @staticmethod
+    def create_category_encoding_layer(num_tokens: int, output_mode: str, name: str) -> tf.keras.layers.Layer:
+        """Create a category encoding layer.
+
+        Args:
+            num_tokens: The number of tokens.
+            output_mode: The output mode.
+            name: The name of the layer.
+        """
+        return tf.keras.layers.CategoryEncoding(
+            num_tokens=num_tokens,
+            output_mode=output_mode,
+            name=name,
+        )
+
+    @staticmethod
+    def create_string_lookup_layer(vocabulary: list[str], num_oov_indices: int, name: str) -> tf.keras.layers.Layer:
+        """Create a string lookup layer.
+
+        Args:
+            vocabulary: The vocabulary.
+            num_oov_indices: The number of out-of-vocabulary indices.
+            name: The name of the layer.
+        """
+        return tf.keras.layers.StringLookup(
+            vocabulary=vocabulary,
+            num_oov_indices=num_oov_indices,
+            name=name,
+        )
+
+    @staticmethod
+    def create_integer_lookup_layer(vocabulary: list[int], num_oov_indices: int, name: str) -> tf.keras.layers.Layer:
+        """Create an integer lookup layer.
+
+        Args:
+            vocabulary: The vocabulary.
+            num_oov_indices: The number of out-of-vocabulary indices.
+            name: The name of the layer.
+        """
+        return tf.keras.layers.IntegerLookup(
+            vocabulary=vocabulary,
+            num_oov_indices=num_oov_indices,
+            name=name,
+        )
+
+    @staticmethod
+    def create_crossing_layer(nr_bins: list, name: str) -> tf.keras.layers.Layer:
+        """Create a crossing layer.
+
+        Args:
+            nr_bins: Nr Bins.
+            name: The name of the layer.
+        """
+        return tf.keras.layers.HashedCrossing(
+            num_bins=nr_bins,
+            output_mode="int",
+            sparse=False,
+            name=name,
+        )
+
+    @staticmethod
+    def create_flatten_layer(name="flatten") -> tf.keras.layers.Layer:
+        """Create a flatten layer.
+
+        Args:
+            name: The name of the layer.
+        """
+        return tf.keras.layers.Flatten(
+            name=name,
+        )
+
+    @staticmethod
+    def create_concat_layer(name="concat") -> tf.keras.layers.Layer:
+        """Create a concatenate layer.
+
+        Args:
+            name: The name of the layer.
+        """
+        return tf.keras.layers.Concatenate(
+            name=name,
+        )
+
+
+class PreprocessingModel:
+    def __init__(
+        self,
+        features_stats: dict[str, Any],
+        path_data: str = None,
+        batch_size: int = 50_000,
+        numeric_features: list[str] = None,
+        categorical_features: list[str] = None,
+        feature_crosses: list[tuple[str, str, int]] = None,
+        numeric_feature_buckets: dict[str, list[float]] = None,
+        features_stats_path: str = None,
+        category_encoding_option: str = "EMBEDDING",
+        output_mode: str = "dict",
+        overwrite_stats: bool = False,
+        embedding_custom_size: int = None,
+        log_to_file: bool = False,
+        features_specs: dict[str, FeatureType | str] = None,
+    ) -> None:
+        """Initialize a preprocessing model."""
+        self.path_data = path_data
+        self.batch_size = batch_size or 50_000
+        self.features_stats = features_stats or {}
+        self.numeric_features = numeric_features or []
+        self.categorical_features = categorical_features or []
+        self.features_specs = features_specs or {}
+        self.category_encoding_option = category_encoding_option
+        self.features_stats_path = features_stats_path or "features_stats.json"
+        self.feature_crosses = feature_crosses or []
+        self.numeric_feature_buckets = numeric_feature_buckets or {}
+        self.output_mode = output_mode
+        self.overwrite_stats = overwrite_stats
+        self.embedding_custom_size = embedding_custom_size
+
+        # PLACEHOLDERS
+        self.preprocessors = {}
+        self.inputs = {}
+        self.signature = {}
+        self.outputs = {}
+        self.output_dims = 0
+
+        if log_to_file:
+            logger.info("Logging to file enabled 🗂️")
+            logger.add("PreprocessModel.log")
+
+        # Initializing Data Stats object
+        # we only need numeric and cat features stats for layers
+        # crosses and numeric do not need layers init
+        self.stats_instance = DatasetStatistics(
+            path_data=self.path_data,
+            numeric_cols=self.numeric_features,
+            categorical_cols=self.categorical_features,
+        )
+        self.features_stats = self.stats_instance._load_stats()
+
     def _embedding_size_rule(self, nr_categories: int) -> int:
         """Returns the embedding size for a given number of categories using the Embedding Size Rule of Thumb.
 
@@ -107,437 +296,187 @@ class PreprocessCatMixin:
         """
         return min(500, round(1.6 * nr_categories**0.56))
 
-    def _setup_lookup_layers(self, col_name: str) -> tuple[int, tf.keras.layers.Layer]:
-        """Setting up the string lookup layer based on either: provided stats or from the input data.
+    def add_feature_preprocessor(self, feature_name: str, preprocessor: FeaturePreprocessor) -> None:
+        """Add a feature preprocessor to the model.
 
         Args:
-            col_name (str): column name of the feature
-
-        Returns:
-            _emb_size (int): size of the embedding layer output.
-            _integer_lookup (tf.keras.layers.Layer): String lookup layer.
-            _nr_unique_values (int): number of unique values in the column.
-            _col_dtype (tf.dtypes.DType): dtype of the column.
+            feature_name: The name of the feature.
+            preprocessor: The feature preprocessor.
         """
-        # extracting unique values
-        if self.features_stats:
-            logger.info("Features stats were provided 📊, initializing Layers based on these stats")
-            _stats_data = self.features_stats[col_name]
-            # extracting stats
-            _nr_unique_values = _stats_data["size"]
-            _unique_values = _stats_data["vocab"]
-            _dtype = _stats_data["dtype"]
-            logger.debug(f"{_dtype =}")
+        self.preprocessors[feature_name] = preprocessor
 
-            if _dtype == tf.string:
-                # initializing lookup layer
-                _integer_lookup = tf.keras.layers.StringLookup(
-                    vocabulary=_unique_values,
-                    num_oov_indices=1,
-                    name=f"string_lookup_{col_name}",
-                )(self.inputs[col_name])
-                logger.debug("Adding StringLookup")
-
-            elif _dtype == tf.int32:
-                # assuring we have a correct type
-                _unique_values = [np.int32(_v) for _v in _unique_values]
-                _integer_lookup = tf.keras.layers.IntegerLookup(
-                    vocabulary=_unique_values,
-                    num_oov_indices=1,
-                    name=f"integer_lookup_{col_name}",
-                )(self.inputs[col_name])
-                logger.debug("Adding IntegerLookup")
-            _nr_unique_values += 1  # for OOV from string lookup
-        else:
-            raise "You need to provide feature-stats or data-path to extract them 🚨!"  # noqa: B016"
-        # calculating embedding size based on provided nr of unique values
-        if self.embedding_custom_size:
-            logger.info("Using custom embedding size")
-        else:
-            logger.info("Using default embedding size rule of thumb 👍🏻")
-
-        _emb_size = self.embedding_custom_size or self._embedding_size_rule(nr_categories=_nr_unique_values)
-        logger.info(f"Number unique values: {_nr_unique_values}, _embedding_size: {_emb_size}")
-
-        return {"emb_size": _emb_size, "lookup_layer": _integer_lookup, "nr_values": _nr_unique_values}
-
-    def _setup_encoding_layers(self, emb_size: int, nr_tokens: int) -> tf.keras.layers.Layer:
-        """Setting up encoding layers.
+    def _add_input_column(self, feature_name: str, dtype) -> None:
+        """Add an input column to the model.
 
         Args:
-            emb_size (int): Embedding size to be used in the embedding or hashing layer.
-            nr_tokens (int): Number of tokens to be used in the encoding layer.
+            feature_name: The name of the feature.
+            dtype: Data Type for the feature values.
 
-        Returns:
-            _processed (tf.keras.layers.Layer): Preprocessed encoding layer.
-
-        Preparing categorical encoding layer based on the option selected by the user
-
-        Note:
-            Current options:
-                - Embedding (default)
-                - One-Hot Encoding
-                - Hashing and Caterogy encoding
         """
-        # Convert size strings to indices; e.g. ['small'] -> [1].
-        if self.category_encoding_option == CategoryEncodingOptions.EMBEDDING:
-            _processed = tf.keras.layers.Embedding(
-                input_dim=nr_tokens,
-                output_dim=emb_size,
-            )
-        elif self.category_encoding_option == CategoryEncodingOptions.ONE_HOT_ENCODING:
-            _processed = tf.keras.layers.CategoryEncoding(
-                num_tokens=nr_tokens,
-            )
-        else:
-            logger.warning("Using default embedding layer since no valid option was provided 🚨")
-            _processed = tf.keras.layers.Embedding(
-                input_dim=nr_tokens,
-                output_dim=emb_size,
-            )
-        logger.info(
-            f"Using layer with (nr values: {nr_tokens}): {self.category_encoding_option}, vector size: {emb_size} ⚙️",
-        )
-        return _processed
-
-    def _prepare_categorical_features(self) -> None:
-        """Prepare categorical features using one-hot encoding, embedding or hashing layer.
-
-        String Lookup is initialized using feature unique values.
-
-        Note:
-            Default encoding option is set to embedding encoding.
-        """
-        for _col_name in self.categorical_features:
-            logger.info(f"Preparing CATEGORICAL feature inputs and specs for: {_col_name}")
-            _col_dtype = self.features_stats[_col_name].get("dtype")
-            logger.info(f"Column dtype from stats: {_col_dtype}")
-            logger.debug(f"COL: {_col_name}, dtype: {_col_dtype}")
-            self._add_input_column(col_name=_col_name, col_type=_col_dtype)
-
-            logger.info("Preparing preprocessing layers")
-            _lookup_out: dict[str, Any] = self._setup_lookup_layers(col_name=_col_name)
-            _emb_size = _lookup_out.get("emb_size")
-            _integer_lookup = _lookup_out.get("lookup_layer")
-            _nr_tokens = _lookup_out.get("nr_values")
-
-            logger.info("Preparing encoding layers")
-            _processed = self._setup_encoding_layers(
-                emb_size=_emb_size,
-                nr_tokens=_nr_tokens,
-            )
-            # defining outputs
-            _cat_feature = _processed(_integer_lookup)
-
-            # we need to flatten the categorical feature
-            _cat_feature_flat = tf.keras.layers.Flatten(name=f"flatten_{_col_name}")(_cat_feature)
-            self.outputs[_col_name] = _cat_feature_flat
-            self.features_to_concat.append(_cat_feature_flat)
-
-            # updating output vector dim
-            self.output_dims += _emb_size
-            logger.info("Appending categorical outputs ✅")
-            logger.info(f"COLUMN: {_col_name} ready ✅!")
-
-
-class PreprocessModel(PreprocessNumMixin, PreprocessCatMixin):
-    """Preprocessing model for tabular data with numeric and categorical features.
-
-
-    This model is based on keras preprocessing layers that can be built into another keras model
-    or simply used as a preprocessing layer for the data.
-
-    Arguments:
-        features_stats (Dict[str, Any]): A dictionary of feature names and their statistics (default=None).
-        path_data (str): The path to the tabular data from which the preprocessing layers will be built (default=None).
-        numeric_features (List[str]): List of numeric features (default=None).
-        numeric_feature_buckets (Dict[str, List[float, float ...]):
-            Dictionary containing numeric features names as keys and the boundaries to use for each feature
-            (default=None) and values, exp [1., 5. 10.].
-        categorical_features (List[str]): List of categorical features (default=None).
-        category_encoding_option (CategoryEncodingOptions):
-            The category encoding option to use (default=CategoryEncodingOptions.EMBEDDING).
-        feature_crosses (List[Tuple[str, str, int]]):
-            List of features to cross and the number of bins to use for each feature (default=None).
-        batch_size (int): The batch size to use for the preprocessing data (default=50_000).
-        output_mode (str): The output mode to use for the preprocessing data (dict or concat), (default="dict").
-        test_model (bool):
-            Whether to use a test model or not. Only 1000 first data point will be used (default=False).
-        log_to_file (bool): Switch activating logging into a file PreprocessModel.log (default=False)
-        features_stats_path (str):
-            path to a json file containing fetures_stats to be loaded or saved when non existent
-            (default="features_stats.json").
-        overwrite_stats (bool): weather to generate data stats every time or use cached file. Defaults to False.
-        embedding_custom_size (int): Embedding size you wish to use for categorical variables.
-            Defaults to None (internal rule of thumb mehtod will be used based on number of categories)
-
-    Returns:
-        model (tf.keras.Model): preprocessing model.
-        signature (Dict[str, tf.TensorSpec]): signature of the model.
-        output_dims (int): output dimensions of the model.
-        inputs (Dict[str, tf.keras.Input]): inputs of the model.
-
-    Note:
-        You can provide features_stats as a dictionary
-        and all the preprocessing layers will be initialized with provided values
-        or you can simply pass the path to the tabular data from which the preprocessing layers will be adapted.
-
-    Example:
-        === "BASED ON THE FEATURE STATS PROVIDED"
-            ```python
-            from theparrot.tf import PreprocessModel
-
-            # defining features stats
-            features_stats = {
-                "num_col1": {"mean": 3.455, "var": 1.234},
-                "num_col2": {"mean": 4.455, "var": 2.234},
-                "cat_col1": {"size": 2, "vocab": ["a", "b"]},
-                "cat_col2": {"size": 3, "vocab": ["c", "d", "e"]},
-            }
-            # initalizing object:
-            pm = PreprocessModel(
-                features_stats=features_stats,
-                numeric_features=["num_col1", "num_col2"],
-                categorical_features=["cat_col1", "cat_col2"],
-            )
-            # building preprocessing model
-            output = pm.build_preprocessor()
-
-            # fetching model
-            preprocessing_model = output["model"]
-
-            # Inference on the new data:
-
-            # defining input data
-            test_data = {
-                "cat_col1": tf.convert_to_tensor(["a", "b"]),
-                "cat_col2": tf.convert_to_tensor(["a", "b"]),
-                "num_col1": tf.convert_to_tensor([1.44, 1.2]),
-                "num_col2": tf.convert_to_tensor([1.44, 2.4]),
-            }
-            # processing the data
-            processed_data = preprocessing_model(input_dict)
-
-            # for the tf.data.DataSet objects this can be done:
-            for batch in ds.take(1):
-                out = preprocessing_model(batch)
-                yield out
-            ```
-        === "BASED ON THE INPUT DATA"
-
-            ```python
-            from theparrot.tf import PreprocessModel
-
-            # initalizing object:
-            self.pm = PreprocessModel(
-                path_data="datasets/*.csv",
-                numeric_features=["num_col1", "num_col2"],
-                categorical_features=["cat_col1", "cat_col2"],
-            )
-            output = self.pm.build_preprocessor()
-
-            # fetching model
-            preprocessing_model = output["model"]
-
-            # Inference on the new data:
-
-            # defining input data
-            test_data = {
-                "cat_col1": tf.convert_to_tensor(["a", "b"]),
-                "cat_col2": tf.convert_to_tensor(["a", "b"]),
-                "num_col1": tf.convert_to_tensor([1.44, 1.2]),
-                "num_col2": tf.convert_to_tensor([1.44, 2.4]),
-            }
-            # processing the data
-            processed_data = preprocessing_model(input_dict)
-
-            # for the tf.data.DataSet objects this can be done:
-            for batch in ds.take(1):
-                out = preprocessing_model(batch)
-                yield out
-            ```
-        === "MODEL USAGE AS PREPROCESSING LAYER (concat or dict mode)"
-            ```python
-            # initializing the object
-            pm = PreprocessModel(
-                path_data=str(Path(CONF.data.PATH_LOCAL_TRAIN_DATA).parent),
-                numeric_features=CONF.model.NUM_COLS,
-                categorical_features=CONF.model.CAT_COLS,
-                output_mode="concat",
-            )
-            # training preprocessing
-            outputs = pm.build_preprocessor()
-
-            # extracting needed elements
-            preprocessing_model = outputs["model"]
-            signature = outputs["signature"]
-            output_dims = outputs["output_dims"]
-            inputs = outputs["inputs"]
-
-
-            # Example of a usage of the model as preprocessing layer (both concat and dict mode works)
-            # here we are using subclassing
-            # ____________________________________________________________________
-            def call(self, inputs):
-                preprocessed_inputs = self.preprocessing_model(inputs)
-                # second outout
-                another_model_output = self.another_model(preprocessed_inputs)
-
-
-            # Example of the integration into a Sequential model API
-            # ____________________________________________________________________
-            def init_model(self) -> tf.keras.models.Model:
-                # get the preprocessing layer
-                logger.info("Setting up preprocessing layer...")
-                input_data = self.preprocessing_model(inputs)
-
-                x = tf.keras.layers.Dense(
-                    units=16,
-                    activation="relu",
-                    kernel_regularizer="l2",
-                    name=f"layer_x",
-                )(input_data)
-                x = tf.keras.layers.Dropout(CONF.model.DROPOUT, name=f"dropout")(x)
-                ...
-            ```
-        === "MODEL USAGE AS PREPROCESSING MODEL for Gradient Boosted Trees (concat or dict mode)"
-            ```python
-            from theparrot.tf import PreprocessModel
-
-            pm = PreprocessModel(
-                path_data="datafolder/",
-                numeric_features=numeric_features,
-                categorical_features=categorical_features,
-                output_mode="concat",
-                log_to_file=True,
-            )
-            output = pm.build_preprocessor()
-            preprocessing_model = output["model"]
-            signature = output["signature"]
-            output_dims = output["output_dims"]
-            inputs = output["inputs"]
-
-            # building model with preprocessing layers:
-            # in this case we do not provide any feature mappings
-            model = tfdf.keras.GradientBoostedTreesModel(
-                task=tfdf.keras.Task.REGRESSION,
-                preprocessing=preprocessing_model,
-                verbose=2,
-                growing_strategy="BEST_FIRST_GLOBAL",
-                num_trees=400,
-                check_dataset=False,
-                try_resume_training=True,
-                pure_serving_model=False,  #  for prod == True !!!
-                # tuner=tuner,
-            )
-            ```
-    """
-
-    def __init__(
-        self,
-        features_stats: dict[str, Any] = None,
-        path_data: str = None,
-        numeric_features: list[str] = None,
-        categorical_features: list[str] = None,
-        feature_crosses: list[tuple[str, str, int]] = None,
-        numeric_feature_buckets: dict[str, list[float]] = None,  # New parameter for bucket boundaries
-        category_encoding_option: CategoryEncodingOptions = CategoryEncodingOptions.EMBEDDING,
-        batch_size: int = 50_000,
-        output_mode: str = "dict",
-        test_model: bool = False,
-        log_to_file: bool = False,
-        features_stats_path: str = None,
-        overwrite_stats: bool = False,
-        embedding_custom_size: int = None,
-    ) -> None:
-        """Initializing Preprocessing model."""
-        logger.info(f"Initializing PreprocessModel with features_stats: {features_stats}")
-        self.path_data = path_data
-        self.features_stats = features_stats or {}
-        self.numeric_features = numeric_features or []
-        self.categorical_features = categorical_features or []
-        self.category_encoding_option = category_encoding_option
-        self.batch_size = batch_size or 50_000
-        self.output_mode = output_mode
-        self.test_model = test_model
-        self.features_stats_path = features_stats_path or "features_stats.json"
-        self.feature_crosses = feature_crosses or []  # Store the feature crosses
-        self.numeric_feature_buckets = numeric_feature_buckets or {}
-        self.overwrite_stats = overwrite_stats
-        self.embedding_custom_size = embedding_custom_size
-
-        if log_to_file:
-            logger.info("Logging to file enabled 🗂️")
-            logger.add("PreprocessModel.log")
-
-        # initializing placeholders
-        self._init_placeholders()
-
-        # Initializing Data Stats object
-        # TODO: add crosses and buckets into stats as well
-        self.stats_instance = DatasetStatistics(
-            path_data=self.path_data,
-            numeric_cols=self.numeric_features,
-            categorical_cols=self.categorical_features,
-        )
-        self.features_stats = self.stats_instance._load_stats()
-
-        # initializing output mode
-        if self.output_mode == "concat":
-            self.concat = tf.keras.layers.Concatenate(axis=-1)
-
-    def _init_placeholders(self) -> None:
-        """Initializes the placeholders."""
-        logger.debug("Initializing placeholders")
-        self.inputs = {}
-        self.outputs = {}
-        self.features_to_concat = []
-        self.signature = {}
-        self.output_dims = 0
-        self.layers_storage = {}
-
-    def _add_input_column(self, col_name: str, col_type: tf.dtypes.DType) -> tuple[tf.keras.Input, tf.TensorSpec]:
-        """Sets up input columns for the preprocessor.
-
-        Args:
-            col_name (str): The name of the column.
-            col_type (tf.dtypes.DType): The data type of the column.
-
-        Returns:
-            Tuple[tf.keras.Input, tf.TensorSpec]: A tuple containing the input and signature for the column.
-        """
-        logger.info(f"Adding Input for: {col_name}, type: {col_type}")
-        self.inputs[col_name] = tf.keras.Input(
+        logger.debug(f"Adding {feature_name = }, {dtype =} to the input columns")
+        self.inputs[feature_name] = tf.keras.Input(
             shape=(1,),
-            name=col_name,
-            dtype=col_type,
+            name=feature_name,
+            dtype=dtype,
         )
-        logger.info(f"Adding Signature for: {col_name}, type: {col_type}")
-        self.signature[col_name] = tf.TensorSpec(
-            shape=(None, 1),
-            name=col_name,
-            dtype=col_type,
-        )
-        logger.info(f"Inputs generated ({col_name})✅")
 
-        return self.inputs[col_name], self.signature[col_name]
-
-    def _call_feature_columns(feature_columns: list, inputs: tf.data.Dataset) -> tf.Tensor:
-        """Applies a dense feature layer to the input data using the given feature columns.
+    def _add_input_signature(self, feature_name: str, dtype) -> None:
+        """Add an input signature to the model.
 
         Args:
-            feature_columns (list): A list of feature columns to use in the dense feature layer.
-            inputs (tf.data.Dataset): The input data to apply the feature layer to.
-
-        Returns:
-            The output of the dense feature layer applied to the input data.
+            feature_name: The name of the feature.
+            dtype: Data Type for the feature values.
         """
-        feature_layer = tf.keras.layers.DenseFeatures(feature_columns)
-        return feature_layer(inputs)
+        logger.debug(f"Adding {feature_name = }, {dtype =} to the input signature")
+        self.signature[feature_name] = tf.TensorSpec(
+            shape=(None, 1),
+            dtype=dtype,
+            name=feature_name,
+        )
 
-    def _prepare_model_output(self) -> None:
+    def _add_pipeline_numeric(self, feature_name: str, input_layer, stats: dict) -> None:
+        """Add a numeric preprocessing step to the pipeline.
+
+        Args:
+            feature_name (str): The name of the feature to be preprocessed.
+            input_layer: The input layer for the feature.
+            stats (dict): A dictionary containing the metadata of the feature, including
+                the mean and variance of the feature.
+        """
+        preprocessor = FeaturePreprocessor(name=feature_name)
+        mean = stats["mean"]
+        variance = stats["var"]
+        preprocessor.add_processing_step(
+            layer_creator=PreprocessorLayerFactory.create_normalization_layer,
+            mean=mean,
+            variance=variance,
+            name=f"norm_{feature_name}",
+        )
+        self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
+        # updating output vector dim
+        self.output_dims += 1
+
+    def _add_pipeline_categorical(self, feature_name: str, input_layer, stats: dict) -> None:
+        """Add a categorical preprocessing step to the pipeline.
+
+        Args:
+            feature_name (str): The name of the feature to be preprocessed.
+            input_layer: The input layer for the feature.
+            stats (dict): A dictionary containing the metadata of the feature, including
+                the vocabulary of the feature.
+        """
+        vocab = stats["vocab"]
+        dtype = stats["dtype"]
+        emb_size = self._embedding_size_rule(nr_categories=len(vocab))
+        preprocessor = FeaturePreprocessor(name=feature_name)
+        # setting up lookup layer based on dtype
+        if dtype == tf.string:
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.create_string_lookup_layer,
+                vocabulary=vocab,
+                num_oov_indices=1,
+                name=f"lookup_{feature_name}",
+            )
+        else:
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.create_integer_lookup_layer,
+                vocabulary=vocab,
+                num_oov_indices=1,
+                name=f"lookup_{feature_name}",
+            )
+
+        if self.category_encoding_option.upper() == "EMBEDDING":
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.create_embedding_layer,
+                input_dim=len(vocab) + 1,
+                output_dim=emb_size,
+                name=f"embed_{feature_name}",
+            )
+        else:
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.create_category_encoding_layer,
+                num_tokens=len(vocab) + 1,
+                output_mode="one_hot",
+                name=f"one_hot_{feature_name}",
+            )
+        # we need to flatten the categorical feature
+        preprocessor.add_processing_step(
+            layer_creator=PreprocessorLayerFactory.create_flatten_layer,
+            name=f"flatten_{feature_name}",
+        )
+        # adding outputs
+        # self.outputs[feature_name] = preprocessor.preprocess(input_tensor)
+        self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
+        # updating output vector dim
+        self.output_dims += emb_size
+
+    def _add_pipeline_bucketize(self, feature_name: str, input_layer) -> None:
+        """Add a bucketization preprocessing step to the pipeline.
+
+        Args:
+            feature_name (str): The name of the feature to be preprocessed.
+            input_layer: The input layer for the feature.
+        """
+        for feature_name, boundaries in self.numeric_feature_buckets.items():
+            logger.info(f"Adding bucketized {feature_name = } 🪣")
+            preprocessor = FeaturePreprocessor(name=feature_name)
+
+            # checking inputs
+            _input = self.inputs.get(feature_name)
+            if not _input:
+                self._add_input_column(feature_name=feature_name, dtype=tf.float32)
+
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.create_discretization_layer,
+                boundaries=boundaries,
+                name=f"bucketize_{feature_name}",
+            )
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.create_category_encoding_layer,
+                num_tokens=len(boundaries) + 1,
+                output_mode="one_hot",
+                name=f"one_hot_{feature_name}",
+            )
+            _output_pipe = preprocessor.chain(input_layer=input_layer)
+            # Cast the crossed feature to float32
+            self.outputs[feature_name] = tf.cast(_output_pipe, tf.float32)
+            # updating output vector dim
+            self.output_dims += 1
+            logger.info("Bucketized Column ✅")
+
+    def _add_pipeline_cross(self, stats: dict) -> None:
+        """Add a crossing preprocessing step to the pipeline.
+
+        Args:
+            stats (dict): A dictionary containing the metadata of the feature, including
+                the list of features it is crossed with and the depth of the crossing.
+        """
+        for feature_a, feature_b, nr_bins in self.feature_crosses:
+            preprocessor = FeaturePreprocessor(name=f"{feature_a}_x_{feature_b}")
+
+            # checking inputs existance for feature A
+            for _feature in [feature_a, feature_b]:
+                _input = self.inputs.get(_feature)
+                if _input is None:
+                    logger.info(f"Creating: {_feature} inputs and signature")
+                    _col_dtype = stats[_feature].get("dtype")
+                    self._add_input_column(feature_name=_feature, dtype=_col_dtype)
+
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.create_crossing_layer,
+                depth=nr_bins,
+                name=f"cross_{feature_a}_{feature_b}",
+            )
+            crossed_input = [self.inputs[feature_a], self.inputs[feature_b]]
+            self.outputs[f"{feature_a}_x_{feature_b}"] = preprocessor.chain(input_data=crossed_input)
+            # updating output based on the one-hot-encoded data
+            self.output_dims += nr_bins
+
+    def _prepare_outputs(self) -> None:
+        """Preparing the outputs of the model."""
         logger.info("Building preprocessor Model")
         if self.output_mode == "concat":
+            self.concat = tf.keras.layers.Concatenate(axis=-1)
             self.outputs = self.concat(self.features_to_concat)
             logger.info("Concatenating outputs mode enabled")
         else:
@@ -546,38 +485,56 @@ class PreprocessModel(PreprocessNumMixin, PreprocessCatMixin):
             self.outputs = outputs
             logger.info("OrderedDict outputs mode enabled")
 
-    def build_preprocessor(self) -> dict[str, Any]:
-        """Builds a preprocessing model with the specified inputs and outputs.
-
-        If feature statistics do not exist or overwrite_stats is True, this method will compute
-        statistics for the dataset and save them. It then prepares categorical and numeric features,
-        creates feature crosses, and bucketizes numeric columns. Finally, it builds the model and returns
-        a dictionary containing the model, signature, output dimensions, and inputs.
+    def build_preprocessor(self) -> tf.keras.Model:
+        """Building preprocessing model.
 
         Returns:
-            A dictionary containing the following keys:
-                - "model": the built preprocessing model
-                - "signature": the signature of the model
-                - "output_dims": the output dimensions of the model
-                - "inputs": the inputs of the model
+            tf.keras.Model: The preprocessing model.
         """
         # preparing statistics if they do not exist
         if not self.features_stats or self.overwrite_stats:
             logger.info("No input features_stats detected !")
             self.features_stats = self.stats_instance.main()
 
-        # preparing categorical features
-        self._prepare_categorical_features()
-        # preparing numeric features
-        self._prepare_numeric_features()
-        # Create and handle feature crosses
-        self._create_feature_crosses()
-        # Bucketize numeric columns
-        self._bucketize_numeric_columns()
-        # preparing model outputs
-        self._prepare_model_output()
+        # NUMERICAL AND CATEGORICAL FEATURES
+        for feature_name, stats in self.features_stats.items():
+            dtype = stats.get("dtype")
+            logger.info(f"Processing {feature_name = }, {dtype = } 📊")
+            # adding inputs
+            self._add_input_column(feature_name=feature_name, dtype=dtype)
+            self._add_input_signature(feature_name=feature_name, dtype=dtype)
+            input_layer = self.inputs[feature_name]
+
+            # NUMERIC FEATURES
+            if "mean" in stats:
+                self._add_pipeline_numeric(
+                    feature_name=feature_name,
+                    input_layer=input_layer,
+                    stats=stats,
+                )
+            # CATEGORICAL FEATURES
+            elif "vocab" in stats:
+                self._add_pipeline_categorical(
+                    feature_name=feature_name,
+                    input_layer=input_layer,
+                    stats=stats,
+                )
+        # BUCKETIZED NUMERIC FEATURES
+        if self.numeric_feature_buckets:
+            self._add_pipeline_bucketize(
+                feature_name=feature_name,
+                input_layer=input_layer,
+                stats=stats,
+            )
+        # CROSSING FEATURES
+        if self.feature_crosses:
+            self._add_pipeline_cross(
+                feature_name=feature_name,
+                input_layer=input_layer,
+            )
 
         # building model
+        logger.info("Building preprocessor Model 🏗️")
         self.model = tf.keras.Model(
             inputs=self.inputs,
             outputs=self.outputs,
@@ -590,44 +547,17 @@ class PreprocessModel(PreprocessNumMixin, PreprocessCatMixin):
         logger.info(f"Output model mode: {self.output_mode} with size: {self.output_dims}")
         return {
             "model": self.model,
+            "inputs": self.inputs,
             "signature": self.signature,
             "output_dims": self.output_dims,
-            "inputs": self.inputs,
         }
 
-    def batch_predict(self, data: tf.data.Dataset, model: tf.keras.Model = None) -> Generator:
-        """Helper function for batch prediction on DataSets.
 
-        Args:
-            data (tf.data.Dataset): Data to be used for batch predictions.
-            model (tf.keras.Model): Model to be used for batch predictions.
-        """
-        logger.info("Batch predicting the dataset")
-        _model = model or self.model
-        for batch in data:
-            yield _model.predict(batch)
-
-    def save_model(self, model_path: str) -> None:
-        """Saving model locally.
-
-        Args:
-            model_path (str): Path to the model to be saved.
-        """
-        logger.info(f"Saving model to: {model_path}")
-        self.model.save(model_path)
-        logger.info("Model saved successfully")
-
-    def plot_model(self) -> None:
-        """Plotting model architecture.
-
-        Note:
-            This function requires graphviz to be installed on the system.
-        """
-        logger.info("Plotting model")
-        return tf.keras.utils.plot_model(
-            self.model,
-            to_file="preprocessor_model.png",
-            show_shapes=True,
-            show_dtype=True,
-            dpi=100,
-        )
+# Example Usage
+features_stats = {
+    "num_feature_1": {"mean": 0.0, "var": 1.0, "dtype": tf.float32},
+    "cat_feature_1": {"vocab": ["A", "B", "C"], "dtype": tf.string},
+    # Add more features stats as needed
+}
+preprocessing_model = PreprocessingModel(features_stats=features_stats)
+preprocessor = preprocessing_model.build_preprocessor()

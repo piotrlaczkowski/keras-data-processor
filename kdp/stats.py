@@ -1,4 +1,5 @@
 import json
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -7,12 +8,86 @@ import tensorflow as tf
 from loguru import logger
 
 
+class FeatureType(Enum):
+    """Enum for the different types of features supported by the statistics calculator."""
+
+    FLOAT = "float"
+    INTEGER_CATEGORICAL = "integer_categorical"
+    STRING_CATEGORICAL = "string_categorical"
+
+
+class WelfordAccumulator:
+    """Accumulator for computing the mean and variance of a sequence of numbers
+    using the Welford algorithm (streaming data).
+    """
+
+    def __init__(self):
+        """Initializes the accumulators for the Welford algorithm."""
+        self.n = tf.Variable(0.0, dtype=tf.float32, trainable=False)
+        self.mean = tf.Variable(0.0, dtype=tf.float32, trainable=False)
+        self.M2 = tf.Variable(0.0, dtype=tf.float32, trainable=False)
+
+    @tf.function
+    def update(self, values: tf.Tensor) -> None:
+        """Updates the accumulators with new values using the Welford algorithm.
+
+        Args:
+            values: The new values to add to the accumulators.
+        """
+        values = tf.cast(values, tf.float32)
+        n = self.n + tf.cast(tf.size(values), tf.float32)
+        delta = values - self.mean
+        self.mean.assign(self.mean + tf.reduce_sum(delta / n))
+        self.M2.assign(self.M2 + tf.reduce_sum(delta * (values - self.mean)))
+        self.n.assign(n)
+
+    @property
+    def variance(self) -> float:
+        """Returns the variance of the accumulated values."""
+        return self.M2 / (self.n - 1) if self.n > 1 else 0.0
+
+    @property
+    def count(self) -> int:
+        """Returns the number of accumulated values."""
+        return self.n
+
+
+class CategoricalAccumulator:
+    def __init__(self) -> None:
+        """Initializes the accumulator for categorical values."""
+        # Using a single accumulator since tf.string can hold both strings and bytes
+        self.values = tf.Variable([], dtype=tf.string, shape=tf.TensorShape(None), trainable=False)
+        self.int_values = tf.Variable([], dtype=tf.int32, shape=tf.TensorShape(None), trainable=False)
+
+    @tf.function
+    def update(self, new_values: tf.Tensor) -> None:
+        """Updates the accumulator with new categorical values.
+
+        Args:
+            new_values: The new categorical values to add to the accumulator.
+        """
+        if new_values.dtype == tf.string:
+            updated_values = tf.unique(tf.concat([self.values, new_values], axis=0))[0]
+            self.values.assign(updated_values)
+        elif new_values.dtype == tf.int32:
+            updated_values = tf.unique(tf.concat([self.int_values, new_values], axis=0))[0]
+            self.int_values.assign(updated_values)
+        else:
+            raise ValueError(f"Unsupported data type for categorical features: {new_values.dtype}")
+
+    def get_unique_values(self) -> list:
+        """Returns the unique categorical values accumulated so far."""
+        all_values = tf.concat([self.values, tf.strings.as_string(self.int_values)], axis=0)
+        return tf.unique(all_values)[0].numpy().tolist()
+
+
 class DatasetStatistics:
     def __init__(
         self,
         path_data: str,
-        numeric_cols: list[str],
-        categorical_cols: list[str],
+        numeric_cols: list[str] = None,
+        categorical_cols: list[str] = None,
+        features_specs: dict[str, FeatureType | str] = None,
         features_stats_path: Path = None,
         overwrite_stats: bool = False,
         batch_size: int = 50_000,
@@ -22,24 +97,63 @@ class DatasetStatistics:
         Args:
             path_data: Path to the folder containing the CSV files.
             batch_size: The batch size to use when reading data from the dataset.
-            numeric_cols: List of numeric feature names.
-            categorical_cols: List of categorical feature names.
+            numeric_cols: List of numeric feature names (defaults to None).
+            categorical_cols: List of categorical feature names (defaults to None).
             features_stats_path: Path to the features statistics JSON file (defaults to None).
             overwrite_stats: Whether or not to overwrite existing statistics file (defaults to False).
+            features_specs:
+                A dictionary mapping feature names to feature specifications (defaults to None).
+                Easier alternative to proviginh numerical and categorical lists.
         """
         self.path_data = path_data
-        self.numeric_cols = numeric_cols
-        self.categorical_cols = categorical_cols
+        self.numeric_cols = numeric_cols or []
+        self.categorical_cols = categorical_cols or []
+        self.features_specs = features_specs or {}
         self.features_stats_path = features_stats_path or "features_stats.json"
         self.overwrite_stats = overwrite_stats
         self.batch_size = batch_size
-        # placeholders
-        self.numeric_features_sums = {feature: 0.0 for feature in numeric_cols}
-        self.numeric_features_sums_sq = {feature: 0.0 for feature in numeric_cols}
-        self.numeric_features_counts = {feature: 0 for feature in numeric_cols}
-        self.categorical_features_values = {feature: set() for feature in categorical_cols}
 
-    def get_csv_file_pattern(self, path) -> str:
+        # placeholders
+        self.features_dtypes = {}
+
+        # checkinng if we have feature specs or numerical and categorical columns
+        if not (numeric_cols or categorical_cols):
+            if not features_specs:
+                raise ValueError("You must provide either numeric_cols and/or categorical_cols or features_specs 🚨")
+            # extracting info from feature scope
+            self._parse_features_specs()
+
+        if not features_specs and not (numeric_cols or categorical_cols):
+            raise ValueError("You must provide either numeric_cols and/or categorical_cols OR features_specs 🚨")
+
+        # Initializing placeholders for statistics
+        self.numeric_stats = {col: WelfordAccumulator() for col in self.numeric_cols}
+        self.categorical_stats = {col: CategoricalAccumulator() for col in self.categorical_cols}
+
+    def _parse_features_specs(self) -> None:
+        """Parses the features specifications and updates the numeric and categorical columns accordingly."""
+        logger.info("Parsing features specifications ...")
+        for feature, spec in self.features_specs.items():
+            logger.debug(f"Processing {feature =} with {spec =}")
+            if spec in {FeatureType.FLOAT, FeatureType.FLOAT.value}:
+                self.numeric_cols.append(feature)
+                self.features_dtypes[feature] = tf.float32
+                logger.debug(f"Adding {feature =} as a numeric feature")
+
+            elif spec in {FeatureType.INTEGER_CATEGORICAL, FeatureType.INTEGER_CATEGORICAL.value}:
+                self.categorical_cols.append(feature)
+                self.features_dtypes[feature] = tf.int32
+                logger.debug(f"Adding {feature =} as a integer categorical feature")
+
+            elif spec in {FeatureType.STRING_CATEGORICAL, FeatureType.STRING_CATEGORICAL.value}:
+                self.categorical_cols.append(feature)
+                self.features_dtypes[feature] = tf.string
+                logger.debug(f"Adding {feature =} as a string categorical feature")
+            else:
+                _availble_specs = [spec.lower() for spec in FeatureType.__members__]
+                raise ValueError(f"Invalid feature type: {spec}, You must use {_availble_specs =}")
+
+    def _get_csv_file_pattern(self, path) -> str:
         """Get the csv file pattern that will handle directories and file paths.
 
         Args:
@@ -63,7 +177,7 @@ class DatasetStatistics:
     def _read_data_into_dataset(self) -> tf.data.Dataset:
         """Reading CSV files from the provided path into a tf.data.Dataset."""
         logger.info(f"Reading CSV data from the corresponding folder: {self.path_data}")
-        _path_csvs_regex = self.get_csv_file_pattern(path=self.path_data)
+        _path_csvs_regex = self._get_csv_file_pattern(path=self.path_data)
         self.ds = tf.data.experimental.make_csv_dataset(
             file_pattern=_path_csvs_regex,
             num_epochs=1,
@@ -74,7 +188,7 @@ class DatasetStatistics:
         logger.info(f"DataSet Ready to be used (batched by: {self.batch_size}) ✅")
         return self.ds
 
-    def infer_feature_dtypes(self, dataset: tf.data.Dataset) -> None:
+    def _infer_feature_dtypes(self, dataset: tf.data.Dataset) -> None:
         """Infer data types for features based on a sample from the dataset.
 
         Args:
@@ -99,13 +213,15 @@ class DatasetStatistics:
                     _type = type(value)
                     logger.debug(f"Value {value} of {feature} is of type {_type} and cannot be cast to int32")
                     inferred_dtype = tf.string
-
                 logger.debug(f"Inferred dtype for {feature} (value: {value}): {inferred_dtype}")
-                self.feature_dtypes[feature] = inferred_dtype
+                self.features_dtypes[feature] = inferred_dtype
 
-        return self.feature_dtypes
+            for feature in self.numeric_cols:
+                self.features_dtypes[feature] = tf.float32
 
-    def get_dtype_for_feature(self, feature_name: str) -> tf.dtypes.DType:
+        return self.features_dtypes
+
+    def _get_dtype_for_feature(self, feature_name: str) -> tf.dtypes.DType:
         """Returns the TensorFlow data type for a given feature, with special handling for categorical features.
 
         Args:
@@ -115,52 +231,40 @@ class DatasetStatistics:
             The TensorFlow data type for the given feature.
         """
         # Use inferred dtype if available, otherwise default to float32 for numeric and string for categorical
-        return self.feature_dtypes.get(feature_name, tf.float32 if feature_name in self.numeric_cols else tf.string)
+        return self.features_dtypes.get(feature_name, tf.float32 if feature_name in self.numeric_cols else tf.string)
 
-    def process_batch(self, batch: tf.Tensor) -> None:
+    def _process_batch(self, batch: tf.Tensor) -> None:
         """Update statistics accumulators for each batch.
 
         Args:
             batch: A batch of data from the dataset.
         """
         for feature in self.numeric_cols:
-            values = tf.cast(batch[feature], tf.float32)
-            self.numeric_features_sums[feature] += tf.reduce_sum(values).numpy()
-            self.numeric_features_sums_sq[feature] += tf.reduce_sum(tf.square(values)).numpy()
-            self.numeric_features_counts[feature] += values.shape[0]
+            self.numeric_stats[feature].update(batch[feature])
 
         for feature in self.categorical_cols:
-            values = batch[feature].numpy()
-            for value in values:
-                self.categorical_features_values[feature].add(value)
+            self.categorical_stats[feature].update(batch[feature])
 
-    def compute_final_statistics(self) -> dict[str, dict]:
+    def _compute_final_statistics(self) -> dict[str, dict]:
         """Compute final statistics for numeric and categorical features."""
         logger.info("Computing final statistics for numeric and categorical features 📊")
-        stats = {"numeric_stats": {}, "categorical_stats": {}}
+        final_stats = {"numeric_stats": {}, "categorical_stats": {}}
         for feature in self.numeric_cols:
-            logger.info(f"Computing statistics for {feature =}")
-            count = self.numeric_features_counts[feature]
-            sum_values = self.numeric_features_sums[feature]
-            sum_sq = self.numeric_features_sums_sq[feature]
-            mean = sum_values / count
-            variance = (sum_sq / count) - (mean**2)
-            stats["numeric_stats"][feature] = {
-                "mean": mean,
-                "variance": variance,
-                "dtype": self.get_dtype_for_feature(feature_name=feature),
+            final_stats["numeric_stats"][feature] = {
+                "mean": self.numeric_stats[feature].mean.numpy(),
+                "var": self.numeric_stats[feature].variance.numpy(),
+                "count": self.numeric_stats[feature].count.numpy(),
             }
 
         for feature in self.categorical_cols:
-            logger.info(f"Computing statistics for {feature =}")
-            unique_values = list(self.categorical_features_values[feature])
-            stats["categorical_stats"][feature] = {
-                "unique_values": len(unique_values),
+            # Convert TensorFlow string tensor to Python list for unique values
+            unique_values = self.categorical_stats[feature].get_unique_values()
+            final_stats["categorical_stats"][feature] = {
+                "size": len(unique_values),
                 "vocab": unique_values,
-                "dtype": self.get_dtype_for_feature(feature_name=feature),
             }
 
-        return stats
+        return final_stats
 
     def calculate_dataset_statistics(self, dataset: tf.data.Dataset) -> dict[str, dict]:
         """Calculates and returns statistics for the dataset.
@@ -170,18 +274,20 @@ class DatasetStatistics:
         """
         logger.info("Calculating statistics for the dataset 📊")
         for batch in dataset:
-            self.process_batch(batch)
+            self._process_batch(batch)
 
         # Infer data types for features
-        self.feature_dtypes = self.infer_feature_dtypes(dataset) if dataset is not None else {}
+        if not self.features_specs:
+            logger.debug("Infering features dtypes")
+            self.features_dtypes = self._infer_feature_dtypes(dataset) if dataset is not None else {}
 
         # calculating data statistics
-        self.features_stats = self.compute_final_statistics()
+        self.features_stats = self._compute_final_statistics()
 
         return self.features_stats
 
     @staticmethod
-    def custom_serializer(obj) -> Any:
+    def _custom_serializer(obj) -> Any:
         """Custom JSON serializer for objects not serializable by default json code."""
         if isinstance(obj, tf.dtypes.DType):
             return obj.name  # Convert dtype to its string representation
@@ -189,6 +295,8 @@ class DatasetStatistics:
             return int(obj)  # Convert numpy int to Python int
         elif isinstance(obj, np.floating):
             return float(obj)  # Convert numpy float to Python float
+        elif isinstance(obj, bytes):
+            return str(obj)
         elif isinstance(obj, np.ndarray):
             return obj.tolist()  # Convert numpy arrays to lists
         logger.debug(f"Type {type(obj)} is not serializable")
@@ -201,7 +309,7 @@ class DatasetStatistics:
         # Convert the string path to a Path object before calling open
         path_obj = Path(self.features_stats_path)
         with path_obj.open("w") as f:
-            json.dump(self.features_stats, f, default=self.custom_serializer)
+            json.dump(self.features_stats, f, default=self._custom_serializer)
         logger.info("features_stats saved ✅")
 
     def _load_stats(self) -> dict:
