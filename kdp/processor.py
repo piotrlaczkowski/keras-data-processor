@@ -252,7 +252,7 @@ class PreprocessingModel:
         category_encoding_option: str = "EMBEDDING",
         output_mode: str = "concat",
         overwrite_stats: bool = False,
-        embedding_custom_size: int = None,
+        embedding_custom_size: dict = None,
         log_to_file: bool = False,
         features_specs: dict[str, FeatureType | str] = None,
     ) -> None:
@@ -269,7 +269,7 @@ class PreprocessingModel:
         self.numeric_feature_buckets = numeric_feature_buckets or {}
         self.output_mode = output_mode
         self.overwrite_stats = overwrite_stats
-        self.embedding_custom_size = embedding_custom_size
+        self.embedding_custom_size = embedding_custom_size or {}
 
         # PLACEHOLDERS
         self.preprocessors = {}
@@ -286,10 +286,13 @@ class PreprocessingModel:
         self._init_stats()
 
     def _init_stats(self) -> None:
-        """Initialize the statistics for the model."""
-        # Initializing Data Stats object
-        # we only need numeric and cat features stats for layers
-        # crosses and numeric do not need layers init
+        """Initialize the statistics for the model.
+
+        Note:
+            Initializing Data Stats object
+            we only need numeric and cat features stats for layers
+            crosses and numeric do not need layers init
+        """
         _data_stats_kwrgs = {"path_data": self.path_data}
         if self.numeric_features:
             _data_stats_kwrgs["numeric_cols"] = self.numeric_features
@@ -390,7 +393,7 @@ class PreprocessingModel:
         """
         vocab = stats["vocab"]
         dtype = stats["dtype"]
-        emb_size = self._embedding_size_rule(nr_categories=len(vocab))
+        emb_size = self.embedding_custom_size.get(feature_name) or self._embedding_size_rule(nr_categories=len(vocab))
         preprocessor = FeaturePreprocessor(name=feature_name)
         # setting up lookup layer based on dtype
         if dtype == tf.string:
@@ -496,7 +499,11 @@ class PreprocessingModel:
             self.output_dims += nr_bins
 
     def _prepare_outputs(self) -> None:
-        """Preparing the outputs of the model."""
+        """Preparing the outputs of the model.
+
+        Note:
+            Two outputs are possible based on output_model variable.
+        """
         logger.info("Building preprocessor Model")
         if self.output_mode == "concat":
             self.features_to_concat = list(self.outputs.values())
