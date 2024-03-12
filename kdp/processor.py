@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from collections.abc import Callable, Generator
+from enum import auto
 from typing import Any
 
 import tensorflow as tf
@@ -238,6 +239,16 @@ class PreprocessorLayerFactory:
         )
 
 
+class CategoryEncodingOptions(auto):
+    ONE_HOT_ENCODING = "ONE_HOT_ENCODING"
+    EMBEDDING = "EMBEDDING"
+
+
+class OutputModeOptions(auto):
+    CONCAT = "concat"
+    DICT = "dict"
+
+
 class PreprocessingModel:
     def __init__(
         self,
@@ -249,10 +260,10 @@ class PreprocessingModel:
         feature_crosses: list[tuple[str, str, int]] = None,
         numeric_feature_buckets: dict[str, list[float]] = None,
         features_stats_path: str = None,
-        category_encoding_option: str = "EMBEDDING",
-        output_mode: str = "concat",
+        category_encoding_option: str = CategoryEncodingOptions.EMBEDDING,
+        output_mode: str = OutputModeOptions.CONCAT,
         overwrite_stats: bool = False,
-        embedding_custom_size: dict = None,
+        embedding_custom_size: dict[str, int] = None,
         log_to_file: bool = False,
         features_specs: dict[str, FeatureType | str] = None,
     ) -> None:
@@ -411,7 +422,7 @@ class PreprocessingModel:
                 name=f"lookup_{feature_name}",
             )
 
-        if self.category_encoding_option.upper() == "EMBEDDING":
+        if self.category_encoding_option.upper() == CategoryEncodingOptions.EMBEDDING:
             preprocessor.add_processing_step(
                 layer_creator=PreprocessorLayerFactory.create_embedding_layer,
                 input_dim=len(vocab) + 1,
@@ -505,7 +516,7 @@ class PreprocessingModel:
             Two outputs are possible based on output_model variable.
         """
         logger.info("Building preprocessor Model")
-        if self.output_mode == "concat":
+        if self.output_mode == OutputModeOptions.CONCAT:
             self.features_to_concat = list(self.outputs.values())
             self.concat = tf.keras.layers.Concatenate(axis=-1)
             self.outputs = self.concat(self.features_to_concat)
