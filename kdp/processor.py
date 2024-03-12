@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from typing import Any
 
 import tensorflow as tf
@@ -250,7 +250,7 @@ class PreprocessingModel:
         numeric_feature_buckets: dict[str, list[float]] = None,
         features_stats_path: str = None,
         category_encoding_option: str = "EMBEDDING",
-        output_mode: str = "dict",
+        output_mode: str = "concat",
         overwrite_stats: bool = False,
         embedding_custom_size: int = None,
         log_to_file: bool = False,
@@ -499,6 +499,7 @@ class PreprocessingModel:
         """Preparing the outputs of the model."""
         logger.info("Building preprocessor Model")
         if self.output_mode == "concat":
+            self.features_to_concat = list(self.outputs.values())
             self.concat = tf.keras.layers.Concatenate(axis=-1)
             self.outputs = self.concat(self.features_to_concat)
             logger.info("Concatenating outputs mode enabled")
@@ -561,6 +562,9 @@ class PreprocessingModel:
                 input_layer=input_layer,
             )
 
+        # Preparing outputs
+        self._prepare_outputs()
+
         # building model
         logger.info("Building preprocessor Model 🏗️")
         self.model = tf.keras.Model(
@@ -579,3 +583,40 @@ class PreprocessingModel:
             "signature": self.signature,
             "output_dims": self.output_dims,
         }
+
+    def batch_predict(self, data: tf.data.Dataset, model: tf.keras.Model = None) -> Generator:
+        """Helper function for batch prediction on DataSets.
+
+        Args:
+            data (tf.data.Dataset): Data to be used for batch predictions.
+            model (tf.keras.Model): Model to be used for batch predictions.
+        """
+        logger.info("Batch predicting the dataset")
+        _model = model or self.model
+        for batch in data:
+            yield _model.predict(batch)
+
+    def save_model(self, model_path: str) -> None:
+        """Saving model locally.
+
+        Args:
+            model_path (str): Path to the model to be saved.
+        """
+        logger.info(f"Saving model to: {model_path}")
+        self.model.save(model_path)
+        logger.info("Model saved successfully")
+
+    def plot_model(self) -> None:
+        """Plotting model architecture.
+
+        Note:
+            This function requires graphviz to be installed on the system.
+        """
+        logger.info("Plotting model")
+        return tf.keras.utils.plot_model(
+            self.model,
+            to_file="preprocessor_model.png",
+            show_shapes=True,
+            show_dtype=True,
+            dpi=100,
+        )
