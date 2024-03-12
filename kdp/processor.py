@@ -303,8 +303,10 @@ class PreprocessingModel:
             _data_stats_kwrgs["features_specs"] = self.features_specs
             logger.debug(f"Features Specs: {self.features_specs}")
 
-        self.stats_instance = DatasetStatistics(**_data_stats_kwrgs)
-        self.features_stats = self.stats_instance._load_stats()
+        if not self.features_stats:
+            logger.info("No features stats provided, trying to load local file 🌪️")
+            self.stats_instance = DatasetStatistics(**_data_stats_kwrgs)
+            self.features_stats = self.stats_instance._load_stats()
 
     def _embedding_size_rule(self, nr_categories: int) -> int:
         """Returns the embedding size for a given number of categories using the Embedding Size Rule of Thumb.
@@ -520,10 +522,10 @@ class PreprocessingModel:
 
         # NUMERICAL AND CATEGORICAL FEATURES
         for _key in self.features_stats:
-            logger.info(f"Processing {_key = }")
+            logger.info(f"Processing feature type: {_key = }")
             for feature_name, stats in self.features_stats[_key].items():
                 dtype = stats.get("dtype")
-                logger.info(f"Processing {feature_name = }, {dtype = }, {stats =} 📊")
+                logger.info(f"Processing {feature_name = }, {dtype = } 📊")
                 # adding inputs
                 self._add_input_column(feature_name=feature_name, dtype=dtype)
                 self._add_input_signature(feature_name=feature_name, dtype=dtype)
@@ -545,6 +547,7 @@ class PreprocessingModel:
                     )
         # BUCKETIZED NUMERIC FEATURES
         if self.numeric_feature_buckets:
+            logger.info("Processing feature type: bucketized feature")
             self._add_pipeline_bucketize(
                 feature_name=feature_name,
                 input_layer=input_layer,
@@ -552,6 +555,7 @@ class PreprocessingModel:
             )
         # CROSSING FEATURES
         if self.feature_crosses:
+            logger.info("Processing feature type: cross feature")
             self._add_pipeline_cross(
                 feature_name=feature_name,
                 input_layer=input_layer,

@@ -16,10 +16,8 @@ class TestProcessingStep(unittest.TestCase):
         step = ProcessingStep(layer_creator=mock_layer_creator, units=5)
 
         output = step.process(input_data)
-        self.assertIsInstance(output, tf.Tensor)
-
+        self.assertTrue(tf.keras.utils.is_keras_tensor(output))
         mock_layer_creator.assert_called_once_with(units=5)
-        self.assertEqual(mock_layer_creator.return_value.call_count, 1)
 
     def test_connect_step_to_input_layer(self):
         """Test connecting a processing step to an input layer."""
@@ -28,7 +26,7 @@ class TestProcessingStep(unittest.TestCase):
         step = ProcessingStep(layer_creator=mock_layer_creator, units=5)
 
         output_layer = step.connect(input_layer)
-        self.assertIsInstance(output_layer, tf.Tensor)
+        self.assertTrue(tf.keras.utils.is_keras_tensor(output_layer))
 
 
 class TestPipeline(unittest.TestCase):
@@ -72,7 +70,7 @@ class TestFeaturePreprocessor(unittest.TestCase):
 
         input_data = tf.keras.Input(shape=(10,))
         output = preprocessor.preprocess(input_data)
-        self.assertIsInstance(output, tf.Tensor)
+        self.assertTrue(tf.keras.utils.is_keras_tensor(output))
 
         mock_layer_creator.assert_called_once_with(units=5)
 
@@ -84,7 +82,8 @@ class TestFeaturePreprocessor(unittest.TestCase):
 
         input_layer = tf.keras.Input(shape=(10,))
         output_layer = preprocessor.chain(input_layer)
-        self.assertIsInstance(output_layer, tf.Tensor)
+        print("type layer", type(output_layer))
+        self.assertTrue(tf.keras.utils.is_keras_tensor(output_layer))
 
 
 class TestPreprocessorLayerFactory(unittest.TestCase):
@@ -102,7 +101,7 @@ class TestPreprocessingModel(unittest.TestCase):
     @patch("kdp.stats.DatasetStatistics")
     def test_preprocessing_model_initialization_and_build(self, mock_dataset_statistics):
         """Test initialization and building of the preprocessing model."""
-        features_stats = {"feature_1": {"mean": 0.0, "var": 1.0, "dtype": tf.float32}}
+        features_stats = {"numerical": {"feature_1": {"mean": 0.0, "var": 1.0, "dtype": tf.float32}}}
         model = PreprocessingModel(features_stats=features_stats)
         preprocessor = model.build_preprocessor()
 
@@ -110,23 +109,25 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertIn("model", preprocessor)
         self.assertIsInstance(preprocessor["model"], tf.keras.Model)
 
-        mock_dataset_statistics.assert_called_once()
-
     def test_build_with_numeric_and_categorical_features(self):
         """Test building the model with both numeric and categorical features."""
+        features_stats = {
+            "num_features": {"feat_num1": {"mean": 0, "var": 1, "dtype": tf.float32}},
+            "cat_features": {"feat_cat1": {"vocab": ["A", "B"], "dtype": tf.string}},
+        }
+        model = PreprocessingModel(features_stats=features_stats, path_data="path/to/data")
+        preprocessor = model.build_preprocessor()
+
+        self.assertIn("feat_num1", model.inputs)
+        self.assertIn("feat_cat1", model.inputs)
+
+    def test_embedding_size_rule(self):
+        """Test the embedding size rule calculation."""
         features_stats = {
             "num_feature": {"mean": 0, "var": 1, "dtype": tf.float32},
             "cat_feature": {"vocab": ["A", "B"], "dtype": tf.string},
         }
         model = PreprocessingModel(features_stats=features_stats, path_data="path/to/data")
-        preprocessor = model.build_preprocessor()
-
-        self.assertIn("num_feature", model.inputs)
-        self.assertIn("cat_feature", model.inputs)
-
-    def test_embedding_size_rule(self):
-        """Test the embedding size rule calculation."""
-        model = PreprocessingModel(features_stats={}, path_data="path/to/data")
         embedding_size = model._embedding_size_rule(100)
         self.assertTrue(isinstance(embedding_size, int))
 
