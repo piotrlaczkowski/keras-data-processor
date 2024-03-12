@@ -581,6 +581,7 @@ class PreprocessingModel:
             )
 
         # Preparing outputs
+        logger.info("Preparing outputs for the model")
         self._prepare_outputs()
 
         # building model
@@ -628,7 +629,8 @@ class PreprocessingModel:
         """Plotting model architecture.
 
         Note:
-            This function requires graphviz to be installed on the system.
+            This function requires graphviz to be installed on the system
+            and pydot library (dependency in the dev group).
         """
         logger.info("Plotting model")
         return tf.keras.utils.plot_model(
