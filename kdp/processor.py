@@ -105,15 +105,6 @@ class PreprocessingModel:
         """
         return min(500, round(1.6 * nr_categories**0.56))
 
-    def add_feature_preprocessor(self, feature_name: str, preprocessor: FeaturePreprocessor) -> None:
-        """Add a feature preprocessor to the model.
-
-        Args:
-            feature_name: The name of the feature.
-            preprocessor: The feature preprocessor.
-        """
-        self.preprocessors[feature_name] = preprocessor
-
     def _add_input_column(self, feature_name: str, dtype) -> None:
         """Add an input column to the model.
 
