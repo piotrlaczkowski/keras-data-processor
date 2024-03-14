@@ -35,7 +35,7 @@ theme:
         name: Switch to light mode
 
 nav:
-  - 💡 General Info: index.md
+  - 💡 KDP: index.md
   - 🍻 Contributing: contributing.md
 repo_name: Keras Data Preprocessor
 repo_url: https://github.com/piotrlaczkowski/keras-data-processor

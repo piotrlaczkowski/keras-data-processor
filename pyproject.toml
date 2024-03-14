@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kdp"
-version = "1.0.0"
+version = "0.1.0"
 documentation = ""
 repository = "https://github.com/piotrlaczkowski/keras-data-processor"
 description = "Data Preprocessing model based on Keras preprocessing layers"

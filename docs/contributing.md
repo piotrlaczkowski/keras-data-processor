@@ -1,51 +1,17 @@
-# 💻 Contributing to the Project
+# 💻 Contributing: Join the Preprocessing Revolution! 🛠️
+
+Eager to contribute? Great! We're excited to welcome new contributors to our project. Here's how you can get involved:
 
 ## 💡 New Ideas / Features Requests
 
 If you wan't to request a new feature or you have detected an issue, please use the following link:
-[PARROT ISSUES](https://github.com/adeo/dataplatform--bigdata--the-parrot/issues)
+[PARROT ISSUES](https://github.com/piotrlaczkowski/keras-data-processor/issues)
 
-## 🚀 Typical Project Lifecycle
+## 🚀 Getting Started:
 
-Genreal life-cylcle of this repository can be represented by the following chart:
+- [x] Fork the Repository: Visit our GitHub page, fork the repository, and clone it to your local machine.
 
-```mermaid
-%%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': {'rotateCommitLabel': true}}}%%
-gitGraph
-    commit
-    commit
-    branch dev
-    commit
-    commit
-    branch feature
-    commit
-    checkout dev
-    commit
-    checkout feature
-    commit
-    checkout dev
-    merge feature
-    checkout dev
-    commit
-    checkout main
-    merge dev tag: "parrot.1.0.1"
-    commit
-    checkout dev
-    commit
-    checkout main
-    merge dev
-    checkout main
-    commit tag: "parrot.1.0.2"
-    commit
-```
-
-You start developping from the `dev` branch using your custom branch c.f.: `feat`. You split your project to several Merge Requests (MR) with the smallest functionality possible.
-Once the code is ready and approved you merge into `dev` branch. At this point some of the automatic CI/CD actions will take place (...).
-Realeses are going to be done from the `main` branch so we will frequentle merge the `dev` branch into the `main` branch. The release process is semi-automatic and you need to start it manually). This means that the simple `main` merge won't do anything excep preparing code for the release. We use the semantic release to automatically generate and propagate the project changelogs (tag/close issues, tag merge requests, send Slack notifications etc).
-
-When you start developping a new feature within Parrot, you can follow the typical development pattern:
-
-## ❤️‍🔥 Contribution Cycle Guidelines
+- [x] Set Up Your Environment: Make sure you have TensorFlow, Loguru, and all necessary dependencies installed.
 
 - [x] Make sure you have installed the pre-commit hook locally
 
@@ -62,18 +28,11 @@ When you start developping a new feature within Parrot, you can follow the typic
         pre-commit install
         ```
 
-- [x] Create a new branch from DEV to package your code
-
-  ??? Branch-naming-convention
-  The bets way to organize your local git history would be to use the following branch naming convention:
-
-        ```{ACRONYM}/{LABEL (CI|FEAT|TEST|DOCS ...)}/{message}```
-
-        i.e.: ```CEREBRO/DOCS/doc_adding_contribution_explanation```
+- [x] Create a new branch to package your code
 
 - [x] Use standarized commit message:
 
-  `{LABEL}(ACRONYM): {message}`
+  `{LABEL}(KDP): {message}`
 
   This is very important for the automatic releases (semantic release) and to have clean history on the master branch.
 
@@ -114,9 +73,7 @@ When you start developping a new feature within Parrot, you can follow the typic
 
   > The name of your MR should follow the same exact convention as your commits (we have a dedicated check for this in the CI):
 
-        `{LABEL}(ACRONYM): {message}`
-
-  Your MR creation should be communicated using dedicated Slack Channel
+        `{LABEL}(KDP): {message}`
 
 - [x] Use small Merge Requests but do them more ofthen < 400 ligns for quicker and simple review and not the whole project !
 
@@ -125,8 +82,3 @@ When you start developping a new feature within Parrot, you can follow the typic
 - [x] Once your MR is approved, solve all your unresolved conversation and pass all the CI check before you can merge it.
 
 - [x] All the Tests for your code should pass -> REMEMBER NO TESTS = NO MERGE 🚨
-
-- [x] Remember to squash your commits (or squash & merge) during the merge !
-
-  !!! warning
-  Always check if the last commit (the once that is going to be used for the merge) follows the convention and describes the work you did in the correct way.
