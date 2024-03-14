@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: "running unit-tests"
-        uses: "adeo/dataplatform--bigdata--the-parrot/.github/templates/Python/unittests@main"
+        uses: "piotrlaczkowski/keras-data-processor/.github/templates/Python/unittests@main"
         with:
           pkg_folder: "kdp"
           PYTHON_VERSION: ${{ matrix.python-version }}
