@@ -9,7 +9,7 @@ on:
 
 jobs:
   SEMANTIC_RELEASE:
-    runs-on: [self-hosted, Linux, standard]
+    runs-on: ["ubuntu-latest"]
     steps:
       - uses: actions/checkout@v3
       - name: "Semantic Release"

@@ -5,7 +5,7 @@ on:
 
 jobs:
   MIKE_RELEASE_DOCs:
-    runs-on: [self-hosted, Linux, standard]
+    runs-on: ["ubuntu-latest"]
     steps:
       - uses: actions/checkout@v3
 
