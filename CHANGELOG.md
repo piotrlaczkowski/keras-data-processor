@@ -1,3 +1,10 @@
+## [1.1.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.0.0...kdp.1.1.0) (2024-03-14)
+
+
+### :hotsprings: Infra
+
+* ops(KDP): adding docs link ([53d51ba](https://github.com/piotrlaczkowski/keras-data-processor/commit/53d51bab7145d7b5ccf899f06aecc59e87f24ffd))
+
 ## 1.0.0 (2024-03-14)
 
 
