@@ -5,7 +5,7 @@ Eager to contribute? Great! We're excited to welcome new contributors to our pro
 ## 💡 New Ideas / Features Requests
 
 If you wan't to request a new feature or you have detected an issue, please use the following link:
-[PARROT ISSUES](https://github.com/piotrlaczkowski/keras-data-processor/issues)
+[ISSUES](https://github.com/piotrlaczkowski/keras-data-processor/issues)
 
 ## 🚀 Getting Started:
 

@@ -1,4 +1,4 @@
-# Welcome to Keras Data Processor - Preprocessing Power with TensorFlow Keras 🌟
+# 🌟 Welcome to Keras Data Processor - Preprocessing Power with TensorFlow Keras 🌟
 
 <p align="center">
   <img src="kdp_logo.png" width="350"/>
@@ -10,7 +10,7 @@ Diving into the world of machine learning and data science, we often find oursel
 
 Say goodbye to tedious data preparation tasks and hello to streamlined, efficient, and scalable data pipelines. Whether you're a seasoned data scientist or just starting out, this tool is designed to supercharge your ML workflows, making them more robust and faster than ever!
 
-## Key Features:
+## 🔑 Key Features:
 
 - Automated Feature Engineering: Automatically detects and applies the optimal preprocessing steps for each feature type in your dataset.
 
@@ -20,7 +20,7 @@ Say goodbye to tedious data preparation tasks and hello to streamlined, efficien
 
 - Easy Integration: Seamlessly fits into your TensorFlow Keras models (as first layers of the mode), making it a breeze to go from raw data to trained model faster than ever.
 
-## Getting started:
+## 🚀 Getting started:
 
 We use poetry for handling dependencies so you will need to install it first.
 Then you can install the dependencies by running:
@@ -39,7 +39,7 @@ poetry shell
 
 Then you can simply configure your preprocessor:
 
-## Building Preprocessor:
+## 🛠️ Building Preprocessor:
 
 ```python
 from kdp import PreprocessingModel, FeatureType
@@ -85,10 +85,10 @@ This wil output:
 This will result in the following preprocessing steps:
 
 <p align="center">
-  <img src=".imgs/model_archi_concat.png" width="350"/>
+  <img src="imgs/model_archi_concat.png" width="800"/>
 </p>
 
-### Integrating Preprocessing Model with Keras Model:
+### 🔗 Integrating Preprocessing Model with Keras Model:
 
 You can then easily ingetrate this model into your keras model as the first layer:
 
@@ -131,6 +131,6 @@ full_model = FunctionalModelWithPreprocessing(
 )
 ```
 
-## Dive Deeper:
+## 🔍 Dive Deeper:
 
 Explore the detailed documentation to leverage the full potential of this preprocessing tool. Learn about customizing feature crosses, bucketization strategies, embedding sizes, and much more to truly tailor your preprocessing pipeline to your project's needs.
