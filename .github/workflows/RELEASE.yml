@@ -5,7 +5,12 @@ on:
     inputs:
       DRY_RUN:
         required: false
-        default: true
+        default: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
 
 jobs:
   SEMANTIC_RELEASE:
