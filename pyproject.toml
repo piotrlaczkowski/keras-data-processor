@@ -6,7 +6,7 @@ repository = "https://github.com/piotrlaczkowski/keras-data-processor"
 description = "Data Preprocessing model based on Keras preprocessing layers"
 authors = ["piotrlaczkowski <piotr.laczkowski@gmail.com>"]
 readme = "README.md"
-include = []
+include = ["docs/kdp_logo.png"]
 
 [build-system]
 requires = ["poetry-core"]

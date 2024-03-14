@@ -60,7 +60,7 @@ jobs:
         shell: bash
         run: |
           # Configuring PyPi
-          poetry config pypi-token.pypi {{ secrets.PYPI_TOKEN }}
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
 
           # Setting correct package version
           poetry version ${{ steps.semantic-release.outputs.new_release_version }}
