@@ -4,7 +4,7 @@ version = "0.1.0"
 documentation = ""
 repository = "https://github.com/piotrlaczkowski/keras-data-processor"
 description = "Data Preprocessing model based on Keras preprocessing layers"
-authors = ["piotrlaczkowski <piotr.laczkowski@leroymerlin.com>"]
+authors = ["piotrlaczkowski <piotr.laczkowski@gmail.com>"]
 readme = "README.md"
 include = []
 
@@ -71,7 +71,6 @@ exclude_lines = [
     "^\\s*self\\.\\w+(:\\s*[^=]+)?\\s*=.*$",
     "continue",
 ]
-
 
 [tool.ruff]
 line-length = 120
