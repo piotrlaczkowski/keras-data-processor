@@ -16,7 +16,7 @@ jobs:
         id: semantic-release
         uses: "piotrlaczkowski/keras-data-processor/.github/templates/github/semantic_release@main"
         with:
-          PROJECT_NAME: PARROT
+          PROJECT_NAME: KDP
           PROJECT_DIRECTORY: .
           BRANCHES: main
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
