@@ -14,6 +14,7 @@ class FeatureType(Enum):
     FLOAT = "float"
     INTEGER_CATEGORICAL = "integer_categorical"
     STRING_CATEGORICAL = "string_categorical"
+    TEXT = "text"
 
 
 class WelfordAccumulator:

@@ -53,13 +53,13 @@ class PreprocessingModel:
         self.features_stats = features_stats or {}
         self.numeric_features = numeric_features or []
         self.categorical_features = categorical_features or []
-        self.text_features = text_features or []
+        self.text_features = text_features or [k for k, v in features_specs.items() if v == FeatureType.TEXT] or []
         self.text_features_config = text_features_config or {
             "max_tokens": 10_000,
             "output_mode": TextVectorizerOutputOptions.INT,
             "output_sequence_length": 50,
         }
-        self.features_specs = features_specs or {}
+        self.features_specs = {k: v for k, v in features_specs.items() if v != FeatureType.TEXT} or {}
         self.category_encoding_option = category_encoding_option
         self.features_stats_path = features_stats_path or "features_stats.json"
         self.feature_crosses = feature_crosses or []
@@ -301,7 +301,7 @@ class PreprocessingModel:
         # checking if we have custom setting per feature
         _feature_config = self.text_features_config.get(feature_name) or self.text_features_config
         # getting stop words for text preprocessing
-        _stop_words = _feature_config.pop("stop_words")
+        _stop_words = _feature_config.get("stop_words")
 
         if _stop_words:
             preprocessor.add_processing_step(
