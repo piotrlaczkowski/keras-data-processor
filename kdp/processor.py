@@ -21,6 +21,12 @@ class OutputModeOptions(auto):
     DICT = "dict"
 
 
+class TextVectorizerOutputOptions(auto):
+    TF_IDF = "tf_idf"
+    INT = "int"
+    MULTI_HOT = "multi_hot"
+
+
 class PreprocessingModel:
     def __init__(
         self,
@@ -29,6 +35,8 @@ class PreprocessingModel:
         batch_size: int = 50_000,
         numeric_features: list[str] = None,
         categorical_features: list[str] = None,
+        text_features: list[str] = None,
+        text_features_config: dict = None,
         feature_crosses: list[tuple[str, str, int]] = None,
         numeric_feature_buckets: dict[str, list[float]] = None,
         features_stats_path: str = None,
@@ -45,6 +53,12 @@ class PreprocessingModel:
         self.features_stats = features_stats or {}
         self.numeric_features = numeric_features or []
         self.categorical_features = categorical_features or []
+        self.text_features = text_features or []
+        self.text_features_config = text_features_config or {
+            "max_tokens": 10_000,
+            "output_mode": TextVectorizerOutputOptions.INT,
+            "output_sequence_length": 50,
+        }
         self.features_specs = features_specs or {}
         self.category_encoding_option = category_encoding_option
         self.features_stats_path = features_stats_path or "features_stats.json"
@@ -84,6 +98,9 @@ class PreprocessingModel:
         if self.categorical_features:
             _data_stats_kwrgs["categorical_cols"] = self.categorical_features
             logger.debug(f"Categorical Features: {self.categorical_features}")
+
+        if self.text_features:
+            logger.debug(f"Text Features: {self.text_features}")
 
         if self.features_specs:
             _data_stats_kwrgs["features_specs"] = self.features_specs
@@ -272,6 +289,36 @@ class PreprocessingModel:
             # updating output based on the one-hot-encoded data
             self.output_dims += nr_bins
 
+    def _add_pipeline_text(self, feature_name: str, input_layer) -> None:
+        """Add a text preprocessing step to the pipeline.
+
+        Args:
+            feature_name (str): The name of the feature to be preprocessed.
+            input_layer: The input layer for the feature.
+        """
+        preprocessor = FeaturePreprocessor(name=feature_name)
+
+        # checking if we have custom setting per feature
+        _feature_config = self.text_features_config.get(feature_name) or self.text_features_config
+        # getting stop words for text preprocessing
+        _stop_words = _feature_config.pop("stop_words")
+
+        if _stop_words:
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.create_text_preprocessing_layer,
+                stop_words=_stop_words,
+                name=f"text_preprocessor_{feature_name}",
+            )
+        preprocessor.add_processing_step(
+            layer_creator=PreprocessorLayerFactory.create_text_vectorization_layer,
+            conf=_feature_config,
+            name=f"text_vactorizer_{feature_name}",
+        )
+
+        self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
+        # updating output vector dim
+        self.output_dims += _feature_config["output_sequence_length"]
+
     def _prepare_outputs(self) -> None:
         """Preparing the outputs of the model.
 
@@ -339,6 +386,17 @@ class PreprocessingModel:
         if self.feature_crosses:
             logger.info("Processing feature type: cross feature")
             self._add_pipeline_cross(
+                feature_name=feature_name,
+                input_layer=input_layer,
+            )
+
+        # TEXT FEATURES
+        for feature_name in self.text_features:
+            logger.info("Processing feature type: text")
+            self._add_input_column(feature_name=feature_name, dtype=tf.string)
+            self._add_input_signature(feature_name=feature_name, dtype=tf.string)
+            input_layer = self.inputs[feature_name]
+            self._add_pipeline_text(
                 feature_name=feature_name,
                 input_layer=input_layer,
             )
