@@ -1,4 +1,5 @@
 import tensorflow as tf
+from custom_layers import TextPreprocessingLayer
 
 
 class PreprocessorLayerFactory:
@@ -10,6 +11,9 @@ class PreprocessorLayerFactory:
             mean: The mean of the feature.
             variance: The variance of the feature.
             name: The name of the layer.
+
+        Return:
+            A normalization layer.
         """
         return tf.keras.layers.Normalization(
             mean=mean,
@@ -24,6 +28,9 @@ class PreprocessorLayerFactory:
         Args:
             boundaries: The boundaries of the buckets.
             name: The name of the layer.
+
+        Return:
+            A discretization layer.
         """
         return tf.keras.layers.Discretization(
             bin_boundaries=boundaries,
@@ -38,6 +45,9 @@ class PreprocessorLayerFactory:
             input_dim: The input dimension.
             output_dim: The output dimension.
             name: The name of the layer.
+
+        Return:
+            An embedding layer.
         """
         return tf.keras.layers.Embedding(
             input_dim=input_dim,
@@ -53,6 +63,9 @@ class PreprocessorLayerFactory:
             num_tokens: The number of tokens.
             output_mode: The output mode.
             name: The name of the layer.
+
+        Return:
+            A category encoding layer.
         """
         return tf.keras.layers.CategoryEncoding(
             num_tokens=num_tokens,
@@ -68,6 +81,9 @@ class PreprocessorLayerFactory:
             vocabulary: The vocabulary.
             num_oov_indices: The number of out-of-vocabulary indices.
             name: The name of the layer.
+
+        Return:
+            A string lookup layer.
         """
         return tf.keras.layers.StringLookup(
             vocabulary=vocabulary,
@@ -83,6 +99,9 @@ class PreprocessorLayerFactory:
             vocabulary: The vocabulary.
             num_oov_indices: The number of out-of-vocabulary indices.
             name: The name of the layer.
+
+        Return:
+            An integer lookup layer.
         """
         return tf.keras.layers.IntegerLookup(
             vocabulary=vocabulary,
@@ -97,6 +116,9 @@ class PreprocessorLayerFactory:
         Args:
             nr_bins: Nr Bins.
             name: The name of the layer.
+
+        Return:
+            A crossing layer.
         """
         return tf.keras.layers.HashedCrossing(
             num_bins=nr_bins,
@@ -111,6 +133,9 @@ class PreprocessorLayerFactory:
 
         Args:
             name: The name of the layer.
+
+        Return:
+            A flatten layer.
         """
         return tf.keras.layers.Flatten(
             name=name,
@@ -122,7 +147,42 @@ class PreprocessorLayerFactory:
 
         Args:
             name: The name of the layer.
+
+        Return:
+            A concatenate layer.
         """
         return tf.keras.layers.Concatenate(
+            name=name,
+        )
+
+    @staticmethod
+    def create_text_preprocessing_layer(stop_words: list, name: str = "text_preprocessing") -> tf.keras.layers.Layer:
+        """Create a text preprocessing layer to remove punctuation and stop words.
+
+        Args:
+            stop_words: A list of stop words to remove.
+            name: The name of the layer.
+
+        Returns:
+            A text preprocessing layer.
+        """
+        return TextPreprocessingLayer(
+            stop_words=stop_words,
+            name=name,
+        )
+
+    @staticmethod
+    def create_text_vectorization_layer(conf: dict, name: str = "text_vectorization") -> tf.keras.layers.Layer:
+        """Create a text vectorization layer.
+
+        Args:
+            conf: The configuration dictionary.
+            name: The name of the layer.
+
+        Returns:
+            A text vectorization layer.
+        """
+        return tf.keras.layers.TextVectorization(
+            **conf,
             name=name,
         )
