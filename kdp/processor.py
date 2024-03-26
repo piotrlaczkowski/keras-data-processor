@@ -4,16 +4,12 @@ from enum import auto
 from typing import Any
 
 import tensorflow as tf
+from features import CategoricalFeature, CategoryEncodingOptions, FeatureType, NumericalFeature, TextFeature
 from loguru import logger
 
 from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.pipeline import FeaturePreprocessor
-from kdp.stats import DatasetStatistics, FeatureType
-
-
-class CategoryEncodingOptions(auto):
-    ONE_HOT_ENCODING = "ONE_HOT_ENCODING"
-    EMBEDDING = "EMBEDDING"
+from kdp.stats import DatasetStatistics
 
 
 class OutputModeOptions(auto):
@@ -33,17 +29,10 @@ class PreprocessingModel:
         features_stats: dict[str, Any] = None,
         path_data: str = None,
         batch_size: int = 50_000,
-        numeric_features: list[str] = None,
-        categorical_features: list[str] = None,
-        text_features: list[str] = None,
-        text_features_config: dict = None,
-        feature_crosses: list[tuple[str, str, int]] = None,
-        numeric_feature_buckets: dict[str, list[float]] = None,
+        feature_crosses: list[tuple[str, str]] = None,
         features_stats_path: str = None,
-        category_encoding_option: str = CategoryEncodingOptions.EMBEDDING,
         output_mode: str = OutputModeOptions.CONCAT,
         overwrite_stats: bool = False,
-        embedding_custom_size: dict[str, int] = None,
         log_to_file: bool = False,
         features_specs: dict[str, FeatureType | str] = None,
     ) -> None:
@@ -51,36 +40,76 @@ class PreprocessingModel:
         self.path_data = path_data
         self.batch_size = batch_size or 50_000
         self.features_stats = features_stats or {}
-        self.numeric_features = numeric_features or []
-        self.categorical_features = categorical_features or []
-        self.text_features = text_features or [k for k, v in features_specs.items() if v == FeatureType.TEXT] or []
-        self.text_features_config = text_features_config or {
-            "max_tokens": 10_000,
-            "output_mode": TextVectorizerOutputOptions.INT,
-            "output_sequence_length": 50,
-        }
-        self.features_specs = {k: v for k, v in features_specs.items() if v != FeatureType.TEXT} or {}
-        self.category_encoding_option = category_encoding_option
+        self.features_specs = features_specs or {}
         self.features_stats_path = features_stats_path or "features_stats.json"
         self.feature_crosses = feature_crosses or []
-        self.numeric_feature_buckets = numeric_feature_buckets or {}
         self.output_mode = output_mode
         self.overwrite_stats = overwrite_stats
-        self.embedding_custom_size = embedding_custom_size or {}
 
         # PLACEHOLDERS
         self.preprocessors = {}
         self.inputs = {}
         self.signature = {}
         self.outputs = {}
-        self.output_dims = 0
 
         if log_to_file:
             logger.info("Logging to file enabled 🗂️")
             logger.add("PreprocessModel.log")
 
+        # formatting features info
+        self._init_features_specs(features_specs=features_specs)
+
         # initializing stats
         self._init_stats()
+
+    def _init_features_specs(self, features_specs: dict) -> None:
+        """Format the features space into a dictionary.
+
+        Args:
+            features_specs (dict): A dictionary with the features and their types,
+            where types can be specified as either FeatureType enums,
+            class instances (NumericalFeature, CategoricalFeature, TextFeature), or strings.
+        """
+        features_space = {}
+        self.numeric_features = []
+        self.categorical_features = []
+        self.text_features = []
+
+        for name, spec in features_specs.items():
+            # Direct instance check
+            if isinstance(spec, NumericalFeature | CategoricalFeature | TextFeature):
+                feature_instance = spec
+            else:
+                # Convert string to FeatureType if necessary
+                feature_type = FeatureType[spec.upper()] if isinstance(spec, str) else spec
+
+                # Creating feature objects based on type
+                if feature_type in {
+                    FeatureType.FLOAT,
+                    FeatureType.FLOAT_NORMALIZED,
+                    FeatureType.FLOAT_RESCALED,
+                    FeatureType.FLOAT_DISCRETIZED,
+                }:
+                    feature_instance = NumericalFeature(name=name, feature_type=feature_type)
+                elif feature_type in {FeatureType.INTEGER_CATEGORICAL, FeatureType.STRING_CATEGORICAL}:
+                    feature_instance = CategoricalFeature(name=name, feature_type=feature_type)
+                elif feature_type == FeatureType.TEXT:
+                    feature_instance = TextFeature(name=name, feature_type=feature_type)
+                else:
+                    raise ValueError(f"Unsupported feature type for feature '{name}': {spec}")
+
+            # Categorize feature based on its class
+            if isinstance(feature_instance, NumericalFeature):
+                self.numeric_features.append(name)
+            elif isinstance(feature_instance, CategoricalFeature):
+                self.categorical_features.append(name)
+            elif isinstance(feature_instance, TextFeature):
+                self.text_features.append(name)
+
+            # Adding formatted spec to the features_space dictionary
+            features_space[name] = feature_instance
+
+        self.features_specs = features_space
 
     def _init_stats(self) -> None:
         """Initialize the statistics for the model.
@@ -90,37 +119,15 @@ class PreprocessingModel:
             we only need numeric and cat features stats for layers
             crosses and numeric do not need layers init
         """
-        _data_stats_kwrgs = {"path_data": self.path_data}
-        if self.numeric_features:
-            _data_stats_kwrgs["numeric_cols"] = self.numeric_features
-            logger.debug(f"Numeric Features: {self.numeric_features}")
-
-        if self.categorical_features:
-            _data_stats_kwrgs["categorical_cols"] = self.categorical_features
-            logger.debug(f"Categorical Features: {self.categorical_features}")
-
-        if self.text_features:
-            logger.debug(f"Text Features: {self.text_features}")
-
-        if self.features_specs:
-            _data_stats_kwrgs["features_specs"] = self.features_specs
-            logger.debug(f"Features Specs: {self.features_specs}")
-
         if not self.features_stats:
             logger.info("No features stats provided, trying to load local file 🌪️")
-            self.stats_instance = DatasetStatistics(**_data_stats_kwrgs)
+            self.stats_instance = DatasetStatistics(
+                path_data=self.path_data,
+                features_specs=self.features_specs,
+                numeric_features=self.numeric_features,
+                categorical_features=self.categorical_features,
+            )
             self.features_stats = self.stats_instance._load_stats()
-
-    def _embedding_size_rule(self, nr_categories: int) -> int:
-        """Returns the embedding size for a given number of categories using the Embedding Size Rule of Thumb.
-
-        Args:
-            nr_categories (int): The number of categories.
-
-        Returns:
-            int: The embedding size.
-        """
-        return min(500, round(1.6 * nr_categories**0.56))
 
     def _add_input_column(self, feature_name: str, dtype) -> None:
         """Add an input column to the model.
@@ -160,18 +167,77 @@ class PreprocessingModel:
             stats (dict): A dictionary containing the metadata of the feature, including
                 the mean and variance of the feature.
         """
-        preprocessor = FeaturePreprocessor(name=feature_name)
+        # exgtracting stats
         mean = stats["mean"]
         variance = stats["var"]
-        preprocessor.add_processing_step(
-            layer_creator=PreprocessorLayerFactory.create_normalization_layer,
-            mean=mean,
-            variance=variance,
-            name=f"norm_{feature_name}",
-        )
-        self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
-        # updating output vector dim
-        self.output_dims += 1
+
+        # getting feature object
+        _feature = self.features_specs[feature_name]
+
+        # default output dims for simple transformations
+        _out_dims = 1  # FLOAT_NORMALIZED | FLOAT_RESCALED
+
+        # initializing preprocessor
+        preprocessor = FeaturePreprocessor(name=feature_name)
+
+        # Check if feature has specific preprocessing steps defined
+        if hasattr(_feature, "preprocessors") and _feature.preprocessors:
+            for preprocessor in _feature.preprocessors:
+                preprocessor.add_processing_step(
+                    layer_creator=preprocessor,
+                    name=f"{preprocessor.__name__}_{feature_name}",
+                )
+        else:
+            # Default behavior if no specific preprocessing is defined
+            if _feature.feature_type == FeatureType.FLOAT_NORMALIZED:
+                logger.debug("Adding Float Normalized Feature")
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.normalization_layer,
+                    mean=mean,
+                    variance=variance,
+                    name=f"norm_{feature_name}",
+                )
+            elif _feature.feature_type == FeatureType.FLOAT_RESCALED:
+                logger.debug("Adding Float Rescaled Feature")
+                rescaling_scale = _feature.kwargs.get("scale", 1.0)  # Default scale is 1.0 if not specified
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.rescaling_layer,
+                    scale=rescaling_scale,
+                    name=f"rescale_{feature_name}",
+                )
+            elif _feature.feature_type == FeatureType.FLOAT_DISCRETIZED:
+                logger.debug("Adding Float Discretized Feature")
+                # output dimentions will be > 1
+                _out_dims = len(_feature.kwargs.get("bin_boundaries", 1.0)) + 1
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.discretization_layer,
+                    **_feature.kwargs,
+                    name=f"discretize_{feature_name}",
+                )
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.category_encoding_layer,
+                    num_tokens=_out_dims,
+                    output_mode="one_hot",
+                    name=f"one_hot_{feature_name}",
+                )
+            else:
+                logger.debug("Adding Float Normalized Feature -> Default Option")
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.normalization_layer,
+                    mean=mean,
+                    variance=variance,
+                    name=f"norm_{feature_name}",
+                )
+        # defining the pipeline input layer
+        _output_pipeline = preprocessor.chain(input_layer=input_layer)
+
+        # adjusting output
+        # if _feature.feature_type == FeatureType.FLOAT_DISCRETIZED:
+        # Cast the crossed feature to float32
+        # _output_pipeline = tf.cast(_output_pipeline, tf.float32)
+
+        # defining output
+        self.outputs[feature_name] = _output_pipeline
 
     def _add_pipeline_categorical(self, feature_name: str, input_layer, stats: dict) -> None:
         """Add a categorical preprocessing step to the pipeline.
@@ -183,83 +249,107 @@ class PreprocessingModel:
                 the vocabulary of the feature.
         """
         vocab = stats["vocab"]
-        dtype = stats["dtype"]
-        emb_size = self.embedding_custom_size.get(feature_name) or self._embedding_size_rule(nr_categories=len(vocab))
-        preprocessor = FeaturePreprocessor(name=feature_name)
-        # setting up lookup layer based on dtype
-        if dtype == tf.string:
-            preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.create_string_lookup_layer,
-                vocabulary=vocab,
-                num_oov_indices=1,
-                name=f"lookup_{feature_name}",
-            )
-        else:
-            preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.create_integer_lookup_layer,
-                vocabulary=vocab,
-                num_oov_indices=1,
-                name=f"lookup_{feature_name}",
-            )
 
-        if self.category_encoding_option.upper() == CategoryEncodingOptions.EMBEDDING:
+        # getting feature object
+        _feature = self.features_specs[feature_name]
+
+        # initializing preprocessor
+        preprocessor = FeaturePreprocessor(name=feature_name)
+
+        # Check if feature has specific preprocessing steps defined
+        if hasattr(_feature, "preprocessors") and _feature.preprocessors:
+            logger.info(f"Adding custom preprocessors for {feature_name}")
+            for preprocessor in _feature.preprocessors:
+                preprocessor.add_processing_step(
+                    layer_creator=preprocessor,
+                    name=f"{preprocessor.__name__}_{feature_name}",
+                )
+        else:
+            # Default behavior if no specific preprocessing is defined
+            if _feature.feature_type == FeatureType.STRING_CATEGORICAL:
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.string_lookup_layer,
+                    vocabulary=vocab,
+                    num_oov_indices=1,
+                    name=f"lookup_{feature_name}",
+                )
+            elif _feature.feature_type == FeatureType.INTEGER_CATEGORICAL:
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.integer_lookup_layer,
+                    vocabulary=vocab,
+                    num_oov_indices=1,
+                    name=f"lookup_{feature_name}",
+                )
+
+        if _feature.category_encoding == CategoryEncodingOptions.EMBEDDING:
+            _custom_embedding_size = _feature.kwargs.get("embedding_size")
+            _vocab_size = len(vocab) + 1
+            logger.debug(f"{_custom_embedding_size = }, {_vocab_size = }")
+            emb_size = _custom_embedding_size or _feature._embedding_size_rule(nr_categories=_vocab_size)
+            logger.debug(f"{feature_name = }, {emb_size = }")
             preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.create_embedding_layer,
+                layer_creator=PreprocessorLayerFactory.embedding_layer,
                 input_dim=len(vocab) + 1,
                 output_dim=emb_size,
                 name=f"embed_{feature_name}",
             )
-        else:
+        elif _feature.category_encoding == CategoryEncodingOptions.ONE_HOT_ENCODING:
             preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.create_category_encoding_layer,
+                layer_creator=PreprocessorLayerFactory.category_encoding_layer,
                 num_tokens=len(vocab) + 1,
                 output_mode="one_hot",
                 name=f"one_hot_{feature_name}",
             )
+
         # we need to flatten the categorical feature
         preprocessor.add_processing_step(
-            layer_creator=PreprocessorLayerFactory.create_flatten_layer,
+            layer_creator=PreprocessorLayerFactory.flatten_layer,
             name=f"flatten_{feature_name}",
         )
         # adding outputs
-        # self.outputs[feature_name] = preprocessor.preprocess(input_tensor)
         self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
-        # updating output vector dim
-        self.output_dims += emb_size
 
-    def _add_pipeline_bucketize(self, feature_name: str, input_layer) -> None:
-        """Add a bucketization preprocessing step to the pipeline.
+    def _add_pipeline_text(self, feature_name: str, input_layer) -> None:
+        """Add a text preprocessing step to the pipeline.
 
         Args:
             feature_name (str): The name of the feature to be preprocessed.
             input_layer: The input layer for the feature.
         """
-        for feature_name, boundaries in self.numeric_feature_buckets.items():
-            logger.info(f"Adding bucketized {feature_name = } 🪣")
-            preprocessor = FeaturePreprocessor(name=feature_name)
+        # getting feature object
+        _feature = self.features_specs[feature_name]
 
-            # checking inputs
-            _input = self.inputs.get(feature_name)
-            if not _input:
-                self._add_input_column(feature_name=feature_name, dtype=tf.float32)
+        # initializing preprocessor
+        preprocessor = FeaturePreprocessor(name=feature_name)
 
+        # Check if feature has specific preprocessing steps defined
+        if hasattr(_feature, "preprocessors") and _feature.preprocessors:
+            for preprocessor in _feature.preprocessors:
+                preprocessor.add_processing_step(
+                    layer_creator=preprocessor,
+                    name=f"{preprocessor.__name__}_{feature_name}",
+                )
+            # TODO: check if we can get the last dimetions of the preprocessor
+            _out_len = 1
+        else:
+            # checking if we have stop words provided
+            _stop_words = _feature.kwargs.get("stop_words", [])
+            if _stop_words:
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.text_preprocessing_layer,
+                    name=f"text_preprocessor_{feature_name}",
+                    **_feature.kwargs,
+                )
+            if "output_sequence_length" not in _feature.kwargs:
+                _feature.kwargs["output_sequence_length"] = 35
             preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.create_discretization_layer,
-                boundaries=boundaries,
-                name=f"bucketize_{feature_name}",
+                layer_creator=PreprocessorLayerFactory.text_vectorization_layer,
+                name=f"text_vactorizer_{feature_name}",
+                **_feature.kwargs,
             )
-            preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.create_category_encoding_layer,
-                num_tokens=len(boundaries) + 1,
-                output_mode="one_hot",
-                name=f"one_hot_{feature_name}",
-            )
-            _output_pipe = preprocessor.chain(input_layer=input_layer)
-            # Cast the crossed feature to float32
-            self.outputs[feature_name] = tf.cast(_output_pipe, tf.float32)
-            # updating output vector dim
-            self.output_dims += 1
-            logger.info("Bucketized Column ✅")
+            _out_len = _feature.kwargs.get("output_sequence_length", 1)
+
+        self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
 
     def _add_pipeline_cross(self, stats: dict) -> None:
         """Add a crossing preprocessing step to the pipeline.
@@ -280,44 +370,12 @@ class PreprocessingModel:
                     self._add_input_column(feature_name=_feature, dtype=_col_dtype)
 
             preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.create_crossing_layer,
+                layer_creator=PreprocessorLayerFactory.crossing_layer,
                 depth=nr_bins,
                 name=f"cross_{feature_a}_{feature_b}",
             )
             crossed_input = [self.inputs[feature_a], self.inputs[feature_b]]
             self.outputs[f"{feature_a}_x_{feature_b}"] = preprocessor.chain(input_data=crossed_input)
-            # updating output based on the one-hot-encoded data
-            self.output_dims += nr_bins
-
-    def _add_pipeline_text(self, feature_name: str, input_layer) -> None:
-        """Add a text preprocessing step to the pipeline.
-
-        Args:
-            feature_name (str): The name of the feature to be preprocessed.
-            input_layer: The input layer for the feature.
-        """
-        preprocessor = FeaturePreprocessor(name=feature_name)
-
-        # checking if we have custom setting per feature
-        _feature_config = self.text_features_config.get(feature_name) or self.text_features_config
-        # getting stop words for text preprocessing
-        _stop_words = _feature_config.get("stop_words")
-
-        if _stop_words:
-            preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.create_text_preprocessing_layer,
-                stop_words=_stop_words,
-                name=f"text_preprocessor_{feature_name}",
-            )
-        preprocessor.add_processing_step(
-            layer_creator=PreprocessorLayerFactory.create_text_vectorization_layer,
-            conf=_feature_config,
-            name=f"text_vactorizer_{feature_name}",
-        )
-
-        self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
-        # updating output vector dim
-        self.output_dims += _feature_config["output_sequence_length"]
 
     def _prepare_outputs(self) -> None:
         """Preparing the outputs of the model.
@@ -374,14 +432,6 @@ class PreprocessingModel:
                         input_layer=input_layer,
                         stats=stats,
                     )
-        # BUCKETIZED NUMERIC FEATURES
-        if self.numeric_feature_buckets:
-            logger.info("Processing feature type: bucketized feature")
-            self._add_pipeline_bucketize(
-                feature_name=feature_name,
-                input_layer=input_layer,
-                stats=stats,
-            )
         # CROSSING FEATURES
         if self.feature_crosses:
             logger.info("Processing feature type: cross feature")
@@ -414,14 +464,15 @@ class PreprocessingModel:
         )
 
         # displaying information
+        _output_dims = self.model.output_shape[1]
         logger.info(f"Preprocessor Model built successfully ✅, summary: {self.model.summary()}")
         logger.info(f"Imputs: {self.inputs.keys()}")
-        logger.info(f"Output model mode: {self.output_mode} with size: {self.output_dims}")
+        logger.info(f"Output model mode: {self.output_mode} with size: {_output_dims}")
         return {
             "model": self.model,
             "inputs": self.inputs,
             "signature": self.signature,
-            "output_dims": self.output_dims,
+            "output_dims": _output_dims,
         }
 
     def batch_predict(self, data: tf.data.Dataset, model: tf.keras.Model = None) -> Generator:
@@ -459,5 +510,7 @@ class PreprocessingModel:
             to_file="preprocessor_model.png",
             show_shapes=True,
             show_dtype=True,
+            show_layer_names=True,
+            show_trainable=True,
             dpi=100,
         )

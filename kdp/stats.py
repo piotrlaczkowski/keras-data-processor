@@ -1,20 +1,11 @@
 import json
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import tensorflow as tf
+from features import CategoricalFeature, FeatureType, NumericalFeature
 from loguru import logger
-
-
-class FeatureType(Enum):
-    """Enum for the different types of features supported by the statistics calculator."""
-
-    FLOAT = "float"
-    INTEGER_CATEGORICAL = "integer_categorical"
-    STRING_CATEGORICAL = "string_categorical"
-    TEXT = "text"
 
 
 class WelfordAccumulator:
@@ -113,9 +104,9 @@ class DatasetStatistics:
     def __init__(
         self,
         path_data: str,
-        numeric_cols: list[str] = None,
-        categorical_cols: list[str] = None,
         features_specs: dict[str, FeatureType | str] = None,
+        numeric_features: list[NumericalFeature] = None,
+        categorical_features: list[CategoricalFeature] = None,
         features_stats_path: Path = None,
         overwrite_stats: bool = False,
         batch_size: int = 50_000,
@@ -125,17 +116,17 @@ class DatasetStatistics:
         Args:
             path_data: Path to the folder containing the CSV files.
             batch_size: The batch size to use when reading data from the dataset.
-            numeric_cols: List of numeric feature names (defaults to None).
-            categorical_cols: List of categorical feature names (defaults to None).
             features_stats_path: Path to the features statistics JSON file (defaults to None).
             overwrite_stats: Whether or not to overwrite existing statistics file (defaults to False).
             features_specs:
                 A dictionary mapping feature names to feature specifications (defaults to None).
                 Easier alternative to proviginh numerical and categorical lists.
+            numeric_features: A list of numerical features to calculate statistics for (defaults to None).
+            categorical_features: A list of categorical features to calculate statistics for (defaults to None).
         """
         self.path_data = path_data
-        self.numeric_cols = numeric_cols or []
-        self.categorical_cols = categorical_cols or []
+        self.numeric_features = numeric_features or []
+        self.categorical_features = categorical_features or []
         self.features_specs = features_specs or {}
         self.features_stats_path = features_stats_path or "features_stats.json"
         self.overwrite_stats = overwrite_stats
@@ -144,44 +135,34 @@ class DatasetStatistics:
         # placeholders
         self.features_dtypes = {}
 
-        # checkinng if we have feature specs or numerical and categorical columns
-        if not (numeric_cols or categorical_cols):
-            if not features_specs:
-                raise ValueError("You must provide either numeric_cols and/or categorical_cols or features_specs 🚨")
-            # extracting info from feature scope
-            self._parse_features_specs()
-
-        if not features_specs and not (numeric_cols or categorical_cols):
-            raise ValueError("You must provide either numeric_cols and/or categorical_cols OR features_specs 🚨")
-
         # Initializing placeholders for statistics
-        self.numeric_stats = {col: WelfordAccumulator() for col in self.numeric_cols}
-        self.categorical_stats = {col: CategoricalAccumulator() for col in self.categorical_cols}
+        self.numeric_stats = {col: WelfordAccumulator() for col in self.numeric_features}
+        self.categorical_stats = {col: CategoricalAccumulator() for col in self.categorical_features}
 
-    def _parse_features_specs(self) -> None:
-        """Parses the features specifications and updates the numeric and categorical columns accordingly."""
-        logger.info("Parsing features specifications ...")
-        for feature, spec in self.features_specs.items():
-            # Ensure spec is always the string representation, whether it's an enum member or a string
-            spec_value = spec if isinstance(spec, str) else spec.value
-            logger.debug(f"Processing {feature =} with {spec_value =}")
-            if spec_value == FeatureType.FLOAT.value:
-                self.numeric_cols.append(feature)
-                self.features_dtypes[feature] = tf.float32
-                logger.debug(f"Adding {feature =} as a numeric feature")
+    # def _parse_features_specs(self) -> None:
+    #     """Parses the features specifications and updates the numeric and categorical columns accordingly."""
+    #     logger.info("Parsing features specifications ...")
+    #     for feature, spec in self.features_specs.items():
+    #         # Ensure spec is always the string representation, whether it's an enum member or a string
+    #         spec_value = spec if isinstance(spec, str) else spec.value
+    #         logger.debug(f"Processing {feature =} with {spec_value =}")
+    #         if spec_value == FeatureType.FLOAT.value:
+    #             self.numeric_features.append(feature)
+    #             self.features_dtypes[feature] = tf.float32
+    #             logger.debug(f"Adding {feature =} as a numeric feature")
 
-            elif spec_value == FeatureType.INTEGER_CATEGORICAL.value:
-                self.categorical_cols.append(feature)
-                self.features_dtypes[feature] = tf.int32
-                logger.debug(f"Adding {feature =} as a integer categorical feature")
+    #         elif spec_value == FeatureType.INTEGER_CATEGORICAL.value:
+    #             self.categorical_features.append(feature)
+    #             self.features_dtypes[feature] = tf.int32
+    #             logger.debug(f"Adding {feature =} as a integer categorical feature")
 
-            elif spec_value == FeatureType.STRING_CATEGORICAL.value:
-                self.categorical_cols.append(feature)
-                self.features_dtypes[feature] = tf.string
-                logger.debug(f"Adding {feature =} as a string categorical feature")
-            else:
-                _availble_specs = [spec.value for spec in FeatureType]
-                raise ValueError(f"Invalid {feature = }, {spec_value =}, You must use {_availble_specs =}")
+    #         elif spec_value == FeatureType.STRING_CATEGORICAL.value:
+    #             self.categorical_features.append(feature)
+    #             self.features_dtypes[feature] = tf.string
+    #             logger.debug(f"Adding {feature =} as a string categorical feature")
+    #         else:
+    #             _availble_specs = [spec.value for spec in FeatureType]
+    #             raise ValueError(f"Invalid {feature = }, {spec_value =}, You must use {_availble_specs =}")
 
     def _get_csv_file_pattern(self, path) -> str:
         """Get the csv file pattern that will handle directories and file paths.
@@ -218,88 +199,48 @@ class DatasetStatistics:
         logger.info(f"DataSet Ready to be used (batched by: {self.batch_size}) ✅")
         return self.ds
 
-    def _infer_feature_dtypes(self, dataset: tf.data.Dataset) -> None:
-        """Infer data types for features based on a sample from the dataset.
-
-        Args:
-            dataset: The dataset to sample from for data type inference.
-
-        Returns:
-            A dictionary mapping feature names to inferred TensorFlow data types.
-        """
-        logger.info("Inferring data types for features based on a sample from the dataset 🔬")
-        self.feature_dtypes = {}
-        for batch in dataset.take(1):  # Sample the first batch
-            for feature in self.categorical_cols:
-                # Check the data type of the first element in the batch for this feature
-                value = batch[feature].numpy()[0]
-                # checking if I can cast to int32
-                try:
-                    value = tf.cast(value, tf.int32)
-                    # value = keras.ops.cast(value, "int32")
-                    logger.debug(f"Value {value} of {feature} can be cast to int32")
-                    inferred_dtype = tf.int32
-                except Exception:
-                    _type = type(value)
-                    logger.debug(f"Value {value} of {feature} is of type {_type} and cannot be cast to int32")
-                    inferred_dtype = tf.string
-                logger.debug(f"Inferred dtype for {feature} (value: {value}): {inferred_dtype}")
-                self.features_dtypes[feature] = inferred_dtype
-
-            for feature in self.numeric_cols:
-                self.features_dtypes[feature] = tf.float32
-
-        return self.features_dtypes
-
-    def _get_dtype_for_feature(self, feature_name: str) -> tf.dtypes.DType:
-        """Returns the TensorFlow data type for a given feature, with special handling for categorical features.
-
-        Args:
-            feature_name: The name of the feature for which to get the data type.
-
-        Returns:
-            The TensorFlow data type for the given feature.
-        """
-        # Use inferred dtype if available, otherwise default to float32 for numeric and string for categorical
-        return self.features_dtypes.get(feature_name, tf.float32 if feature_name in self.numeric_cols else tf.string)
-
     def _process_batch(self, batch: tf.Tensor) -> None:
         """Update statistics accumulators for each batch.
 
         Args:
             batch: A batch of data from the dataset.
         """
-        for feature in self.numeric_cols:
+        for feature in self.numeric_features:
             self.numeric_stats[feature].update(batch[feature])
 
-        for feature in self.categorical_cols:
+        for feature in self.categorical_features:
             self.categorical_stats[feature].update(batch[feature])
 
     def _compute_final_statistics(self) -> dict[str, dict]:
         """Compute final statistics for numeric and categorical features."""
         logger.info("Computing final statistics for numeric and categorical features 📊")
         final_stats = {"numeric_stats": {}, "categorical_stats": {}}
-        for feature in self.numeric_cols:
+        for feature in self.numeric_features:
+            logger.debug(f"numeric {feature =}")
             final_stats["numeric_stats"][feature] = {
                 "mean": self.numeric_stats[feature].mean.numpy(),
                 "count": self.numeric_stats[feature].count.numpy(),
                 "var": self.numeric_stats[feature].variance.numpy(),
-                "dtype": self._get_dtype_for_feature(feature_name=feature),
+                "dtype": self.features_specs[feature].dtype,
             }
 
-        for feature in self.categorical_cols:
+        for feature in self.categorical_features:
+            logger.debug(f"categorical {feature =}")
             # Convert TensorFlow string tensor to Python list for unique values
-            _dtype = self.features_dtypes.get(feature, tf.string)
+            _dtype = self.features_specs[feature].dtype
+            logger.debug(f"{_dtype =}")
+            # converting unique values
             if _dtype == tf.int32:
                 unique_values = [int(_byte) for _byte in self.categorical_stats[feature].get_unique_values()]
                 unique_values.sort()
             else:
                 _unique_values = self.categorical_stats[feature].get_unique_values()
                 unique_values = [(_byte).decode("utf-8") for _byte in _unique_values]
+            # forming stats
             final_stats["categorical_stats"][feature] = {
                 "size": len(unique_values),
                 "vocab": unique_values,
-                "dtype": self._get_dtype_for_feature(feature_name=feature),
+                "dtype": _dtype,
             }
 
         return final_stats
@@ -313,11 +254,6 @@ class DatasetStatistics:
         logger.info("Calculating statistics for the dataset 📊")
         for batch in dataset:
             self._process_batch(batch)
-
-        # Infer data types for features
-        if not self.features_specs:
-            logger.debug("Infering features dtypes")
-            self.features_dtypes = self._infer_feature_dtypes(dataset) if dataset is not None else {}
 
         # calculating data statistics
         self.features_stats = self._compute_final_statistics()

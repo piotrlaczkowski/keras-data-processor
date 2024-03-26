@@ -1,188 +1,236 @@
+import inspect
+
 import tensorflow as tf
 from custom_layers import TextPreprocessingLayer
 
 
 class PreprocessorLayerFactory:
     @staticmethod
-    def create_normalization_layer(mean: float, variance: float, name: str) -> tf.keras.layers.Layer:
-        """Create a normalization layer.
+    def create_layer(layer_class, name: str = None, **kwargs) -> tf.keras.layers.Layer:
+        """Create a layer, automatically filtering kwargs based on the provided layer_class.
 
         Args:
-            mean: The mean of the feature.
-            variance: The variance of the feature.
-            name: The name of the layer.
-
-        Return:
-            A normalization layer.
-        """
-        return tf.keras.layers.Normalization(
-            mean=mean,
-            variance=variance,
-            name=name,
-        )
-
-    @staticmethod
-    def create_discretization_layer(boundaries: list, name: str) -> tf.keras.layers.Layer:
-        """Create a discretization layer.
-
-        Args:
-            boundaries: The boundaries of the buckets.
-            name: The name of the layer.
-
-        Return:
-            A discretization layer.
-        """
-        return tf.keras.layers.Discretization(
-            bin_boundaries=boundaries,
-            name=name,
-        )
-
-    @staticmethod
-    def create_embedding_layer(input_dim: int, output_dim: int, name: str) -> tf.keras.layers.Layer:
-        """Create an embedding layer.
-
-        Args:
-            input_dim: The input dimension.
-            output_dim: The output dimension.
-            name: The name of the layer.
-
-        Return:
-            An embedding layer.
-        """
-        return tf.keras.layers.Embedding(
-            input_dim=input_dim,
-            output_dim=output_dim,
-            name=name,
-        )
-
-    @staticmethod
-    def create_category_encoding_layer(num_tokens: int, output_mode: str, name: str) -> tf.keras.layers.Layer:
-        """Create a category encoding layer.
-
-        Args:
-            num_tokens: The number of tokens.
-            output_mode: The output mode.
-            name: The name of the layer.
-
-        Return:
-            A category encoding layer.
-        """
-        return tf.keras.layers.CategoryEncoding(
-            num_tokens=num_tokens,
-            output_mode=output_mode,
-            name=name,
-        )
-
-    @staticmethod
-    def create_string_lookup_layer(vocabulary: list[str], num_oov_indices: int, name: str) -> tf.keras.layers.Layer:
-        """Create a string lookup layer.
-
-        Args:
-            vocabulary: The vocabulary.
-            num_oov_indices: The number of out-of-vocabulary indices.
-            name: The name of the layer.
-
-        Return:
-            A string lookup layer.
-        """
-        return tf.keras.layers.StringLookup(
-            vocabulary=vocabulary,
-            num_oov_indices=num_oov_indices,
-            name=name,
-        )
-
-    @staticmethod
-    def create_integer_lookup_layer(vocabulary: list[int], num_oov_indices: int, name: str) -> tf.keras.layers.Layer:
-        """Create an integer lookup layer.
-
-        Args:
-            vocabulary: The vocabulary.
-            num_oov_indices: The number of out-of-vocabulary indices.
-            name: The name of the layer.
-
-        Return:
-            An integer lookup layer.
-        """
-        return tf.keras.layers.IntegerLookup(
-            vocabulary=vocabulary,
-            num_oov_indices=num_oov_indices,
-            name=name,
-        )
-
-    @staticmethod
-    def create_crossing_layer(nr_bins: list, name: str) -> tf.keras.layers.Layer:
-        """Create a crossing layer.
-
-        Args:
-            nr_bins: Nr Bins.
-            name: The name of the layer.
-
-        Return:
-            A crossing layer.
-        """
-        return tf.keras.layers.HashedCrossing(
-            num_bins=nr_bins,
-            output_mode="int",
-            sparse=False,
-            name=name,
-        )
-
-    @staticmethod
-    def create_flatten_layer(name="flatten") -> tf.keras.layers.Layer:
-        """Create a flatten layer.
-
-        Args:
-            name: The name of the layer.
-
-        Return:
-            A flatten layer.
-        """
-        return tf.keras.layers.Flatten(
-            name=name,
-        )
-
-    @staticmethod
-    def create_concat_layer(name="concat") -> tf.keras.layers.Layer:
-        """Create a concatenate layer.
-
-        Args:
-            name: The name of the layer.
-
-        Return:
-            A concatenate layer.
-        """
-        return tf.keras.layers.Concatenate(
-            name=name,
-        )
-
-    @staticmethod
-    def create_text_preprocessing_layer(stop_words: list, name: str = "text_preprocessing") -> tf.keras.layers.Layer:
-        """Create a text preprocessing layer to remove punctuation and stop words.
-
-        Args:
-            stop_words: A list of stop words to remove.
-            name: The name of the layer.
+            layer_class: The class of the layer to be created.
+            name: The name of the layer. Optional.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
 
         Returns:
-            A text preprocessing layer.
+            An instance of the specified layer_class.
         """
-        return TextPreprocessingLayer(
-            stop_words=stop_words,
+        # Get the signature of the layer class constructor
+        constructor_params = inspect.signature(layer_class.__init__).parameters
+
+        # Filter kwargs to only include those that the constructor can accept
+        filtered_kwargs = {key: value for key, value in kwargs.items() if key in constructor_params}
+
+        # Add the 'name' argument
+        filtered_kwargs["name"] = name
+
+        # Create an instance of the layer class with the filtered kwargs
+        layer_instance = layer_class(**filtered_kwargs)
+        return layer_instance
+
+    # Example usage for specific layer types
+    @staticmethod
+    def normalization_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+        """Create a Normalization layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the Normalization layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.Normalization,
             name=name,
+            **kwargs,
         )
 
     @staticmethod
-    def create_text_vectorization_layer(conf: dict, name: str = "text_vectorization") -> tf.keras.layers.Layer:
-        """Create a text vectorization layer.
+    def discretization_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+        """Create a Discretization layer.
 
         Args:
-            conf: The configuration dictionary.
             name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
 
         Returns:
-            A text vectorization layer.
+            An instance of the Discretization layer.
         """
-        return tf.keras.layers.TextVectorization(
-            **conf,
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.Discretization,
             name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def rescaling_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+        """Create a Rescaling layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the Rescaling layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.Rescaling,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def embedding_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+        """Create a Embedding layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the Embedding layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.Embedding,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def category_encoding_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+        """Create a CategoryEncoding layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the CategoryEncoding layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.CategoryEncoding,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def string_lookup_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+        """Create a StringLookup layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the StringLookup layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.StringLookup,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def integer_lookup_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+        """Create a IntegerLookup layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the IntegerLookup layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.IntegerLookup,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def crossing_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+        """Create a HashedCrossing layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the HashedCrossing layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.HashedCrossing,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def flatten_layer(name: str = "flatten", **kwargs) -> tf.keras.layers.Layer:
+        """Create a Flatten layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the Flatten layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.Flatten,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def concat_layer(name: str = "concat", **kwargs) -> tf.keras.layers.Layer:
+        """Create a Concatenate layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the Concatenate layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.Concatenate,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def text_preprocessing_layer(name: str = "text_preprocessing", **kwargs) -> tf.keras.layers.Layer:
+        """Create a TextPreprocessingLayer layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the TextPreprocessingLayer layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=TextPreprocessingLayer,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def text_vectorization_layer(name: str = "text_vectorization", **kwargs) -> tf.keras.layers.Layer:
+        """Create a TextVectorization layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the TextVectorization layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=tf.keras.layers.TextVectorization,
+            name=name,
+            **kwargs,
         )

@@ -6,25 +6,34 @@ from loguru import logger
 
 class ProcessingStep:
     def __init__(self, layer_creator: Callable[..., tf.keras.layers.Layer], **layer_kwargs) -> None:
-        """Initialize a processing step."""
+        """Initialize a processing step.
+
+        Args:
+            layer_creator (Callable[..., tf.keras.layers.Layer]): A callable that creates a layer.
+            **layer_kwargs: Additional keyword arguments for the layer creator.
+        """
         self.layer = layer_creator(**layer_kwargs)
 
     def process(self, input_data) -> tf.keras.layers.Layer:
         """Apply the processing step to the input data.
 
         Args:
-            input_data: The input data to be processed.
+            input_data: The input data to process.
         """
         return self.layer(input_data)
 
     def connect(self, input_layer) -> tf.keras.layers.Layer:
-        """Connect this step's layer to an input layer and return the output layer."""
+        """Connect this step's layer to an input layer and return the output layer.
+
+        Args:
+            input_layer: The input layer to connect to.
+        """
         return self.layer(input_layer)
 
     @property
-    def name(self) -> object:
+    def name(self) -> str:
         """Return the name of the layer."""
-        return self.layer
+        return self.layer.name
 
 
 class Pipeline:
@@ -32,8 +41,8 @@ class Pipeline:
         """Initialize a pipeline with a list of processing steps.
 
         Args:
-            steps: A list of processing steps.
-            name: The name of the pipeline.
+            steps (list[ProcessingStep]): A list of processing steps.
+            name (str): The name of the pipeline.
         """
         logger.info(f"🔂 Initializing New Pipeline for: {name}")
         self.steps = steps or []
@@ -42,27 +51,16 @@ class Pipeline:
         """Add a processing step to the pipeline.
 
         Args:
-            step: A processing step.
+            step (ProcessingStep): The processing step to add.
         """
         logger.info(f"Adding new preprocessing layer: {step.name} to the pipeline ➕")
         self.steps.append(step)
-
-    def apply(self, input_data) -> tf.data.Dataset:
-        """Apply the pipeline to the input data.
-
-        Args:
-            input_data: The input data to be processed.
-
-        """
-        for step in self.steps:
-            input_data = step.process(input_data=input_data)
-        return input_data
 
     def chain(self, input_layer) -> tf.keras.layers.Layer:
         """Chain the pipeline steps by connecting each step in sequence, starting from the input layer.
 
         Args:
-            input_layer: The input layer to start the chain.
+            input_layer: The input layer to start the chain from.
         """
         output_layer = input_layer
         for step in self.steps:
@@ -75,7 +73,7 @@ class FeaturePreprocessor:
         """Initialize a feature preprocessor.
 
         Args:
-            name: The name of the feature preprocessor.
+            name (str): The name of the feature preprocessor.
         """
         self.name = name
         self.pipeline = Pipeline(name=name)
@@ -84,24 +82,16 @@ class FeaturePreprocessor:
         """Add a processing step to the feature preprocessor.
 
         Args:
-            layer_creator: A callable that creates a Keras layer.
-            layer_kwargs: Keyword arguments to be passed to the layer creator.
+            layer_creator (Callable[..., tf.keras.layers.Layer]): A callable that creates a layer.
+            **layer_kwargs: Additional keyword arguments for the layer creator.
         """
         step = ProcessingStep(layer_creator=layer_creator, **layer_kwargs)
         self.pipeline.add_step(step=step)
-
-    def preprocess(self, input_data) -> tf.data.Dataset:
-        """Apply the feature preprocessor to the input data.
-
-        Args:
-            input_data: The input data to be processed.
-        """
-        return self.pipeline.apply(input_data)
 
     def chain(self, input_layer) -> tf.keras.layers.Layer:
         """Chain the preprocessor's pipeline steps starting from the input layer.
 
         Args:
-            input_layer: The input layer to start the chain.
+            input_layer: The input layer to start the chain from.
         """
         return self.pipeline.chain(input_layer)
