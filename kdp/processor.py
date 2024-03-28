@@ -497,8 +497,11 @@ class PreprocessingModel:
         self.model.save(model_path)
         logger.info("Model saved successfully")
 
-    def plot_model(self) -> None:
+    def plot_model(self, filename: str = "Model_Architecture.png") -> None:
         """Plotting model architecture.
+
+        Args:
+            filename (str): The name of the file to save the plot to.
 
         Note:
             This function requires graphviz to be installed on the system
@@ -507,7 +510,7 @@ class PreprocessingModel:
         logger.info("Plotting model")
         return tf.keras.utils.plot_model(
             self.model,
-            to_file="preprocessor_model.png",
+            to_file=filename,
             show_shapes=True,
             show_dtype=True,
             show_layer_names=True,

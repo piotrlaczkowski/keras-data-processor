@@ -42,14 +42,46 @@ Then you can simply configure your preprocessor:
 ## 🛠️ Building Preprocessor:
 
 ```python
-from kdp import PreprocessingModel, FeatureType
+from kdp import PreprocessingModel
+from kdp import FeatureType, NumericalFeature, CategoricalFeature, TextFeature
 
 # DEFINING FEATURES PROCESSORS
-features_spec = {
-    "num_1": FeatureType.FLOAT,
-    "num_2": "float",
-    "cat_1": FeatureType.STRING_CATEGORICAL,
-    "cat_2": FeatureType.INTEGER_CATEGORICAL,
+
+features_specs = {
+
+    # ======= NUMERICAL Features =========================
+    # _using the FeatureType
+    "feat1": FeatureType.FLOAT_NORMALIZED,
+    "feat2": FeatureType.FLOAT_RESCALED,
+    # _using the NumericalFeature with custom attributes
+    "feat3": NumericalFeature(
+        name="feat3",
+        feature_type=FeatureType.FLOAT_DISCRETIZED,
+        bin_boundaries=[(1, 10)],
+    ),
+    "feat4": NumericalFeature(
+        name="feat4",
+        feature_type=FeatureType.FLOAT,
+    ),
+    # directly by string name
+    "feat5": "float",
+
+    # ======= CATEGORICAL Features ========================
+    # _using the FeatureType
+    "feat6": FeatureType.STRING_CATEGORICAL,
+    # _using the CategoricalFeature with custom attributes
+    "feat7": CategoricalFeature(
+        name="feat7",
+        feature_type=FeatureType.INTEGER_CATEGORICAL,
+        embedding_size=100,
+        ),
+
+    # ======= TEXT Features ========================
+    "feat8": TextFeature(
+        name="feat8",
+        max_tokens=100,
+        stop_words=["stop", "next"],
+    ),
 }
 
 # INSTANTIATE THE PREPROCESSING MODEL with your data
@@ -67,28 +99,34 @@ This wil output:
 {
 'model': <Functional name=preprocessor, built=True>,
 'inputs': {
-    'num_1': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=num_1>,
-    'num_2': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=num_2>,
-    'cat_1': <KerasTensor shape=(None, 1), dtype=string, sparse=None, name=cat_1>
-    'cat_2': <KerasTensor shape=(None, 1), dtype=int32, sparse=None, name=cat_2>,
-},
+    'feat1': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat1>,
+    'feat2': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat2>,
+    'feat3': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat3>,
+    'feat4': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat4>,
+    'feat5': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat5>,
+    'feat6': <KerasTensor shape=(None, 1), dtype=string, sparse=None, name=feat6>,
+    'feat7': <KerasTensor shape=(None, 1), dtype=int32, sparse=None, name=feat7>,
+    'feat8': <KerasTensor shape=(None, 1), dtype=string, sparse=None, name=feat8>},
 'signature': {
-    'num_1': TensorSpec(shape=(None, 1), dtype=tf.float32, name='num_1'),
-    'num_2': TensorSpec(shape=(None, 1), dtype=tf.float32, name='num_2'),
-    'cat_1': TensorSpec(shape=(None, 1), dtype=tf.string, name='cat_1')
-    'cat_2': TensorSpec(shape=(None, 1), dtype=tf.int32, name='cat_2'),
-},
-'output_dims': 9
+    'feat1': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat1'),
+    'feat2': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat2'),
+    'feat3': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat3'),
+    'feat4': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat4'),
+    'feat5': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat5'),
+    'feat6': TensorSpec(shape=(None, 1), dtype=tf.string, name='feat6'),
+    'feat7': TensorSpec(shape=(None, 1), dtype=tf.int32, name='feat7'),
+    'feat8': TensorSpec(shape=(None, 1), dtype=tf.string, name='feat8')},
+'output_dims': 145
 }
 ```
 
 This will result in the following preprocessing steps:
 
 <p align="center">
-  <img src="imgs/model_archi_concat.png" width="800"/>
+  <img src="docs/imgs/Model_Architecture.png" width="800"/>
 </p>
 
-### 🔗 Integrating Preprocessing Model with Keras Model:
+### 🔗 Integrating Preprocessing Model with other Keras Model:
 
 You can then easily ingetrate this model into your keras model as the first layer:
 
