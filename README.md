@@ -1,4 +1,4 @@
-# 🌟 Welcome to Keras Data Processor - Preprocessing Power with TensorFlow Keras 🌟
+# 🌟 Welcome to Keras Data Processor (KDP) - Preprocessing Power with TensorFlow Keras 🌟
 
 <p align="center">
   <img src="docs/kdp_logo.png" width="350"/>
@@ -6,7 +6,8 @@
 
 ** Welcome to the Future of Data Preprocessing!**
 
-Diving into the world of machine learning and data science, we often find ourselves tangled in the preprocessing jungle. Worry no more! Introducing a state-of-the-art data preprocessing model based on TensorFlow Keras and the innovative use of Keras preprocessing layers.
+Diving into the world of machine learning and data science, we often find ourselves tangled in the preprocessing jungle.
+Worry no more! Introducing a state-of-the-art data preprocessing model based on TensorFlow Keras and the innovative use of Keras preprocessing layers.
 
 Say goodbye to tedious data preparation tasks and hello to streamlined, efficient, and scalable data pipelines. Whether you're a seasoned data scientist or just starting out, this tool is designed to supercharge your ML workflows, making them more robust and faster than ever!
 
@@ -46,7 +47,6 @@ from kdp import PreprocessingModel
 from kdp import FeatureType, NumericalFeature, CategoricalFeature, TextFeature
 
 # DEFINING FEATURES PROCESSORS
-
 features_specs = {
 
     # ======= NUMERICAL Features =========================
