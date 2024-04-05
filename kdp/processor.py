@@ -269,6 +269,7 @@ class PreprocessingModel:
                 the list of features it is crossed with and the depth of the crossing.
         """
         for feature_a, feature_b, nr_bins in self.feature_crosses:
+            logger.debug(f"Processing cross feature: {feature_a} x {feature_b}, {nr_bins}")
             preprocessor = FeaturePreprocessor(name=f"{feature_a}_x_{feature_b}")
 
             # checking inputs existance for feature A
@@ -281,11 +282,11 @@ class PreprocessingModel:
 
             preprocessor.add_processing_step(
                 layer_creator=PreprocessorLayerFactory.create_crossing_layer,
-                depth=nr_bins,
+                nr_bins=nr_bins,
                 name=f"cross_{feature_a}_{feature_b}",
             )
             crossed_input = [self.inputs[feature_a], self.inputs[feature_b]]
-            self.outputs[f"{feature_a}_x_{feature_b}"] = preprocessor.chain(input_data=crossed_input)
+            self.outputs[f"{feature_a}_x_{feature_b}"] = preprocessor.chain(input_layer=crossed_input)
             # updating output based on the one-hot-encoded data
             self.output_dims += nr_bins
 
@@ -384,10 +385,10 @@ class PreprocessingModel:
             )
         # CROSSING FEATURES
         if self.feature_crosses:
-            logger.info("Processing feature type: cross feature")
+            logger.debug(f"feature crosses {self.feature_crosses}")
+            logger.info(f'Processing feature type: cross feature "{feature_name}"')
             self._add_pipeline_cross(
-                feature_name=feature_name,
-                input_layer=input_layer,
+                stats=self.features_stats,
             )
 
         # TEXT FEATURES

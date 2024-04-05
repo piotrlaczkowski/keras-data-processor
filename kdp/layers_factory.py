@@ -110,7 +110,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def create_crossing_layer(nr_bins: list, name: str) -> tf.keras.layers.Layer:
+    def create_crossing_layer(nr_bins: int, name: str) -> tf.keras.layers.Layer:
         """Create a crossing layer.
 
         Args:
