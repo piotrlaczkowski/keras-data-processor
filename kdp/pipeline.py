@@ -87,6 +87,7 @@ class FeaturePreprocessor:
             layer_creator: A callable that creates a Keras layer.
             layer_kwargs: Keyword arguments to be passed to the layer creator.
         """
+        logger.debug(f"add_processing_step params: layer_creator={layer_creator} layer_kwargs={layer_kwargs}")
         step = ProcessingStep(layer_creator=layer_creator, **layer_kwargs)
         self.pipeline.add_step(step=step)
 
