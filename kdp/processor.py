@@ -431,6 +431,7 @@ class PreprocessingModel:
         for _key in self.features_stats:
             logger.info(f"Processing feature type: {_key = }")
             for feature_name, stats in self.features_stats[_key].items():
+                logger.info(f"Found {stats =}")
                 dtype = stats.get("dtype")
                 logger.info(f"Processing {feature_name = }, {dtype = } 📊")
                 # adding inputs
