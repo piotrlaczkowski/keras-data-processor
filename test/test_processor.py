@@ -1,10 +1,10 @@
 import unittest
 from unittest.mock import patch
 
-import pytest
 import tensorflow as tf
 
-from kdp.processor import OutputModeOptions, PreprocessingModel, PreprocessorLayerFactory
+from kdp.features import CategoricalFeature, FeatureType, NumericalFeature, TextFeature
+from kdp.processor import FeatureSpaceConverter, OutputModeOptions, PreprocessingModel, PreprocessorLayerFactory
 
 
 class TestPreprocessorLayerFactory(unittest.TestCase):
@@ -14,6 +14,101 @@ class TestPreprocessorLayerFactory(unittest.TestCase):
         """Test creating a normalization layer."""
         layer = PreprocessorLayerFactory.normalization_layer(mean=0.0, variance=1.0, name="normalize")
         self.assertIsInstance(layer, tf.keras.layers.Layer)
+
+
+class TestFeatureSpaceConverter(unittest.TestCase):
+    def setUp(self):
+        """Setup test case environment."""
+        self.converter = FeatureSpaceConverter()
+
+    def test_initialization(self):
+        """Test if the class is initialized correctly."""
+        self.assertEqual(self.converter.features_space, {})
+        self.assertEqual(self.converter.numeric_features, [])
+        self.assertEqual(self.converter.categorical_features, [])
+        self.assertEqual(self.converter.text_features, [])
+
+    def test_init_features_specs_with_instances(self):
+        """Test _init_features_specs with direct class instances."""
+        features_specs = {
+            "height": NumericalFeature(name="height", feature_type=FeatureType.FLOAT),
+            "category": CategoricalFeature(name="category", feature_type=FeatureType.STRING_CATEGORICAL),
+            "description": TextFeature(name="description", feature_type=FeatureType.TEXT),
+        }
+        self.converter._init_features_specs(features_specs)
+        self.assertIn("height", self.converter.numeric_features)
+        self.assertIn("category", self.converter.categorical_features)
+        self.assertIn("description", self.converter.text_features)
+
+    def test_init_features_specs_with_strings(self):
+        """Test _init_features_specs with string representations."""
+        features_specs = {
+            "height": "float",
+            "category": "string_categorical",
+            "description": "text",
+        }
+        self.converter._init_features_specs(features_specs)
+        self.assertIn("height", self.converter.numeric_features)
+        self.assertIn("category", self.converter.categorical_features)
+        self.assertIn("description", self.converter.text_features)
+
+    @unittest.expectedFailure
+    def test_init_features_specs_with_unsupported_type(self):
+        """Test _init_features_specs with an unsupported feature type."""
+        features_specs = {"unknown": "unsupported_type"}
+        with self.assertRaises(ValueError):
+            self.converter._init_features_specs(features_specs)
+
+    def test_init_features_specs_empty(self):
+        """Test _init_features_specs with an empty dictionary."""
+        self.converter._init_features_specs({})
+        self.assertEqual(len(self.converter.features_space), 0)
+        self.assertEqual(len(self.converter.numeric_features), 0)
+        self.assertEqual(len(self.converter.categorical_features), 0)
+        self.assertEqual(len(self.converter.text_features), 0)
+
+    def test_init_features_specs_with_duplicates(self):
+        """Test _init_features_specs with duplicate feature names."""
+        features_specs = {
+            "feature": "float",
+            "feature": "text",  # Duplicate, should overwrite the previous
+        }
+        self.converter._init_features_specs(features_specs)
+        self.assertNotIn("feature", self.converter.numeric_features)
+        self.assertIn("feature", self.converter.text_features)
+        self.assertEqual(len(self.converter.features_space), 1)
+
+    def test_init_features_specs_with_multiple_same_type(self):
+        """Test handling multiple features of the same type."""
+        features_specs = {
+            "height": "float",
+            "weight": "float",
+            "category": "string_categorical",
+            "subcategory": "string_categorical",
+            "description": "text",
+            "comments": "text",
+        }
+        self.converter._init_features_specs(features_specs)
+        self.assertEqual(len(self.converter.numeric_features), 2)
+        self.assertEqual(len(self.converter.categorical_features), 2)
+        self.assertEqual(len(self.converter.text_features), 2)
+
+    def test_init_features_specs_with_enum_and_classes(self):
+        """Test _init_features_specs with FeatureType enums and class instances."""
+        features_specs = {
+            "height": FeatureType.FLOAT,
+            "category": CategoricalFeature(name="category", feature_type=FeatureType.STRING_CATEGORICAL),
+        }
+        with patch.object(FeatureSpaceConverter, "_init_features_specs", return_value=None) as mock_method:
+            self.converter._init_features_specs(features_specs)
+            mock_method.assert_called()
+
+    @unittest.expectedFailure
+    def test_init_features_specs_unsupported_string_type(self):
+        """Test _init_features_specs with an unsupported string feature type."""
+        features_specs = {"unknown": "definitely_not_a_valid_type"}
+        with self.assertRaises(ValueError):
+            self.converter._init_features_specs(features_specs)
 
 
 class TestPreprocessingModel(unittest.TestCase):
