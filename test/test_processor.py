@@ -110,6 +110,46 @@ class TestFeatureSpaceConverter(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.converter._init_features_specs(features_specs)
 
+    def test_init_features_specs_extended(self):
+        """Test _init_features_specs with a mix of feature specifications, including enums, class instances with custom attributes, and strings."""
+        features_specs = {
+            "feat1": FeatureType.FLOAT_NORMALIZED,
+            "feat2": FeatureType.FLOAT_RESCALED,
+            "feat3": NumericalFeature(
+                name="feat3", feature_type=FeatureType.FLOAT_DISCRETIZED, bin_boundaries=[(1, 10)]
+            ),
+            "feat4": NumericalFeature(name="feat4", feature_type=FeatureType.FLOAT),
+            "feat5": "float",
+            "feat6": FeatureType.STRING_CATEGORICAL,
+            "feat7": CategoricalFeature(name="feat7", feature_type=FeatureType.INTEGER_CATEGORICAL, embedding_size=100),
+            "feat8": TextFeature(name="feat8", max_tokens=100, stop_words=["stop", "next"]),
+        }
+
+        self.converter._init_features_specs(features_specs)
+
+        # Check if the features are categorized correctly
+        expected_numeric_features = {"feat1", "feat2", "feat3", "feat4", "feat5"}
+        expected_categorical_features = {"feat6", "feat7"}
+        expected_text_features = {"feat8"}
+
+        self.assertTrue(set(self.converter.numeric_features) == expected_numeric_features)
+        self.assertTrue(set(self.converter.categorical_features) == expected_categorical_features)
+        self.assertTrue(set(self.converter.text_features) == expected_text_features)
+
+        feat3_instance = self.converter.features_space["feat3"]
+        feat7_instance = self.converter.features_space["feat7"]
+        feat8_instance = self.converter.features_space["feat8"]
+
+        # Additionally, check if the feature instances are of the correct type
+        self.assertIsInstance(feat3_instance, NumericalFeature)
+        self.assertIsInstance(feat7_instance, CategoricalFeature)
+        self.assertIsInstance(feat8_instance, TextFeature)
+
+        # Optionally, verify the feature types are correctly set
+        self.assertEqual(feat3_instance.feature_type, FeatureType.FLOAT_DISCRETIZED)
+        self.assertEqual(feat7_instance.feature_type, FeatureType.INTEGER_CATEGORICAL)
+        self.assertEqual(feat8_instance.feature_type, FeatureType.TEXT)
+
 
 class TestPreprocessingModel(unittest.TestCase):
     @classmethod
