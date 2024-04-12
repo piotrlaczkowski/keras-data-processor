@@ -1,8 +1,7 @@
 import inspect
 
 import tensorflow as tf
-
-from kdp.custom_layers import TextPreprocessingLayer
+from custom_layers import CastToFloat32Layer, TextPreprocessingLayer
 
 
 class PreprocessorLayerFactory:
@@ -232,6 +231,23 @@ class PreprocessorLayerFactory:
         """
         return PreprocessorLayerFactory.create_layer(
             layer_class=tf.keras.layers.TextVectorization,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def cast_to_float32_layer(name: str = "cast_to_float32", **kwargs) -> tf.keras.layers.Layer:
+        """Create a CastToFloat32Layer layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the CastToFloat32Layer layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=CastToFloat32Layer,
             name=name,
             **kwargs,
         )
