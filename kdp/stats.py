@@ -4,9 +4,8 @@ from typing import Any
 
 import numpy as np
 import tensorflow as tf
+from features import CategoricalFeature, FeatureType, NumericalFeature
 from loguru import logger
-
-from kdp.features import CategoricalFeature, FeatureType, NumericalFeature
 
 
 class WelfordAccumulator:
@@ -139,31 +138,6 @@ class DatasetStatistics:
         # Initializing placeholders for statistics
         self.numeric_stats = {col: WelfordAccumulator() for col in self.numeric_features}
         self.categorical_stats = {col: CategoricalAccumulator() for col in self.categorical_features}
-
-    # def _parse_features_specs(self) -> None:
-    #     """Parses the features specifications and updates the numeric and categorical columns accordingly."""
-    #     logger.info("Parsing features specifications ...")
-    #     for feature, spec in self.features_specs.items():
-    #         # Ensure spec is always the string representation, whether it's an enum member or a string
-    #         spec_value = spec if isinstance(spec, str) else spec.value
-    #         logger.debug(f"Processing {feature =} with {spec_value =}")
-    #         if spec_value == FeatureType.FLOAT.value:
-    #             self.numeric_features.append(feature)
-    #             self.features_dtypes[feature] = tf.float32
-    #             logger.debug(f"Adding {feature =} as a numeric feature")
-
-    #         elif spec_value == FeatureType.INTEGER_CATEGORICAL.value:
-    #             self.categorical_features.append(feature)
-    #             self.features_dtypes[feature] = tf.int32
-    #             logger.debug(f"Adding {feature =} as a integer categorical feature")
-
-    #         elif spec_value == FeatureType.STRING_CATEGORICAL.value:
-    #             self.categorical_features.append(feature)
-    #             self.features_dtypes[feature] = tf.string
-    #             logger.debug(f"Adding {feature =} as a string categorical feature")
-    #         else:
-    #             _availble_specs = [spec.value for spec in FeatureType]
-    #             raise ValueError(f"Invalid {feature = }, {spec_value =}, You must use {_availble_specs =}")
 
     def _get_csv_file_pattern(self, path) -> str:
         """Get the csv file pattern that will handle directories and file paths.

@@ -4,12 +4,11 @@ from enum import auto
 from typing import Any
 
 import tensorflow as tf
+from features import CategoricalFeature, CategoryEncodingOptions, FeatureType, NumericalFeature, TextFeature
+from layers_factory import PreprocessorLayerFactory
 from loguru import logger
-
-from kdp.features import CategoricalFeature, CategoryEncodingOptions, FeatureType, NumericalFeature, TextFeature
-from kdp.layers_factory import PreprocessorLayerFactory
-from kdp.pipeline import FeaturePreprocessor
-from kdp.stats import DatasetStatistics
+from pipeline import FeaturePreprocessor
+from stats import DatasetStatistics
 
 
 class OutputModeOptions(auto):
@@ -125,10 +124,12 @@ class PreprocessingModel:
             class instances (NumericalFeature, CategoricalFeature, TextFeature), or strings.
         """
         logger.info("Normalizing Feature Space using FeatureSpaceConverter")
+        logger.debug(f"Features specs: {features_specs}")
         fsc = FeatureSpaceConverter()
 
         # attributing class variables
-        self.features_specs = fsc._init_features_specs(features_specs)
+        self.features_specs = fsc._init_features_specs(features_specs=features_specs)
+        logger.debug(f"Features specs normalized: {self.features_specs}")
         self.numeric_features = fsc.numeric_features
         self.categorical_features = fsc.categorical_features
         self.text_features = fsc.text_features
@@ -386,10 +387,18 @@ class PreprocessingModel:
                 )
             if "output_sequence_length" not in _feature.kwargs:
                 _feature.kwargs["output_sequence_length"] = 35
+
+            # adding text vectorization
             preprocessor.add_processing_step(
                 layer_creator=PreprocessorLayerFactory.text_vectorization_layer,
                 name=f"text_vactorizer_{feature_name}",
                 **_feature.kwargs,
+            )
+            # for concatenation we need the same format
+            # so the cast to float 32 is necessary
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                name=f"cast_to_float_{feature_name}",
             )
         self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
 
