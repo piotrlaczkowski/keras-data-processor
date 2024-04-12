@@ -1,7 +1,8 @@
 import inspect
 
 import tensorflow as tf
-from custom_layers import TextPreprocessingLayer
+
+from kdp.custom_layers import TextPreprocessingLayer
 
 
 class PreprocessorLayerFactory:

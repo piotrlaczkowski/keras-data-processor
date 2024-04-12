@@ -4,8 +4,9 @@ from typing import Any
 
 import numpy as np
 import tensorflow as tf
-from features import CategoricalFeature, FeatureType, NumericalFeature
 from loguru import logger
+
+from kdp.features import CategoricalFeature, FeatureType, NumericalFeature
 
 
 class WelfordAccumulator:

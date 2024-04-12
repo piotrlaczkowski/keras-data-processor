@@ -84,3 +84,7 @@ class TestFeaturePreprocessor(unittest.TestCase):
         output_layer = preprocessor.chain(input_layer)
         print("type layer", type(output_layer))
         self.assertTrue(tf.keras.utils.is_keras_tensor(output_layer))
+
+
+if __name__ == "__main__":
+    unittest.main()
