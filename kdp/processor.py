@@ -23,6 +23,60 @@ class TextVectorizerOutputOptions(auto):
     MULTI_HOT = "multi_hot"
 
 
+# testing conversion
+class FeatureSpaceConverter:
+    def __init__(self):
+        """Initialize the FeatureSpaceConverter class."""
+        self.features_space = {}
+        self.numeric_features = []
+        self.categorical_features = []
+        self.text_features = []
+
+    def _init_features_specs(self, features_specs: dict) -> None:
+        """Format the features space into a dictionary.
+
+        Args:
+            features_specs (dict): A dictionary with the features and their types,
+            where types can be specified as either FeatureType enums,
+            class instances (NumericalFeature, CategoricalFeature, TextFeature), or strings.
+        """
+        for name, spec in features_specs.items():
+            # Direct instance check
+            if isinstance(spec, NumericalFeature | CategoricalFeature | TextFeature):
+                feature_instance = spec
+            else:
+                # Convert string to FeatureType if necessary
+                feature_type = FeatureType[spec.upper()] if isinstance(spec, str) else spec
+
+                # Creating feature objects based on type
+                if feature_type in {
+                    FeatureType.FLOAT,
+                    FeatureType.FLOAT_NORMALIZED,
+                    FeatureType.FLOAT_RESCALED,
+                    FeatureType.FLOAT_DISCRETIZED,
+                }:
+                    feature_instance = NumericalFeature(name=name, feature_type=feature_type)
+                elif feature_type in {FeatureType.INTEGER_CATEGORICAL, FeatureType.STRING_CATEGORICAL}:
+                    feature_instance = CategoricalFeature(name=name, feature_type=feature_type)
+                elif feature_type == FeatureType.TEXT:
+                    feature_instance = TextFeature(name=name, feature_type=feature_type)
+                else:
+                    raise ValueError(f"Unsupported feature type for feature '{name}': {spec}")
+
+            # Categorize feature based on its class
+            if isinstance(feature_instance, NumericalFeature):
+                self.numeric_features.append(name)
+            elif isinstance(feature_instance, CategoricalFeature):
+                self.categorical_features.append(name)
+            elif isinstance(feature_instance, TextFeature):
+                self.text_features.append(name)
+
+            # Adding formatted spec to the features_space dictionary
+            self.features_space[name] = feature_instance
+
+        return self.features_space
+
+
 class PreprocessingModel:
     def __init__(
         self,
@@ -56,7 +110,7 @@ class PreprocessingModel:
             logger.info("Logging to file enabled 🗂️")
             logger.add("PreprocessModel.log")
 
-        # formatting features info
+        # formatting features specs info
         self._init_features_specs(features_specs=features_specs)
 
         # initializing stats
@@ -70,46 +124,14 @@ class PreprocessingModel:
             where types can be specified as either FeatureType enums,
             class instances (NumericalFeature, CategoricalFeature, TextFeature), or strings.
         """
-        features_space = {}
-        self.numeric_features = []
-        self.categorical_features = []
-        self.text_features = []
+        logger.info("Normalizing Feature Space using FeatureSpaceConverter")
+        fsc = FeatureSpaceConverter()
 
-        for name, spec in features_specs.items():
-            # Direct instance check
-            if isinstance(spec, NumericalFeature | CategoricalFeature | TextFeature):
-                feature_instance = spec
-            else:
-                # Convert string to FeatureType if necessary
-                feature_type = FeatureType[spec.upper()] if isinstance(spec, str) else spec
-
-                # Creating feature objects based on type
-                if feature_type in {
-                    FeatureType.FLOAT,
-                    FeatureType.FLOAT_NORMALIZED,
-                    FeatureType.FLOAT_RESCALED,
-                    FeatureType.FLOAT_DISCRETIZED,
-                }:
-                    feature_instance = NumericalFeature(name=name, feature_type=feature_type)
-                elif feature_type in {FeatureType.INTEGER_CATEGORICAL, FeatureType.STRING_CATEGORICAL}:
-                    feature_instance = CategoricalFeature(name=name, feature_type=feature_type)
-                elif feature_type == FeatureType.TEXT:
-                    feature_instance = TextFeature(name=name, feature_type=feature_type)
-                else:
-                    raise ValueError(f"Unsupported feature type for feature '{name}': {spec}")
-
-            # Categorize feature based on its class
-            if isinstance(feature_instance, NumericalFeature):
-                self.numeric_features.append(name)
-            elif isinstance(feature_instance, CategoricalFeature):
-                self.categorical_features.append(name)
-            elif isinstance(feature_instance, TextFeature):
-                self.text_features.append(name)
-
-            # Adding formatted spec to the features_space dictionary
-            features_space[name] = feature_instance
-
-        self.features_specs = features_space
+        # attributing class variables
+        self.features_specs = fsc._init_features_specs(features_specs)
+        self.numeric_features = fsc.numeric_features
+        self.categorical_features = fsc.categorical_features
+        self.text_features = fsc.text_features
 
     def _init_stats(self) -> None:
         """Initialize the statistics for the model.
@@ -174,11 +196,11 @@ class PreprocessingModel:
         Returns:
             FeaturePreprocessor: The preprocessor object with the custom steps added.
         """
-        for preprocessor in feature.preprocessors:
+        for preprocessor_step in feature.preprocessors:
             logger.info(f"Adding custom {preprocessor =} for {feature_name =}")
             preprocessor.add_processing_step(
-                layer_creator=preprocessor,
-                name=f"{preprocessor.__name__}_{feature_name}",
+                layer_creator=preprocessor_step,
+                name=f"{preprocessor_step.__name__}_{feature_name}",
             )
         return preprocessor
 
