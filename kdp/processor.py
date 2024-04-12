@@ -158,6 +158,30 @@ class PreprocessingModel:
             name=feature_name,
         )
 
+    def _add_custom_steps(
+        self,
+        preprocessor: FeaturePreprocessor,
+        feature: FeatureType,
+        feature_name: str,
+    ) -> FeaturePreprocessor:
+        """Add custom preprocessing steps to the pipeline.
+
+        Args:
+            preprocessor: The preprocessor object.
+            feature: The feature object.
+            feature_name: The name of the feature.
+
+        Returns:
+            FeaturePreprocessor: The preprocessor object with the custom steps added.
+        """
+        for preprocessor in feature.preprocessors:
+            logger.info(f"Adding custom {preprocessor =} for {feature_name =}")
+            preprocessor.add_processing_step(
+                layer_creator=preprocessor,
+                name=f"{preprocessor.__name__}_{feature_name}",
+            )
+        return preprocessor
+
     def _add_pipeline_numeric(self, feature_name: str, input_layer, stats: dict) -> None:
         """Add a numeric preprocessing step to the pipeline.
 
@@ -182,11 +206,12 @@ class PreprocessingModel:
 
         # Check if feature has specific preprocessing steps defined
         if hasattr(_feature, "preprocessors") and _feature.preprocessors:
-            for preprocessor in _feature.preprocessors:
-                preprocessor.add_processing_step(
-                    layer_creator=preprocessor,
-                    name=f"{preprocessor.__name__}_{feature_name}",
-                )
+            self._add_custom_steps(
+                preprocessor=preprocessor,
+                feature=_feature,
+                feature_name=feature_name,
+            )
+
         else:
             # Default behavior if no specific preprocessing is defined
             if _feature.feature_type == FeatureType.FLOAT_NORMALIZED:
@@ -258,12 +283,11 @@ class PreprocessingModel:
 
         # Check if feature has specific preprocessing steps defined
         if hasattr(_feature, "preprocessors") and _feature.preprocessors:
-            logger.info(f"Adding custom preprocessors for {feature_name}")
-            for preprocessor in _feature.preprocessors:
-                preprocessor.add_processing_step(
-                    layer_creator=preprocessor,
-                    name=f"{preprocessor.__name__}_{feature_name}",
-                )
+            self._add_custom_steps(
+                preprocessor=preprocessor,
+                feature=_feature,
+                feature_name=feature_name,
+            )
         else:
             # Default behavior if no specific preprocessing is defined
             if _feature.feature_type == FeatureType.STRING_CATEGORICAL:
@@ -324,13 +348,11 @@ class PreprocessingModel:
 
         # Check if feature has specific preprocessing steps defined
         if hasattr(_feature, "preprocessors") and _feature.preprocessors:
-            for preprocessor in _feature.preprocessors:
-                preprocessor.add_processing_step(
-                    layer_creator=preprocessor,
-                    name=f"{preprocessor.__name__}_{feature_name}",
-                )
-            # TODO: check if we can get the last dimetions of the preprocessor
-            _out_len = 1
+            self._add_custom_steps(
+                preprocessor=preprocessor,
+                feature=_feature,
+                feature_name=feature_name,
+            )
         else:
             # checking if we have stop words provided
             _stop_words = _feature.kwargs.get("stop_words", [])
@@ -347,8 +369,6 @@ class PreprocessingModel:
                 name=f"text_vactorizer_{feature_name}",
                 **_feature.kwargs,
             )
-            _out_len = _feature.kwargs.get("output_sequence_length", 1)
-
         self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
 
     def _add_pipeline_cross(self, stats: dict) -> None:
@@ -407,7 +427,7 @@ class PreprocessingModel:
             self.features_stats = self.stats_instance.main()
             logger.debug(f"Features Stats were calculated: {self.features_stats}")
 
-        # NUMERICAL AND CATEGORICAL FEATURES
+        # NUMERICAL AND CATEGORICAL FEATURES (based on stats)
         for _key in self.features_stats:
             logger.info(f"Processing feature type: {_key = }")
             for feature_name, stats in self.features_stats[_key].items():
@@ -432,7 +452,7 @@ class PreprocessingModel:
                         input_layer=input_layer,
                         stats=stats,
                     )
-        # CROSSING FEATURES
+        # CROSSING FEATURES (based on defined inputs)
         if self.feature_crosses:
             logger.info("Processing feature type: cross feature")
             self._add_pipeline_cross(
@@ -440,7 +460,7 @@ class PreprocessingModel:
                 input_layer=input_layer,
             )
 
-        # TEXT FEATURES
+        # TEXT FEATURES (based on defined inputs)
         for feature_name in self.text_features:
             logger.info("Processing feature type: text")
             self._add_input_column(feature_name=feature_name, dtype=tf.string)
