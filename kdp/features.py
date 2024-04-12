@@ -2,8 +2,9 @@ from enum import Enum, auto
 from typing import Any
 
 import tensorflow as tf
-from layers_factory import PreprocessorLayerFactory
 from loguru import logger
+
+from kdp.layers_factory import PreprocessorLayerFactory
 
 
 class TextVectorizerOutputOptions(Enum):

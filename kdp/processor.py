@@ -4,11 +4,12 @@ from enum import auto
 from typing import Any
 
 import tensorflow as tf
-from features import CategoricalFeature, CategoryEncodingOptions, FeatureType, NumericalFeature, TextFeature
-from layers_factory import PreprocessorLayerFactory
 from loguru import logger
-from pipeline import FeaturePreprocessor
-from stats import DatasetStatistics
+
+from kdp.features import CategoricalFeature, CategoryEncodingOptions, FeatureType, NumericalFeature, TextFeature
+from kdp.layers_factory import PreprocessorLayerFactory
+from kdp.pipeline import FeaturePreprocessor
+from kdp.stats import DatasetStatistics
 
 
 class OutputModeOptions(auto):
