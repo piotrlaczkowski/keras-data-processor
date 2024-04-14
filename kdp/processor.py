@@ -269,6 +269,12 @@ class PreprocessingModel:
                     output_mode="one_hot",
                     name=f"one_hot_{feature_name}",
                 )
+                # for concatenation we need the same format
+                # so the cast to float 32 is necessary
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                    name=f"cast_to_float_{feature_name}",
+                )
             else:
                 logger.debug("Adding Float Normalized Feature -> Default Option")
                 preprocessor.add_processing_step(
@@ -348,6 +354,12 @@ class PreprocessingModel:
                 output_mode="one_hot",
                 name=f"one_hot_{feature_name}",
             )
+            # for concatenation we need the same format
+            # so the cast to float 32 is necessary
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                name=f"cast_to_float_{feature_name}",
+            )
 
         # we need to flatten the categorical feature
         preprocessor.add_processing_step(
@@ -403,7 +415,7 @@ class PreprocessingModel:
             )
         self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
 
-    def _add_pipeline_cross(self, stats: dict) -> None:
+    def _add_pipeline_cross(self) -> None:
         """Add a crossing preprocessing step to the pipeline.
 
         Args:
@@ -414,20 +426,29 @@ class PreprocessingModel:
             preprocessor = FeaturePreprocessor(name=f"{feature_a}_x_{feature_b}")
 
             # checking inputs existance for feature A
-            for _feature in [feature_a, feature_b]:
-                _input = self.inputs.get(_feature)
+            for _feature_name in [feature_a, feature_b]:
+                # getting feature object
+                _feature = self.features_specs[_feature_name]
+                _input = self.inputs.get(_feature_name)
                 if _input is None:
                     logger.info(f"Creating: {_feature} inputs and signature")
-                    _col_dtype = stats[_feature].get("dtype")
+                    _col_dtype = _feature.dtype
                     self._add_input_column(feature_name=_feature, dtype=_col_dtype)
 
+            feature_name = f"{feature_a}_x_{feature_b}"
             preprocessor.add_processing_step(
                 layer_creator=PreprocessorLayerFactory.crossing_layer,
                 depth=nr_bins,
-                name=f"cross_{feature_a}_{feature_b}",
+                name=f"cross_{feature_name}",
+            )
+            # for concatenation we need the same format
+            # so the cast to float 32 is necessary
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                name=f"cast_to_float_{feature_name}",
             )
             crossed_input = [self.inputs[feature_a], self.inputs[feature_b]]
-            self.outputs[f"{feature_a}_x_{feature_b}"] = preprocessor.chain(input_data=crossed_input)
+            self.outputs[feature_name] = preprocessor.chain(input_data=crossed_input)
 
     def _prepare_outputs(self) -> None:
         """Preparing the outputs of the model.
@@ -488,10 +509,7 @@ class PreprocessingModel:
         # CROSSING FEATURES (based on defined inputs)
         if self.feature_crosses:
             logger.info("Processing feature type: cross feature")
-            self._add_pipeline_cross(
-                feature_name=feature_name,
-                input_layer=input_layer,
-            )
+            self._add_pipeline_cross()
 
         # TEXT FEATURES (based on defined inputs)
         for feature_name in self.text_features:
@@ -516,7 +534,7 @@ class PreprocessingModel:
             name="preprocessor",
         )
 
-        # displaying information
+        # displaying information.
         _output_dims = self.model.output_shape[1]
         logger.info(f"Preprocessor Model built successfully ✅, summary: {self.model.summary()}")
         logger.info(f"Imputs: {self.inputs.keys()}")
