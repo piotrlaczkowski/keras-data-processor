@@ -1,10 +1,66 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
+import numpy as np
+import pandas as pd
 import tensorflow as tf
 
 from kdp.features import CategoricalFeature, FeatureType, NumericalFeature, TextFeature
 from kdp.processor import FeatureSpaceConverter, OutputModeOptions, PreprocessingModel, PreprocessorLayerFactory
+
+
+def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame:
+    """
+    Generate a dummy dataset based on feature specifications.
+
+    Args:
+        features_specs: A dictionary with the features and their types,
+                        where types can be specified as either FeatureType enums,
+                        class instances (NumericalFeature, CategoricalFeature, TextFeature), or strings.
+        num_rows: The number of rows to generate.
+
+    Returns:
+        pd.DataFrame: A pandas DataFrame with generated fake data.
+
+    Example:
+        ```python
+        features_specs = {
+            "feat1": FeatureType.FLOAT_NORMALIZED,
+            "feat2": FeatureType.STRING_CATEGORICAL,
+            "feat3": NumericalFeature(name="feat1", feature_type=FeatureType.FLOAT),
+            # Other features...
+        }
+        df = generate_fake_data(features_specs, num_rows=100)
+        print(df.head())
+        ```
+    """
+    data = {}
+    for feature, spec in features_specs.items():
+        if isinstance(spec, str):  # Direct string specification
+            feature_type = FeatureType[spec.upper()] if spec.isalpha() else spec
+        elif isinstance(spec, (NumericalFeature, CategoricalFeature, TextFeature)):
+            feature_type = spec.feature_type
+        else:  # Assume spec is a FeatureType or similar enum
+            feature_type = spec
+
+        if feature_type in (
+            FeatureType.FLOAT,
+            FeatureType.FLOAT_NORMALIZED,
+            FeatureType.FLOAT_DISCRETIZED,
+            FeatureType.FLOAT_RESCALED,
+        ):
+            data[feature] = np.random.randn(num_rows)
+        elif feature_type == FeatureType.INTEGER_CATEGORICAL:
+            data[feature] = np.random.randint(0, 5, size=num_rows)
+        elif feature_type == FeatureType.STRING_CATEGORICAL:
+            categories = ["cat", "dog", "fish", "bird"]
+            data[feature] = np.random.choice(categories, size=num_rows)
+        elif feature_type == FeatureType.TEXT:
+            sentences = ["First sentence special x", "Second sentence special y"]
+            data[feature] = np.random.choice(sentences, size=num_rows)
+    return pd.DataFrame(data)
 
 
 class TestPreprocessorLayerFactory(unittest.TestCase):
@@ -155,67 +211,81 @@ class TestPreprocessingModel(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         """Class level setup for all tests."""
-        cls.features_stats = {"feature1": {"mean": 0, "variance": 1}}
-        cls.path_data = "path/to/data"
+        # create the temp file in setUp method if you want a fresh directory for each test.
+        # This is useful if you don't want to share state between tests.
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.temp_file = Path(cls.temp_dir.name)
+
+        # prepare the PATH_LOCAL_TRAIN_DATA
+        cls._path_data = Path("data/rawdata.csv")
+        cls._path_data = cls.temp_file / cls._path_data
+        cls.features_stats_path = cls.temp_file / "features_stats.json"
+        cls._path_data.parent.mkdir(exist_ok=True, parents=True)
+
         cls.batch_size = 32
-        cls.feature_crosses = [("feature1", "feature2")]
-        cls.features_stats_path = "path/to/features_stats.json"
+        cls.feature_crosses = [("feat1", "feat2")]
         cls.output_mode = OutputModeOptions.CONCAT
-        cls.features_specs = {"feature1": "float"}
-        cls.features_stats = {"numeric_stats": {"feature1": {"mean": 0, "var": 1, "dtype": "float32"}}}
+        cls.features_specs = {
+            # ======= NUMERICAL Features =========================
+            # _using the FeatureType
+            "feat1": FeatureType.FLOAT_NORMALIZED,
+            "feat2": FeatureType.FLOAT_RESCALED,
+            # _using the NumericalFeature with custom attributes
+            "feat3": NumericalFeature(
+                name="feat3",
+                feature_type=FeatureType.FLOAT_DISCRETIZED,
+                bin_boundaries=[0.0, 1.0, 2.0],
+            ),
+            "feat4": NumericalFeature(
+                name="feat4",
+                feature_type=FeatureType.FLOAT,
+            ),
+            # directly by string name
+            "feat5": "float",
+            # ======= CATEGORICAL Features ========================
+            # _using the FeatureType
+            "feat6": FeatureType.STRING_CATEGORICAL,
+            # _using the CategoricalFeature with custom attributes
+            "feat7": CategoricalFeature(
+                name="feat7",
+                feature_type=FeatureType.INTEGER_CATEGORICAL,
+                embedding_size=100,
+            ),
+            # ======= TEXT Features ========================
+            "feat8": TextFeature(
+                name="feat8",
+                max_tokens=100,
+                stop_words=["stop", "next"],
+            ),
+        }
 
-    def setUp(self):
-        """Setup run before each test method."""
-        # Patching external dependencies
-        self.mock_tf_keras_Input = patch("tensorflow.keras.Input", return_value="input_layer").start()
-        self.mock_tf_keras_Model = patch("tensorflow.keras.Model", return_value="keras_model").start()
+        # GENERATING AND SAVING FAKE DATA
+        df = generate_fake_data(features_specs=cls.features_specs, num_rows=20)
+        df.to_csv(cls._path_data, index=False)
 
-    def tearDown(self):
-        """Cleanup run after each test method."""
-        patch.stopall()
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        # Remove the temporary file after the test is done
+        cls.temp_dir.cleanup()
 
-    def test_init(self):
-        """Test initialization of the PreprocessingModel class."""
-        model = PreprocessingModel(
-            features_stats=self.features_stats,
-            path_data=self.path_data,
-            batch_size=self.batch_size,
-            feature_crosses=self.feature_crosses,
+    def test_build_preprocessor(self):
+        """Test building the preprocessor model."""
+        ppr = PreprocessingModel(
+            path_data=self._path_data,
+            features_specs=self.features_specs,
             features_stats_path=self.features_stats_path,
-            output_mode=self.output_mode,
-            features_specs=self.features_specs,
+            overwrite_stats=True,
         )
+        result = ppr.build_preprocessor()
+        _model_output_shape = ppr.model.output_shape[1]
 
-        self.assertEqual(model.path_data, self.path_data)
-        self.assertEqual(model.batch_size, self.batch_size)
-        self.assertEqual(model.features_stats, self.features_stats)
-        self.assertEqual(model.feature_crosses, self.feature_crosses)
-        self.assertEqual(model.features_stats_path, self.features_stats_path)
-        self.assertEqual(model.output_mode, self.output_mode)
+        # checking if we have defined output shape
+        self.assertIsNotNone(_model_output_shape)
+        self.assertIsNotNone(result["output_dims"])
 
-    def test_add_input_column(self):
-        """Test adding an input column."""
-        model = PreprocessingModel(
-            features_specs=self.features_specs,
-            features_stats=self.features_stats,
-            features_stats_path="features_stats.json",
-        )
-        model._add_input_column(feature_name="feature1", dtype=tf.float32)
-
-        self.mock_tf_keras_Input.assert_called_once_with(shape=(1,), name="feature1", dtype=tf.float32)
-        self.assertEqual(model.inputs["feature1"], "input_layer")
-
-    # def test_build_preprocessor(self):
-    #     """Test building the preprocessor model."""
-    #     model = PreprocessingModel(
-    #         features_specs=self.features_specs,
-    #         features_stats=self.features_stats,
-    #         features_stats_path="features_stats_test.json",
-    #         )
-    #     result = model.build_preprocessor()
-
-    #     self.assertEqual(result['model'], 'keras_model')
-    #     self.mock_tf_keras_Model.assert_called_once()
+        # checking if we have model as output
+        self.assertIsInstance(result["model"], tf.keras.Model)
 
 
 if __name__ == "__main__":
