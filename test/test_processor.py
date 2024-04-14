@@ -269,12 +269,33 @@ class TestPreprocessingModel(unittest.TestCase):
         # Remove the temporary file after the test is done
         cls.temp_dir.cleanup()
 
-    def test_build_preprocessor(self):
+    def test_build_preprocessor_base_features(self):
         """Test building the preprocessor model."""
         ppr = PreprocessingModel(
             path_data=self._path_data,
             features_specs=self.features_specs,
             features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+        )
+        result = ppr.build_preprocessor()
+        _model_output_shape = ppr.model.output_shape[1]
+
+        # checking if we have defined output shape
+        self.assertIsNotNone(_model_output_shape)
+        self.assertIsNotNone(result["output_dims"])
+
+        # checking if we have model as output
+        self.assertIsInstance(result["model"], tf.keras.Model)
+
+    def test_build_preprocessor_with_crosses(self):
+        """Test building the preprocessor model."""
+        ppr = PreprocessingModel(
+            path_data=self._path_data,
+            features_specs=self.features_specs,
+            features_stats_path=self.features_stats_path,
+            feature_crosses=[
+                ("feat6", "feat7", 5),
+            ],
             overwrite_stats=True,
         )
         result = ppr.build_preprocessor()

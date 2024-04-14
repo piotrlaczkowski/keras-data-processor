@@ -83,14 +83,28 @@ class PreprocessingModel:
         features_stats: dict[str, Any] = None,
         path_data: str = None,
         batch_size: int = 50_000,
-        feature_crosses: list[tuple[str, str]] = None,
+        feature_crosses: list[tuple[str, str, int]] = None,
         features_stats_path: str = None,
         output_mode: str = OutputModeOptions.CONCAT,
         overwrite_stats: bool = False,
         log_to_file: bool = False,
         features_specs: dict[str, FeatureType | str] = None,
     ) -> None:
-        """Initialize a preprocessing model."""
+        """Initialize a preprocessing model.
+
+        Args:
+            features_stats (dict[str, Any]): A dictionary containing the statistics of the features.
+            path_data (str): The path to the data from which estimate the statistics.
+            batch_size (int): The batch size for the data iteration for stats estimation.
+            feature_crosses (list[tuple[str, str, int]]):
+                A list of tuples containing the names of the features to be crossed,
+                and nr_bins to be used for hashing.
+            features_stats_path (str): The path where to save/load features statistics.
+            output_mode (str): The output mode of the model (concat | dict).
+            overwrite_stats (bool): A boolean indicating whether to overwrite the statistics.
+            log_to_file (bool): A boolean indicating whether to log to a file.
+            features_specs (dict[str, FeatureType | str]): A dictionary containing the features and their types.
+        """
         self.path_data = path_data
         self.batch_size = batch_size or 50_000
         self.features_stats = features_stats or {}
@@ -438,7 +452,7 @@ class PreprocessingModel:
             feature_name = f"{feature_a}_x_{feature_b}"
             preprocessor.add_processing_step(
                 layer_creator=PreprocessorLayerFactory.crossing_layer,
-                depth=nr_bins,
+                num_bins=nr_bins,
                 name=f"cross_{feature_name}",
             )
             # for concatenation we need the same format
@@ -448,7 +462,7 @@ class PreprocessingModel:
                 name=f"cast_to_float_{feature_name}",
             )
             crossed_input = [self.inputs[feature_a], self.inputs[feature_b]]
-            self.outputs[feature_name] = preprocessor.chain(input_data=crossed_input)
+            self.outputs[feature_name] = preprocessor.chain(input_layer=crossed_input)
 
     def _prepare_outputs(self) -> None:
         """Preparing the outputs of the model.
