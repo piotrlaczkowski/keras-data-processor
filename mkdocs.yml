@@ -37,6 +37,7 @@ theme:
 nav:
   - 💡 KDP: index.md
   - 🍻 Contributing: contributing.md
+  - 🛠️ Defining Features: features.md
 repo_name: Keras Data Preprocessor
 repo_url: https://github.com/piotrlaczkowski/keras-data-processor
 
