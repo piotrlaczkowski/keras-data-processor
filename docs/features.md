@@ -1,12 +1,14 @@
-# Defining Features Preprocessors (Feature Space)
+# Defining Features for Preprocessing 🌟
+
+Customize the preprocessing pipeline by setting up a dictionary that maps feature names to their respective types, tailored to your specific requirements.
 
 ## 💯 Numeric Features
 
-You can define numerical features in different ways depending on the customization you require:
+Explore various methods to define numerical features tailored to your needs:
 
 === "ℹ️ Simple Declaration"
 
-    ```python linenums="1"
+    ```python
     features_specs = {
         "feat1": "float",
         "feat2": "FLOAT",
@@ -16,11 +18,11 @@ You can define numerical features in different ways depending on the customizati
     }
     ```
 
-=== "♴ Using FeatureType"
+=== "🔧 Using FeatureType"
 
-    Using this method default preprocessing layers configuration will be used.
+    Utilize predefined preprocessing configurations with `FeatureType`.
 
-    ```python linenums="1"
+    ```python
     from kdp.features import FeatureType
 
     features_specs = {
@@ -30,21 +32,18 @@ You can define numerical features in different ways depending on the customizati
     }
     ```
 
-    Currently availble `FeatureType` are:
+    Available `FeatureType` options:
 
-    - [x] FLOAT
-    - [x] FLOAT_NORMALIZED
-    - [x] FLOAT_RESCALED
-    - [x] FLOAT_DISCRETIZED
+    - FLOAT
+    - FLOAT_NORMALIZED
+    - FLOAT_RESCALED
+    - FLOAT_DISCRETIZED
 
-=== "💪🏻 Using NumericalFeature"
+=== "💪 Custom NumericalFeature"
 
-    Using this method you can pass custom *kwargs* to the feature class and thus corresponding layers
-    that are going to be used for the feature preprocessing.
+    Customize preprocessing by passing specific parameters to `NumericalFeature`.
 
-    *i.e.: Here we are passing bin_boundaries argument to feat3 preprocessing layers*
-
-    ```python linenums="1"
+    ```python
     from kdp.features import NumericalFeature
 
     features_specs = {
@@ -61,20 +60,17 @@ You can define numerical features in different ways depending on the customizati
     }
     ```
 
-    Currently availble `FeatureType` are:
+Here's how the numeric preprocessing pipeline looks:
 
-    - [x] FLOAT
-    - [x] FLOAT_NORMALIZED
-    - [x] FLOAT_RESCALED
-    - [x] FLOAT_DISCRETIZED
+![Numeric Feature Pipeline](imgs/num_feature_pipeline.png)
 
-## Categorical Features
+## 🐈‍⬛ Categorical Features
 
-You can define categorical features in different ways depending on the customization you require:
+Define categorical features flexibly:
 
 === "ℹ️ Simple Declaration"
 
-    ```python linenums="1"
+    ```python
     features_specs = {
         "feat1": "INTEGER_CATEGORICAL",
         "feat2": "STRING_CATEGORICAL",
@@ -83,11 +79,11 @@ You can define categorical features in different ways depending on the customiza
     }
     ```
 
-=== "♴ Using FeatureType"
+=== "🔧 Using FeatureType"
 
-    Using this method default preprocessing layers configuration will be used.
+    Leverage default configurations with `FeatureType`.
 
-    ```python linenums="1"
+    ```python
     from kdp.features import FeatureType
 
     features_specs = {
@@ -97,19 +93,17 @@ You can define categorical features in different ways depending on the customiza
     }
     ```
 
-    Currently availble `FeatureType` are:
+    Available `FeatureType` options:
 
-    - [x] STRING_CATEGORICAL
-    - [x] INTEGER_CATEGORICAL
+    - STRING_CATEGORICAL
+    - INTEGER_CATEGORICAL
 
-=== "💪🏻 Using CategoricalFeature"
+=== "💪 Custom CategoricalFeature"
 
-    Using this method you can pass custom *kwargs* to the feature class and thus corresponding layers
-    that are going to be used for the feature preprocessing.
+    Tailor feature processing by specifying properties in `CategoricalFeature`.
 
-    *i.e.: Here we are passing embedding_size argument to feat1 preprocessing layers*
-
-    ```python linenums="1"
+    ```python
+    from kdp.features
     from kdp.features import CategoricalFeature
 
     features_specs = {
@@ -126,18 +120,17 @@ You can define categorical features in different ways depending on the customiza
     }
     ```
 
-    Currently availble `FeatureType` are:
+See how the categorical preprocessing pipeline appears:
 
-    - [x] STRING_CATEGORICAL
-    - [x] INTEGER_CATEGORICAL
+![Categorical Feature Pipeline](imgs/cat_feature_pipeline.png)
 
-## Text Features
+## 📝 Text Features
 
-You can define text features in different ways depending on the customization you require:
+Customize text features in multiple ways to fit your project's demands:
 
 === "ℹ️ Simple Declaration"
 
-    ```python linenums="1"
+    ```python
     features_specs = {
         "feat1": "text",
         "feat2": "TEXT",
@@ -145,11 +138,11 @@ You can define text features in different ways depending on the customization yo
     }
     ```
 
-=== "♴ Using FeatureType"
+=== "🔧 Using FeatureType"
 
-    Using this method default preprocessing layers configuration will be used.
+    Use `FeatureType` for automatic default preprocessing setups.
 
-    ```python linenums="1"
+    ```python
     from kdp.features import FeatureType
 
     features_specs = {
@@ -159,24 +152,21 @@ You can define text features in different ways depending on the customization yo
     }
     ```
 
-    Currently availble `FeatureType` are:
+    Available `FeatureType` options:
 
-    - [x] TEXT
+    - TEXT
 
-=== "💪🏻 Using TextFeature"
+=== "💪 Custom TextFeature"
 
-    Using this method you can pass custom *kwargs* to the feature class and thus corresponding layers
-    that are going to be used for the feature preprocessing.
+    Customize text preprocessing by passing specific arguments to `TextFeature`.
 
-    *i.e.: Here we are passing max_tokens and stop_words arguments to feat1 preprocessing layers*
-
-    ```python linenums="1"
+    ```python
     from kdp.features import TextFeature
 
     features_specs = {
-        "feat2": TextFeature(
+        "feat1": TextFeature(
+            name="feat2",
             feature_type=FeatureType.TEXT,
-            name="feat1",
             max_tokens=100,
             stop_words=["stop", "next"],
         ),
@@ -188,10 +178,63 @@ You can define text features in different ways depending on the customization yo
     }
     ```
 
-    Currently availble `FeatureType` are:
+Here's how the text feature preprocessing pipeline looks:
 
-    - [x] TEXT
+![Text Feature Pipeline](imgs/text_feature_pipeline.png)
 
-## Cross Features
+## ❌ Cross Features
 
-# Defining Custom Preprocessing Steps
+Combine two or more features to create complex cross feature interactions:
+
+!!! info
+To implement cross features, specify a list of feature tuples in the `PreprocessingModel` like so:
+
+    ```python
+    from kdp.processor import PreprocessingModel
+
+    ppr = PreprocessingModel(
+        path_data="data/data.csv",
+        features_specs={
+            "feat6": FeatureType.STRING_CATEGORICAL,
+            "feat7": FeatureType.INTEGER_CATEGORICAL,
+        },
+        feature_crosses=[("feat6", "feat7", 5)],
+    )
+    ```
+
+Example cross feature between INTEGER_CATEGORICAL and STRING_CATEGORICAL:
+
+![Cross Features Pipeline](imgs/cross_features.png)
+
+## 🚀 Custom Preprocessing Steps
+
+If you require even more customization, you can define custom preprocessing steps using the `Feature` class, using `preprocessors` attribute.
+
+!!! info
+The `preprocessors` attribute accepts a list of methods defined in `PreprocessorLayerFactory`.
+
+```python
+from kdp.features import Feature
+from kdp.layers_factory import PreprocessorLayerFactory
+
+features_specs = {
+    "feat1": FeatureType.FLOAT_NORMALIZED,
+    "feat2": Feature(
+        name="custom_feature_pipeline",
+        feature_type=FeatureType.FLOAT_NORMALIZED,
+        preprocessors=[
+            PreprocessorLayerFactory.rescaling_layer,
+            PreprocessorLayerFactory.normalization_layer,
+
+        ],
+        # leyers required kwargs
+        scale=1,
+    )
+}
+```
+
+Here's how the text feature preprocessing pipeline looks:
+
+![Text Feature Pipeline](imgs/custom_feature_pipeline.png)
+
+The full list of availble layers can be found: [Preprocessing Layers Factory](layers_factory.md)
