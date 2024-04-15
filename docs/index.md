@@ -4,7 +4,7 @@
   <img src="kdp_logo.png" width="350"/>
 </p>
 
-** Welcome to the Future of Data Preprocessing!**
+**Welcome to the Future of Data Preprocessing!**
 
 Diving into the world of machine learning and data science, we often find ourselves tangled in the preprocessing jungle. Worry no more! Introducing a state-of-the-art data preprocessing model based on TensorFlow Keras and the innovative use of Keras preprocessing layers.
 
@@ -41,46 +41,22 @@ Then you can simply configure your preprocessor:
 
 ## 🛠️ Building Preprocessor:
 
+The simplest application of ths preprocessing model is as follows:
+
 ```python
 from kdp import PreprocessingModel
-from kdp import FeatureType, NumericalFeature, CategoricalFeature, TextFeature
+from kdp import FeatureType
 
 # DEFINING FEATURES PROCESSORS
 features_specs = {
-
     # ======= NUMERICAL Features =========================
-    # _using the FeatureType
     "feat1": FeatureType.FLOAT_NORMALIZED,
     "feat2": FeatureType.FLOAT_RESCALED,
-    # _using the NumericalFeature with custom attributes
-    "feat3": NumericalFeature(
-        name="feat3",
-        feature_type=FeatureType.FLOAT_DISCRETIZED,
-        bin_boundaries=[(1, 10)],
-    ),
-    "feat4": NumericalFeature(
-        name="feat4",
-        feature_type=FeatureType.FLOAT,
-    ),
-    # directly by string name
-    "feat5": "float",
-
     # ======= CATEGORICAL Features ========================
-    # _using the FeatureType
-    "feat6": FeatureType.STRING_CATEGORICAL,
-    # _using the CategoricalFeature with custom attributes
-    "feat7": CategoricalFeature(
-        name="feat7",
-        feature_type=FeatureType.INTEGER_CATEGORICAL,
-        embedding_size=100,
-        ),
-
+    "feat3": FeatureType.STRING_CATEGORICAL,
+    "feat4": FeatureType.INTEGER_CATEGORICAL,
     # ======= TEXT Features ========================
-    "feat8": TextFeature(
-        name="feat8",
-        max_tokens=100,
-        stop_words=["stop", "next"],
-    ),
+    "feat5": FeatureType.TEXT,
 }
 
 # INSTANTIATE THE PREPROCESSING MODEL with your data
@@ -100,22 +76,18 @@ This wil output:
 'inputs': {
     'feat1': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat1>,
     'feat2': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat2>,
-    'feat3': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat3>,
-    'feat4': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat4>,
-    'feat5': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat5>,
-    'feat6': <KerasTensor shape=(None, 1), dtype=string, sparse=None, name=feat6>,
-    'feat7': <KerasTensor shape=(None, 1), dtype=int32, sparse=None, name=feat7>,
-    'feat8': <KerasTensor shape=(None, 1), dtype=string, sparse=None, name=feat8>},
+    'feat3': <KerasTensor shape=(None, 1), dtype=string, sparse=None, name=feat3>,
+    'feat4': <KerasTensor shape=(None, 1), dtype=int32, sparse=None, name=feat4>,
+    'feat5': <KerasTensor shape=(None, 1), dtype=string, sparse=None, name=feat5>
+    },
 'signature': {
     'feat1': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat1'),
     'feat2': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat2'),
-    'feat3': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat3'),
-    'feat4': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat4'),
-    'feat5': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat5'),
-    'feat6': TensorSpec(shape=(None, 1), dtype=tf.string, name='feat6'),
-    'feat7': TensorSpec(shape=(None, 1), dtype=tf.int32, name='feat7'),
-    'feat8': TensorSpec(shape=(None, 1), dtype=tf.string, name='feat8')},
-'output_dims': 145
+    'feat3': TensorSpec(shape=(None, 1), dtype=tf.string, name='feat3'),
+    'feat4': TensorSpec(shape=(None, 1), dtype=tf.int32, name='feat4'),
+    'feat5': TensorSpec(shape=(None, 1), dtype=tf.string, name='feat5')
+    },
+'output_dims': 45
 }
 ```
 
@@ -125,49 +97,12 @@ This will result in the following preprocessing steps:
   <img src="imgs/Model_Architecture.png" width="800"/>
 </p>
 
-### 🔗 Integrating Preprocessing Model with other Keras Model:
+!!! success
+You can define the preprocessing model with the `features_specs` dictionary, where the keys are the feature names and the values are the feature types. The model will automatically apply the appropriate preprocessing steps based on the feature type.
 
-You can then easily ingetrate this model into your keras model as the first layer:
+    You have access to several layers of customization per feature type, such as normalization, rescaling, or even definition of custom preprocessing steps.
 
-```python
-class FunctionalModelWithPreprocessing(tf.keras.Model):
-    def __init__(self, preprocessing_model: tf.keras.Model) -> None:
-        """Initialize the user model.
+    👀 See [Defining Features](features.md) for more details.
 
-        Args:
-            preprocessing_model (tf.keras.Model): The preprocessing model.
-        """
-        super().__init__()
-        self.preprocessing_model = preprocessing_model
-
-        # Dynamically create inputs based on the preprocessing model's input shape
-        inputs = {
-            name: tf.keras.Input(shape=shape[1:], name=name)
-            for name, shape in self.preprocessing_model.input_shape.items()
-        }
-
-        # You can use the preprocessing model directly in the functional API.
-        x = self.preprocessing_model(inputs)
-
-        # Define the dense layer as part of the model architecture
-        output = tf.keras.layers.Dense(
-            units=128,
-            activation="relu",
-        )(x)
-
-        # Use the Model's functional API to define inputs and outputs
-        self.model = tf.keras.Model(inputs=inputs, outputs=output)
-
-    def call(self, inputs: dict[str, tf.Tensor]) -> tf.Tensor:
-        """Call the item model with the given inputs."""
-        return self.model(inputs)
-
-# not define the full model with builting preprocessing layers:
-full_model = FunctionalModelWithPreprocessing(
-    preprocessing_model=ppr.model,
-)
-```
-
-## 🔍 Dive Deeper:
-
-Explore the detailed documentation to leverage the full potential of this preprocessing tool. Learn about customizing feature crosses, bucketization strategies, embedding sizes, and much more to truly tailor your preprocessing pipeline to your project's needs.
+!!! info
+You can use the preprocessing model independently to preprocess your data or integrate it into your Keras model as the first layer, see 👀 [Integrations](integrations.md)

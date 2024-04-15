@@ -622,5 +622,5 @@ class PreprocessingModel:
             show_layer_names=True,
             show_trainable=True,
             dpi=100,
-            rankdir="LR",
+            # rankdir="LR",
         )
