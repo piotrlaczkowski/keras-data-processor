@@ -1,3 +1,11 @@
+## [1.4.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.3.0...kdp.1.4.0) (2024-04-15)
+
+
+### :hotsprings: Infra
+
+* ops(KDP): fixing version to 1.3 ([99eeabc](https://github.com/piotrlaczkowski/keras-data-processor/commit/99eeabc1cff425561f0205f15242d1ee458279a2))
+* ops(KDP): fixing version to 1.3 ([3bd5b2f](https://github.com/piotrlaczkowski/keras-data-processor/commit/3bd5b2f3980de7e06bdf010788fd706fbb7b8111))
+
 ## [1.3.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.2.0...kdp.1.3.0) (2024-04-15)
 
 
