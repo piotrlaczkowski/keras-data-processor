@@ -259,6 +259,17 @@ class TestPreprocessingModel(unittest.TestCase):
                 max_tokens=100,
                 stop_words=["stop", "next"],
             ),
+            # ======== CUSTOM PIPELINE ========================
+            "feat9": Feature(
+                name="feat9",
+                feature_type=FeatureType.FLOAT_NORMALIZED,
+                preprocessors=[
+                    PreprocessorLayerFactory.rescaling_layer,
+                    PreprocessorLayerFactory.normalization_layer,
+                ],
+                # leyers required kwargs
+                scale=1,
+            ),
         }
 
         # GENERATING AND SAVING FAKE DATA
