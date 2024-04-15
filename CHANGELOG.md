@@ -1,3 +1,33 @@
+## [1.3.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.2.0...kdp.1.3.0) (2024-04-15)
+
+
+### :beetle: Bug Fixes
+
+* fix(KDP): fixing relative imports problem ([9ca89ac](https://github.com/piotrlaczkowski/keras-data-processor/commit/9ca89aca02685f1fd8a105243c7ee8fc02dc5475))
+* fix(KDP): preprocess setting up base test + 1 ([8ef8ffa](https://github.com/piotrlaczkowski/keras-data-processor/commit/8ef8ffa7074b4b5d8a318e3df81349d1fef81854))
+* fix(KDP): preprocess setting up base test ([9ee3fa6](https://github.com/piotrlaczkowski/keras-data-processor/commit/9ee3fa6f577ffe368e7f738d8a1566862e2ed304))
+* fix(KDP): stats tests (adding todo) ([8883731](https://github.com/piotrlaczkowski/keras-data-processor/commit/8883731e841dd64ace5007ff7cc391fd62cd2f24))
+* fix(KDP): pipeline tests (with TODO) ([a89accb](https://github.com/piotrlaczkowski/keras-data-processor/commit/a89accb31e2eee35d42ca1e64a9c00c64786d058))
+* fix(KDP): fixing imports ([fbcb9d1](https://github.com/piotrlaczkowski/keras-data-processor/commit/fbcb9d104c25a8772d1af905cec0e456ebea4dd0))
+
+
+### :tools: Maintenance
+
+* refactor(KDP): adding cast_to_float32 layers to int outputs ([cc274df](https://github.com/piotrlaczkowski/keras-data-processor/commit/cc274df271cd2f5a6747d317d204d9bac5c30ba8))
+* refactor(KDP): fixing imports ([b420ef0](https://github.com/piotrlaczkowski/keras-data-processor/commit/b420ef006505e8e3b99857f0e5a804a7d5a8269c))
+* refactor(KDP): separating feature space normalizing class ([8b9c394](https://github.com/piotrlaczkowski/keras-data-processor/commit/8b9c39484aa2fafbdff182110e9f62bed7c70bf6))
+* refactor(KDP): adding abstraction for custom pipeline steps ([d500474](https://github.com/piotrlaczkowski/keras-data-processor/commit/d500474b2c31a92855e1097acab217bcec3882c4))
+
+
+### :gift: Features
+
+* feat(KDP): adding custom pipelines ([90d098c](https://github.com/piotrlaczkowski/keras-data-processor/commit/90d098c8baa36fbd1a6c1e12f9e7b345f62d58d0))
+* feat(KDP): adding float32 cast layer ([f2b02fb](https://github.com/piotrlaczkowski/keras-data-processor/commit/f2b02fb6cbf40f00003f83be3d6376ee27886955))
+* feat(KDP): migrating to feature specs approach v1 ([8953da5](https://github.com/piotrlaczkowski/keras-data-processor/commit/8953da5241f66b738e9c7b51694f093b4ad3b725))
+* feat(KDP): adding text processing option to the preprocessor v0 ([9e8dc03](https://github.com/piotrlaczkowski/keras-data-processor/commit/9e8dc03f13f12708958a9b6f720bb6e4b8682668))
+* feat(KDP): adding text processing option to the preprocessor v0 ([c0724c4](https://github.com/piotrlaczkowski/keras-data-processor/commit/c0724c4180e37ae9a1b639017340eb930d54dccd))
+* feat(KDP): adding text processing layers ([0a1e06d](https://github.com/piotrlaczkowski/keras-data-processor/commit/0a1e06d24c17aecaa6f5e5dc819d5b158d145452))
+
 ## [1.2.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.1.0...kdp.1.2.0) (2024-03-14)
 
 
