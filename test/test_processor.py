@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from kdp.features import CategoricalFeature, FeatureType, NumericalFeature, TextFeature
+from kdp.features import CategoricalFeature, Feature, FeatureType, NumericalFeature, TextFeature
 from kdp.processor import FeatureSpaceConverter, OutputModeOptions, PreprocessingModel, PreprocessorLayerFactory
 
 
@@ -38,8 +38,10 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
     """
     data = {}
     for feature, spec in features_specs.items():
-        if isinstance(spec, str):  # Direct string specification
-            feature_type = FeatureType[spec.upper()] if spec.isalpha() else spec
+        if isinstance(spec, Feature):
+            feature_type = spec.feature_type
+        elif isinstance(spec, str):  # Direct string specification
+            feature_type = FeatureType[spec.upper()] if isinstance(spec, str) else spec
         elif isinstance(spec, (NumericalFeature, CategoricalFeature, TextFeature)):
             feature_type = spec.feature_type
         else:  # Assume spec is a FeatureType or similar enum

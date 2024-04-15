@@ -40,6 +40,7 @@ class Feature:
         self,
         name: str,
         feature_type: FeatureType | str,
+        preprocessors: list[PreprocessorLayerFactory | Any] = None,
         **kwargs,
     ) -> None:
         """Initializes a Feature instance.
@@ -47,11 +48,12 @@ class Feature:
         Args:
             name (str): The name of the feature.
             feature_type (FeatureType | str): The type of the feature.
+            preprocessors (List[Union[PreprocessorLayerFactory, Any]]): The preprocessors to apply to the feature.
             **kwargs: Additional keyword arguments for the feature.
         """
         self.name = name
         self.feature_type = FeatureType.from_string(feature_type) if isinstance(feature_type, str) else feature_type
-        self.preprocessors = []
+        self.preprocessors = preprocessors or []
         self.kwargs = kwargs
 
     def add_preprocessor(self, preprocessor: PreprocessorLayerFactory | Any) -> None:
@@ -100,6 +102,7 @@ class NumericalFeature(Feature):
         """
         super().__init__(name, feature_type, **kwargs)
         self.dtype = tf.float32
+        self.kwargs = kwargs
 
 
 class CategoricalFeature(Feature):
@@ -123,6 +126,7 @@ class CategoricalFeature(Feature):
         super().__init__(name, feature_type, **kwargs)
         self.category_encoding = category_encoding
         self.dtype = tf.int32 if feature_type == FeatureType.INTEGER_CATEGORICAL else tf.string
+        self.kwargs = kwargs
 
     def _embedding_size_rule(self, nr_categories: int) -> int:
         """Returns the embedding size for a given number of categories using the Embedding Size Rule of Thumb.
@@ -149,3 +153,4 @@ class TextFeature(Feature):
         """
         super().__init__(name, feature_type, **kwargs)
         self.dtype = tf.string
+        self.kwargs = kwargs

@@ -6,7 +6,14 @@ from typing import Any
 import tensorflow as tf
 from loguru import logger
 
-from kdp.features import CategoricalFeature, CategoryEncodingOptions, FeatureType, NumericalFeature, TextFeature
+from kdp.features import (
+    CategoricalFeature,
+    CategoryEncodingOptions,
+    Feature,
+    FeatureType,
+    NumericalFeature,
+    TextFeature,
+)
 from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.pipeline import FeaturePreprocessor
 from kdp.stats import DatasetStatistics
@@ -41,12 +48,16 @@ class FeatureSpaceConverter:
             class instances (NumericalFeature, CategoricalFeature, TextFeature), or strings.
         """
         for name, spec in features_specs.items():
-            # Direct instance check
+            # Direct instance check for standard pipelines
             if isinstance(spec, NumericalFeature | CategoricalFeature | TextFeature):
                 feature_instance = spec
             else:
-                # Convert string to FeatureType if necessary
-                feature_type = FeatureType[spec.upper()] if isinstance(spec, str) else spec
+                # handling custom features pipelines
+                if isinstance(spec, Feature):
+                    feature_type = spec.feature_type
+                else:
+                    # Convert string to FeatureType if necessary
+                    feature_type = FeatureType[spec.upper()] if isinstance(spec, str) else spec
 
                 # Creating feature objects based on type
                 if feature_type in {
@@ -62,6 +73,12 @@ class FeatureSpaceConverter:
                     feature_instance = TextFeature(name=name, feature_type=feature_type)
                 else:
                     raise ValueError(f"Unsupported feature type for feature '{name}': {spec}")
+
+            # addigning custom pipelines
+            if isinstance(spec, Feature):
+                logger.info(f"Adding custom preprocessors to the object: {spec.preprocessors}")
+                feature_instance.preprocessors = spec.preprocessors
+                feature_instance.kwargs = spec.kwargs
 
             # Categorize feature based on its class
             if isinstance(feature_instance, NumericalFeature):
@@ -212,11 +229,14 @@ class PreprocessingModel:
         Returns:
             FeaturePreprocessor: The preprocessor object with the custom steps added.
         """
+        # getting feature object
+        _feature = self.features_specs[feature_name]
         for preprocessor_step in feature.preprocessors:
-            logger.info(f"Adding custom {preprocessor =} for {feature_name =}")
+            logger.info(f"Adding custom {preprocessor =} for {feature_name =}, {_feature.kwargs =}")
             preprocessor.add_processing_step(
                 layer_creator=preprocessor_step,
                 name=f"{preprocessor_step.__name__}_{feature_name}",
+                **_feature.kwargs,
             )
         return preprocessor
 
@@ -244,6 +264,7 @@ class PreprocessingModel:
 
         # Check if feature has specific preprocessing steps defined
         if hasattr(_feature, "preprocessors") and _feature.preprocessors:
+            logger.info(f"Custom Preprocessors detected 📐: {_feature.preprocessors}")
             self._add_custom_steps(
                 preprocessor=preprocessor,
                 feature=_feature,
@@ -601,4 +622,5 @@ class PreprocessingModel:
             show_layer_names=True,
             show_trainable=True,
             dpi=100,
+            rankdir="LR",
         )
