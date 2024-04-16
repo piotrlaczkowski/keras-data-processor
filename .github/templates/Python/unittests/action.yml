@@ -7,7 +7,7 @@ inputs:
     required: false
     default: src
   PYTHON_VERSION:
-    description: "Python version to use for unit tests. Default is 3.9"
+    description: "Python version to use for unit tests. Default is 3.11"
     required: false
     default: 3.11
 
@@ -45,11 +45,12 @@ runs:
         poetry run pytest --junitxml=pytest.xml --cov=${{ inputs.pkg_folder }}/ | tee pytest-coverage.txt
         echo "TEST OK!"
     - name: Pytest coverage comment
+      if: github.event_name == 'pull_request'
       id: coverageComment
       uses: MishaKav/pytest-coverage-comment@main
       with:
-        pytest-coverage-path: pytest-coverage.txt
-        junitxml-path: pytest.xml
+      pytest-coverage-path: pytest-coverage.txt
+      junitxml-path: pytest.xml
       # - name: Update Readme with Coverage Html
       #   # if: ${{ github.ref == 'refs/heads/main' }}
       #   run: |
