@@ -9,8 +9,10 @@
       
       
       
-        <link rel="prev" href="../integrations/">
+        <link rel="prev" href="..">
       
+      
+        <link rel="next" href="../layers_factory/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -18,7 +20,7 @@
     
     
       
-        <title>🍻 Contributing - KDP - Keras Data Preprocessor</title>
+        <title>🛠️ Defining Features - KDP - Keras Data Preprocessor</title>
       
     
     
@@ -113,7 +115,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#contributing-join-the-preprocessing-revolution" class="md-skip">
+        <a href="#defining-features-for-preprocessing" class="md-skip">
           Skip to content
         </a>
       
@@ -153,7 +155,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              🍻 Contributing
+              🛠️ Defining Features
             
           </span>
         </div>
@@ -313,10 +315,30 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../features/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    🛠️ Defining Features
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -325,6 +347,71 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#numeric-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      💯 Numeric Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#categorical-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      🐈‍⬛ Categorical Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#text-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      📝 Text Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Cross Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#custom-preprocessing-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      🚀 Custom Preprocessing Steps
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -373,30 +460,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    🍻 Contributing
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../contributing/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -405,44 +472,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#new-ideas-features-requests" class="md-nav__link">
-    <span class="md-ellipsis">
-      💡 New Ideas / Features Requests
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#getting-started" class="md-nav__link">
-    <span class="md-ellipsis">
-      🚀 Getting Started:
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -474,18 +503,45 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#new-ideas-features-requests" class="md-nav__link">
+  <a href="#numeric-features" class="md-nav__link">
     <span class="md-ellipsis">
-      💡 New Ideas / Features Requests
+      💯 Numeric Features
     </span>
   </a>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#getting-started" class="md-nav__link">
+  <a href="#categorical-features" class="md-nav__link">
     <span class="md-ellipsis">
-      🚀 Getting Started:
+      🐈‍⬛ Categorical Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#text-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      📝 Text Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cross-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      ❌ Cross Features
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#custom-preprocessing-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      🚀 Custom Preprocessing Steps
     </span>
   </a>
   
@@ -509,103 +565,203 @@
   
 
 
-<h1 id="contributing-join-the-preprocessing-revolution">💻 Contributing: Join the Preprocessing Revolution! 🛠️</h1>
-<p>Eager to contribute? Great! We're excited to welcome new contributors to our project. Here's how you can get involved:</p>
-<h2 id="new-ideas-features-requests">💡 New Ideas / Features Requests</h2>
-<p>If you wan't to request a new feature or you have detected an issue, please use the following link:
-<a href="https://github.com/piotrlaczkowski/keras-data-processor/issues">ISSUES</a></p>
-<h2 id="getting-started">🚀 Getting Started:</h2>
-<ul class="task-list">
-<li class="task-list-item">
-<p><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Fork the Repository: Visit our GitHub page, fork the repository, and clone it to your local machine.</p>
-</li>
-<li class="task-list-item">
-<p><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Set Up Your Environment: Make sure you have TensorFlow, Loguru, and all necessary dependencies installed.</p>
-</li>
-<li class="task-list-item">
-<p><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Make sure you have installed the pre-commit hook locally</p>
-</li>
-</ul>
-<p>??? installation-guide
-  Before using pre-commit hook you need to install it in your python environment.</p>
-<div class="highlight"><pre><span></span><code>    ```bash
-    conda install -c conda-forge pre-commit
-    ```
+<h1 id="defining-features-for-preprocessing">Defining Features for Preprocessing 🌟</h1>
+<p>Customize the preprocessing pipeline by setting up a dictionary that maps feature names to their respective types, tailored to your specific requirements.</p>
+<h2 id="numeric-features">💯 Numeric Features</h2>
+<p>Explore various methods to define numerical features tailored to your needs:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">ℹ️ Simple Declaration</label><label for="__tabbed_1_2">🔧 Using FeatureType</label><label for="__tabbed_1_3">💪 Custom NumericalFeature</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="s2">&quot;FLOAT&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;feat3&quot;</span><span class="p">:</span> <span class="s2">&quot;FLOAT_NORMALIZED&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;feat3&quot;</span><span class="p">:</span> <span class="s2">&quot;FLOAT_RESCALED&quot;</span><span class="p">,</span>
+    <span class="o">...</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>Utilize predefined preprocessing configurations with <code>FeatureType</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp.features</span> <span class="kn">import</span> <span class="n">FeatureType</span>
 
-    go to the root folder of this repository, activate your venv and use the following command:
+<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_NORMALIZED</span><span class="p">,</span>
+    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_RESCALED</span><span class="p">,</span>
+    <span class="o">...</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Available <code>FeatureType</code> options:</p>
+<ul>
+<li>FLOAT</li>
+<li>FLOAT_NORMALIZED</li>
+<li>FLOAT_RESCALED</li>
+<li>FLOAT_DISCRETIZED</li>
+</ul>
+</div>
+<div class="tabbed-block">
+<p>Customize preprocessing by passing specific parameters to <code>NumericalFeature</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp.features</span> <span class="kn">import</span> <span class="n">NumericalFeature</span>
 
-    ```bash
-    pre-commit install
-    ```
+<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;feat3&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat3&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_DISCRETIZED</span><span class="p">,</span>
+        <span class="n">bin_boundaries</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)],</span>
+    <span class="p">),</span>
+    <span class="s2">&quot;feat4&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat4&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="o">...</span>
+<span class="p">}</span>
 </code></pre></div>
-<ul class="task-list">
-<li class="task-list-item">
-<p><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create a new branch to package your code</p>
-</li>
-<li class="task-list-item">
-<p><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Use standarized commit message:</p>
-</li>
-</ul>
-<p><code>{LABEL}(KDP): {message}</code></p>
-<p>This is very important for the automatic releases (semantic release) and to have clean history on the master branch.</p>
-<p>??? Labels-types</p>
-<div class="highlight"><pre><span></span><code>    | Label    | Usage                                                                                                                                                                                                                                             |
-    | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-    | break    | `break` is used to identify changes related to old compatibility or functionality that breaks the current usage (major)                                                                                                                           |
-    | feat     | `feat` is used to identify changes related to new backward-compatible abilities or functionality (minor)                                                                                                                                          |
-    | init     | `init` is used to indentify the starting related to the project (minor)                                                                                                                                                                           |
-    | enh      | `enh` is used to indentify changes related to amelioration of abilities or functionality (patch)                                                                                                                                                  |
-    | build    | `build` (also known as `chore`) is used to identify **development** changes related to the build system (involving scripts, configurations, or tools) and package dependencies (patch)                                                            |
-    | ci       | `ci` is used to identify **development** changes related to the continuous integration and deployment system - involving scripts, configurations, or tools (minor)                                                                                |
-    | docs     | `docs`  is used to identify documentation changes related to the project; whether intended externally for the end-users or internally for the developers (patch)                                                                                  |
-    | perf     | `perf`  is used to identify changes related to backward-compatible **performance improvements** (patch)                                                                                                                                           |
-    | refactor | `refactor` is used to identify changes related to modifying the codebase, which neither adds a feature nor fixes a bug - such as removing redundant code, simplifying the code, renaming variables, etc.&lt;br /&gt;i.e. handy for your wip ; ) (patch) |
-    | style    | `style`  is used to identify **development** changes related to styling the codebase, regardless of the meaning - such as indentations, semi-colons, quotes, trailing commas, and so on (patch)                                                   |
-    | test     | `test` is used to identify **development** changes related to tests - such as refactoring existing tests or adding new tests. (minor)                                                                                                             |
-    | fix      | `fix`  is used to identify changes related to backward-compatible bug fixes. (patch)                                                                                                                                                              |
-    | ops      | `ops` is used to identify changes related to deployment files like `values.yml`, `gateway.yml,` or `Jenkinsfile` in the **ops** directory. (minor)                                                                                                |
-    | hotfix   | `hotfix` is used to identify **production** changes related to backward-compatible bug fixes (patch)                                                                                                                                              |
-    | revert   | `revert` is used to identify backward changes (patch)                                                                                                                                                                                             |
-    | maint    | `maint` is used to identify **maintenance** changes related to project (patch)                                                                                                                                                                    |
+</div>
+</div>
+</div>
+<p>Here's how the numeric preprocessing pipeline looks:</p>
+<p><img alt="Numeric Feature Pipeline" src="../imgs/num_feature_pipeline.png" /></p>
+<h2 id="categorical-features">🐈‍⬛ Categorical Features</h2>
+<p>Define categorical features flexibly:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:3"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">ℹ️ Simple Declaration</label><label for="__tabbed_2_2">🔧 Using FeatureType</label><label for="__tabbed_2_3">💪 Custom CategoricalFeature</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="s2">&quot;INTEGER_CATEGORICAL&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="s2">&quot;STRING_CATEGORICAL&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;feat3&quot;</span><span class="p">:</span> <span class="s2">&quot;string_categorical&quot;</span><span class="p">,</span>
+    <span class="o">...</span>
+<span class="p">}</span>
 </code></pre></div>
-<ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Create your first Merge Request (MR) as soon as possible.</li>
-</ul>
-<blockquote>
-<p>Merge requests will be responsible for semantic-release storytelling and so use them wisely! The changelog report generated automatically will be based on your commits merged into main branch and should cover all the thins you did for the project, as an example:</p>
-</blockquote>
-<ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Separate your merge requests based on LABEL or functionality if you are working on <code>feat</code> label</li>
-</ul>
-<blockquote>
-<p>This about what part of feature you are working on, (messages) i.e.:</p>
-</blockquote>
-<div class="highlight"><pre><span></span><code>    - `initializaing base pre-processing code`
-    - `init repo structure`
-    - `adding pre-processing unit-tests`
+</div>
+<div class="tabbed-block">
+<p>Leverage default configurations with <code>FeatureType</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp.features</span> <span class="kn">import</span> <span class="n">FeatureType</span>
+
+<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">INTEGER_CATEGORICAL</span><span class="p">,</span>
+    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">STRING_CATEGORICAL</span><span class="p">,</span>
+    <span class="o">...</span>
+<span class="p">}</span>
 </code></pre></div>
-<ul class="task-list">
-<li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Once the code is ready create a Merge Request (MR) into the DEV branch with a proper naming convention</li>
+<p>Available <code>FeatureType</code> options:</p>
+<ul>
+<li>STRING_CATEGORICAL</li>
+<li>INTEGER_CATEGORICAL</li>
 </ul>
-<blockquote>
-<p>The name of your MR should follow the same exact convention as your commits (we have a dedicated check for this in the CI):</p>
-</blockquote>
-<div class="highlight"><pre><span></span><code>    `{LABEL}(KDP): {message}`
+</div>
+<div class="tabbed-block">
+<p>Tailor feature processing by specifying properties in <code>CategoricalFeature</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp.features</span>
+<span class="kn">from</span> <span class="nn">kdp.features</span> <span class="kn">import</span> <span class="n">CategoricalFeature</span>
+
+<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">CategoricalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat7&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">INTEGER_CATEGORICAL</span><span class="p">,</span>
+        <span class="n">embedding_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">CategoricalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat2&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">STRING_CATEGORICAL</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="o">...</span>
+<span class="p">}</span>
 </code></pre></div>
-<ul class="task-list">
-<li class="task-list-item">
-<p><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Use small Merge Requests but do them more ofthen &lt; 400 ligns for quicker and simple review and not the whole project !</p>
-</li>
-<li class="task-list-item">
-<p><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Ask for a Code Review !</p>
-</li>
-<li class="task-list-item">
-<p><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> Once your MR is approved, solve all your unresolved conversation and pass all the CI check before you can merge it.</p>
-</li>
-<li class="task-list-item">
-<p><label class="task-list-control"><input type="checkbox" disabled checked/><span class="task-list-indicator"></span></label> All the Tests for your code should pass -&gt; REMEMBER NO TESTS = NO MERGE 🚨</p>
-</li>
+</div>
+</div>
+</div>
+<p>See how the categorical preprocessing pipeline appears:</p>
+<p><img alt="Categorical Feature Pipeline" src="../imgs/cat_feature_pipeline.png" /></p>
+<h2 id="text-features">📝 Text Features</h2>
+<p>Customize text features in multiple ways to fit your project's demands:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="3:3"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">ℹ️ Simple Declaration</label><label for="__tabbed_3_2">🔧 Using FeatureType</label><label for="__tabbed_3_3">💪 Custom TextFeature</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="highlight"><pre><span></span><code><span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="s2">&quot;TEXT&quot;</span><span class="p">,</span>
+    <span class="o">...</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+<div class="tabbed-block">
+<p>Use <code>FeatureType</code> for automatic default preprocessing setups.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp.features</span> <span class="kn">import</span> <span class="n">FeatureType</span>
+
+<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+    <span class="o">...</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Available <code>FeatureType</code> options:</p>
+<ul>
+<li>TEXT</li>
 </ul>
+</div>
+<div class="tabbed-block">
+<p>Customize text preprocessing by passing specific arguments to <code>TextFeature</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp.features</span> <span class="kn">import</span> <span class="n">TextFeature</span>
+
+<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">TextFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat2&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+        <span class="n">max_tokens</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+        <span class="n">stop_words</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;stop&quot;</span><span class="p">,</span> <span class="s2">&quot;next&quot;</span><span class="p">],</span>
+    <span class="p">),</span>
+    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">TextFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat2&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+    <span class="p">),</span>
+    <span class="o">...</span>
+<span class="p">}</span>
+</code></pre></div>
+</div>
+</div>
+</div>
+<p>Here's how the text feature preprocessing pipeline looks:</p>
+<p><img alt="Text Feature Pipeline" src="../imgs/text_feature_pipeline.png" /></p>
+<h2 id="cross-features">❌ Cross Features</h2>
+<p>To implement cross features, specify a list of feature tuples in the <code>PreprocessingModel</code> like so:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp.processor</span> <span class="kn">import</span> <span class="n">PreprocessingModel</span>
+
+<span class="n">ppr</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span>
+    <span class="n">path_data</span><span class="o">=</span><span class="s2">&quot;data/data.csv&quot;</span><span class="p">,</span>
+    <span class="n">features_specs</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;feat6&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">STRING_CATEGORICAL</span><span class="p">,</span>
+        <span class="s2">&quot;feat7&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">INTEGER_CATEGORICAL</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="n">feature_crosses</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;feat6&quot;</span><span class="p">,</span> <span class="s2">&quot;feat7&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
+<span class="p">)</span>
+</code></pre></div>
+<p>Example cross feature between INTEGER_CATEGORICAL and STRING_CATEGORICAL:</p>
+<p><img alt="Cross Features Pipeline" src="../imgs/cross_features.png" /></p>
+<h2 id="custom-preprocessing-steps">🚀 Custom Preprocessing Steps</h2>
+<p>If you require even more customization, you can define custom preprocessing steps using the <code>Feature</code> class, using <code>preprocessors</code> attribute.</p>
+<p>The <code>preprocessors</code> attribute accepts a list of methods defined in <code>PreprocessorLayerFactory</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp.features</span> <span class="kn">import</span> <span class="n">Feature</span>
+<span class="kn">from</span> <span class="nn">kdp.layers_factory</span> <span class="kn">import</span> <span class="n">PreprocessorLayerFactory</span>
+
+<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_NORMALIZED</span><span class="p">,</span>
+    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">Feature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;custom_feature_pipeline&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_NORMALIZED</span><span class="p">,</span>
+        <span class="n">preprocessors</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">PreprocessorLayerFactory</span><span class="o">.</span><span class="n">rescaling_layer</span><span class="p">,</span>
+            <span class="n">PreprocessorLayerFactory</span><span class="o">.</span><span class="n">normalization_layer</span><span class="p">,</span>
+
+        <span class="p">],</span>
+        <span class="c1"># leyers required kwargs</span>
+        <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Here's how the text feature preprocessing pipeline looks:</p>
+<p><img alt="Text Feature Pipeline" src="../imgs/custom_feature_pipeline.png" /></p>
+<p>The full list of availble layers can be found: <a href="../layers_factory/">Preprocessing Layers Factory</a></p>
 
 
 

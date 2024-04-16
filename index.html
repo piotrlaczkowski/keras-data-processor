@@ -10,7 +10,7 @@
       
       
       
-        <link rel="next" href="contributing/">
+        <link rel="next" href="features/">
       
       
       <link rel="icon" href="assets/images/favicon.png">
@@ -366,36 +366,72 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🛠️ Building Preprocessor:">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#integrating-preprocessing-model-with-keras-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      🔗 Integrating Preprocessing Model with Keras Model:
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#dive-deeper" class="md-nav__link">
-    <span class="md-ellipsis">
-      🔍 Dive Deeper:
-    </span>
-  </a>
-  
 </li>
       
     </ul>
   
 </nav>
       
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="features/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    🛠️ Defining Features
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="layers_factory/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    🏭 Layers Factory
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="integrations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    📦 Integrating Preprocessing Model
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -471,30 +507,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="🛠️ Building Preprocessor:">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#integrating-preprocessing-model-with-keras-model" class="md-nav__link">
-    <span class="md-ellipsis">
-      🔗 Integrating Preprocessing Model with Keras Model:
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#dive-deeper" class="md-nav__link">
-    <span class="md-ellipsis">
-      🔍 Dive Deeper:
-    </span>
-  </a>
-  
 </li>
       
     </ul>
@@ -520,7 +532,7 @@
   <img src="kdp_logo.png" width="350"/>
 </p>
 
-<p>** Welcome to the Future of Data Preprocessing!**</p>
+<p><strong>Welcome to the Future of Data Preprocessing!</strong></p>
 <p>Diving into the world of machine learning and data science, we often find ourselves tangled in the preprocessing jungle. Worry no more! Introducing a state-of-the-art data preprocessing model based on TensorFlow Keras and the innovative use of Keras preprocessing layers.</p>
 <p>Say goodbye to tedious data preparation tasks and hello to streamlined, efficient, and scalable data pipelines. Whether you're a seasoned data scientist or just starting out, this tool is designed to supercharge your ML workflows, making them more robust and faster than ever!</p>
 <h2 id="key-features">🔑 Key Features:</h2>
@@ -549,14 +561,20 @@ Then you can install the dependencies by running:</p>
 </code></pre></div>
 <p>Then you can simply configure your preprocessor:</p>
 <h2 id="building-preprocessor">🛠️ Building Preprocessor:</h2>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp</span> <span class="kn">import</span> <span class="n">PreprocessingModel</span><span class="p">,</span> <span class="n">FeatureType</span>
+<p>The simplest application of ths preprocessing model is as follows:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp</span> <span class="kn">import</span> <span class="n">PreprocessingModel</span>
+<span class="kn">from</span> <span class="nn">kdp</span> <span class="kn">import</span> <span class="n">FeatureType</span>
 
 <span class="c1"># DEFINING FEATURES PROCESSORS</span>
-<span class="n">features_spec</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;num_1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
-    <span class="s2">&quot;num_2&quot;</span><span class="p">:</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;cat_1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">STRING_CATEGORICAL</span><span class="p">,</span>
-    <span class="s2">&quot;cat_2&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">INTEGER_CATEGORICAL</span><span class="p">,</span>
+<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># ======= NUMERICAL Features =========================</span>
+    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_NORMALIZED</span><span class="p">,</span>
+    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_RESCALED</span><span class="p">,</span>
+    <span class="c1"># ======= CATEGORICAL Features ========================</span>
+    <span class="s2">&quot;feat3&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">STRING_CATEGORICAL</span><span class="p">,</span>
+    <span class="s2">&quot;feat4&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">INTEGER_CATEGORICAL</span><span class="p">,</span>
+    <span class="c1"># ======= TEXT Features ========================</span>
+    <span class="s2">&quot;feat5&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
 <span class="p">}</span>
 
 <span class="c1"># INSTANTIATE THE PREPROCESSING MODEL with your data</span>
@@ -571,66 +589,37 @@ Then you can install the dependencies by running:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
 <span class="s1">&#39;model&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">Functional</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">preprocessor</span><span class="p">,</span><span class="w"> </span><span class="nx">built</span><span class="o">=</span><span class="nx">True</span><span class="o">&gt;</span><span class="p">,</span>
 <span class="s1">&#39;inputs&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="s1">&#39;num_1&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">KerasTensor</span><span class="w"> </span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">float32</span><span class="p">,</span><span class="w"> </span><span class="nx">sparse</span><span class="o">=</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">num_1</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="w">    </span><span class="s1">&#39;num_2&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">KerasTensor</span><span class="w"> </span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">float32</span><span class="p">,</span><span class="w"> </span><span class="nx">sparse</span><span class="o">=</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">num_2</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="w">    </span><span class="s1">&#39;cat_1&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">KerasTensor</span><span class="w"> </span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">string</span><span class="p">,</span><span class="w"> </span><span class="nx">sparse</span><span class="o">=</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">cat_1</span><span class="o">&gt;</span>
-<span class="w">    </span><span class="s1">&#39;cat_2&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">KerasTensor</span><span class="w"> </span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">int32</span><span class="p">,</span><span class="w"> </span><span class="nx">sparse</span><span class="o">=</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">cat_2</span><span class="o">&gt;</span><span class="p">,</span>
-<span class="p">},</span>
+<span class="w">    </span><span class="s1">&#39;feat1&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">KerasTensor</span><span class="w"> </span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">float32</span><span class="p">,</span><span class="w"> </span><span class="nx">sparse</span><span class="o">=</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">feat1</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">&#39;feat2&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">KerasTensor</span><span class="w"> </span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">float32</span><span class="p">,</span><span class="w"> </span><span class="nx">sparse</span><span class="o">=</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">feat2</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">&#39;feat3&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">KerasTensor</span><span class="w"> </span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">string</span><span class="p">,</span><span class="w"> </span><span class="nx">sparse</span><span class="o">=</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">feat3</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">&#39;feat4&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">KerasTensor</span><span class="w"> </span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">int32</span><span class="p">,</span><span class="w"> </span><span class="nx">sparse</span><span class="o">=</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">feat4</span><span class="o">&gt;</span><span class="p">,</span>
+<span class="w">    </span><span class="s1">&#39;feat5&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">KerasTensor</span><span class="w"> </span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">string</span><span class="p">,</span><span class="w"> </span><span class="nx">sparse</span><span class="o">=</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">feat5</span><span class="o">&gt;</span>
+<span class="w">    </span><span class="p">},</span>
 <span class="s1">&#39;signature&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
-<span class="w">    </span><span class="s1">&#39;num_1&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">TensorSpec</span><span class="p">(</span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">tf</span><span class="p">.</span><span class="nx">float32</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="s1">&#39;num_1&#39;</span><span class="p">),</span>
-<span class="w">    </span><span class="s1">&#39;num_2&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">TensorSpec</span><span class="p">(</span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">tf</span><span class="p">.</span><span class="nx">float32</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="s1">&#39;num_2&#39;</span><span class="p">),</span>
-<span class="w">    </span><span class="s1">&#39;cat_1&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">TensorSpec</span><span class="p">(</span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">tf</span><span class="p">.</span><span class="nx">string</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="s1">&#39;cat_1&#39;</span><span class="p">)</span>
-<span class="w">    </span><span class="s1">&#39;cat_2&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">TensorSpec</span><span class="p">(</span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">tf</span><span class="p">.</span><span class="nx">int32</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="s1">&#39;cat_2&#39;</span><span class="p">),</span>
-<span class="p">},</span>
-<span class="s1">&#39;output_dims&#39;</span><span class="o">:</span><span class="w"> </span><span class="mf">9</span>
+<span class="w">    </span><span class="s1">&#39;feat1&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">TensorSpec</span><span class="p">(</span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">tf</span><span class="p">.</span><span class="nx">float32</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="s1">&#39;feat1&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="s1">&#39;feat2&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">TensorSpec</span><span class="p">(</span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">tf</span><span class="p">.</span><span class="nx">float32</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="s1">&#39;feat2&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="s1">&#39;feat3&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">TensorSpec</span><span class="p">(</span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">tf</span><span class="p">.</span><span class="nx">string</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="s1">&#39;feat3&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="s1">&#39;feat4&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">TensorSpec</span><span class="p">(</span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">tf</span><span class="p">.</span><span class="nx">int32</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="s1">&#39;feat4&#39;</span><span class="p">),</span>
+<span class="w">    </span><span class="s1">&#39;feat5&#39;</span><span class="o">:</span><span class="w"> </span><span class="nx">TensorSpec</span><span class="p">(</span><span class="nx">shape</span><span class="o">=</span><span class="p">(</span><span class="nx">None</span><span class="p">,</span><span class="w"> </span><span class="mf">1</span><span class="p">),</span><span class="w"> </span><span class="nx">dtype</span><span class="o">=</span><span class="nx">tf</span><span class="p">.</span><span class="nx">string</span><span class="p">,</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="s1">&#39;feat5&#39;</span><span class="p">)</span>
+<span class="w">    </span><span class="p">},</span>
+<span class="s1">&#39;output_dims&#39;</span><span class="o">:</span><span class="w"> </span><span class="mf">45</span>
 <span class="p">}</span>
 </code></pre></div>
 <p>This will result in the following preprocessing steps:</p>
 <p align="center">
-  <img src="imgs/model_archi_concat.png" width="800"/>
+  <img src="imgs/Model_Architecture.png" width="800"/>
 </p>
 
-<h3 id="integrating-preprocessing-model-with-keras-model">🔗 Integrating Preprocessing Model with Keras Model:</h3>
-<p>You can then easily ingetrate this model into your keras model as the first layer:</p>
-<div class="highlight"><pre><span></span><code><span class="k">class</span> <span class="nc">FunctionalModelWithPreprocessing</span><span class="p">(</span><span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">preprocessing_model</span><span class="p">:</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Model</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the user model.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            preprocessing_model (tf.keras.Model): The preprocessing model.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">preprocessing_model</span> <span class="o">=</span> <span class="n">preprocessing_model</span>
-
-        <span class="c1"># Dynamically create inputs based on the preprocessing model&#39;s input shape</span>
-        <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
-            <span class="n">name</span><span class="p">:</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Input</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">shape</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">preprocessing_model</span><span class="o">.</span><span class="n">input_shape</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-        <span class="p">}</span>
-
-        <span class="c1"># You can use the preprocessing model directly in the functional API.</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">preprocessing_model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
-
-        <span class="c1"># Define the dense layer as part of the model architecture</span>
-        <span class="n">output</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Dense</span><span class="p">(</span>
-            <span class="n">units</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
-            <span class="n">activation</span><span class="o">=</span><span class="s2">&quot;relu&quot;</span><span class="p">,</span>
-        <span class="p">)(</span><span class="n">x</span><span class="p">)</span>
-
-        <span class="c1"># Use the Model&#39;s functional API to define inputs and outputs</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">model</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">Model</span><span class="p">(</span><span class="n">inputs</span><span class="o">=</span><span class="n">inputs</span><span class="p">,</span> <span class="n">outputs</span><span class="o">=</span><span class="n">output</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">call</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">inputs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">tf</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">tf</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Call the item model with the given inputs.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
-
-<span class="c1"># not define the full model with builting preprocessing layers:</span>
-<span class="n">full_model</span> <span class="o">=</span> <span class="n">FunctionalModelWithPreprocessing</span><span class="p">(</span>
-    <span class="n">preprocessing_model</span><span class="o">=</span><span class="n">ppr</span><span class="o">.</span><span class="n">model</span><span class="p">,</span>
-<span class="p">)</span>
-</code></pre></div>
-<h2 id="dive-deeper">🔍 Dive Deeper:</h2>
-<p>Explore the detailed documentation to leverage the full potential of this preprocessing tool. Learn about customizing feature crosses, bucketization strategies, embedding sizes, and much more to truly tailor your preprocessing pipeline to your project's needs.</p>
+<div class="admonition success">
+<p class="admonition-title">Success</p>
+<p>You can define the preprocessing model with the <code>features_specs</code> dictionary, where the keys are the feature names and the values are the feature types. The model will automatically apply the appropriate preprocessing steps based on the feature type.</p>
+<p>You have access to several layers of customization per feature type, such as normalization, rescaling, or even definition of custom preprocessing steps.</p>
+<p>See 👀 <a href="features/">Defining Features</a> for more details.</p>
+</div>
+<div class="admonition info">
+<p class="admonition-title">Info</p>
+<p>You can use the preprocessing model independently to preprocess your data or integrate it into your Keras model as the first layer, see 👀 <a href="integrations/">Integrations</a></p>
+</div>
 
 
 
