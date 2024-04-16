@@ -184,23 +184,20 @@ Here's how the text feature preprocessing pipeline looks:
 
 ## ❌ Cross Features
 
-Combine two or more features to create complex cross feature interactions:
-
-!!! info
 To implement cross features, specify a list of feature tuples in the `PreprocessingModel` like so:
 
-    ```python
-    from kdp.processor import PreprocessingModel
+```python
+from kdp.processor import PreprocessingModel
 
-    ppr = PreprocessingModel(
-        path_data="data/data.csv",
-        features_specs={
-            "feat6": FeatureType.STRING_CATEGORICAL,
-            "feat7": FeatureType.INTEGER_CATEGORICAL,
-        },
-        feature_crosses=[("feat6", "feat7", 5)],
-    )
-    ```
+ppr = PreprocessingModel(
+    path_data="data/data.csv",
+    features_specs={
+        "feat6": FeatureType.STRING_CATEGORICAL,
+        "feat7": FeatureType.INTEGER_CATEGORICAL,
+    },
+    feature_crosses=[("feat6", "feat7", 5)],
+)
+```
 
 Example cross feature between INTEGER_CATEGORICAL and STRING_CATEGORICAL:
 
@@ -210,31 +207,31 @@ Example cross feature between INTEGER_CATEGORICAL and STRING_CATEGORICAL:
 
 If you require even more customization, you can define custom preprocessing steps using the `Feature` class, using `preprocessors` attribute.
 
-!!! info
-    The `preprocessors` attribute accepts a list of methods defined in `PreprocessorLayerFactory`.
 
-    ```python
-    from kdp.features import Feature
-    from kdp.layers_factory import PreprocessorLayerFactory
+The `preprocessors` attribute accepts a list of methods defined in `PreprocessorLayerFactory`.
 
-    features_specs = {
-        "feat1": FeatureType.FLOAT_NORMALIZED,
-        "feat2": Feature(
-            name="custom_feature_pipeline",
-            feature_type=FeatureType.FLOAT_NORMALIZED,
-            preprocessors=[
-                PreprocessorLayerFactory.rescaling_layer,
-                PreprocessorLayerFactory.normalization_layer,
+```python
+from kdp.features import Feature
+from kdp.layers_factory import PreprocessorLayerFactory
 
-            ],
-            # leyers required kwargs
-            scale=1,
-        )
-    }
-    ```
+features_specs = {
+    "feat1": FeatureType.FLOAT_NORMALIZED,
+    "feat2": Feature(
+        name="custom_feature_pipeline",
+        feature_type=FeatureType.FLOAT_NORMALIZED,
+        preprocessors=[
+            PreprocessorLayerFactory.rescaling_layer,
+            PreprocessorLayerFactory.normalization_layer,
 
-    Here's how the text feature preprocessing pipeline looks:
+        ],
+        # leyers required kwargs
+        scale=1,
+    )
+}
+```
 
-    ![Text Feature Pipeline](imgs/custom_feature_pipeline.png)
+Here's how the text feature preprocessing pipeline looks:
 
-    The full list of availble layers can be found: [Preprocessing Layers Factory](layers_factory.md)
+![Text Feature Pipeline](imgs/custom_feature_pipeline.png)
+
+The full list of availble layers can be found: [Preprocessing Layers Factory](layers_factory.md)

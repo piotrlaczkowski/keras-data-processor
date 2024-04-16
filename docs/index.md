@@ -98,11 +98,11 @@ This will result in the following preprocessing steps:
 </p>
 
 !!! success
-You can define the preprocessing model with the `features_specs` dictionary, where the keys are the feature names and the values are the feature types. The model will automatically apply the appropriate preprocessing steps based on the feature type.
+    You can define the preprocessing model with the `features_specs` dictionary, where the keys are the feature names and the values are the feature types. The model will automatically apply the appropriate preprocessing steps based on the feature type.
 
     You have access to several layers of customization per feature type, such as normalization, rescaling, or even definition of custom preprocessing steps.
 
-    👀 See [Defining Features](features.md) for more details.
+    See 👀 [Defining Features](features.md) for more details.
 
 !!! info
-You can use the preprocessing model independently to preprocess your data or integrate it into your Keras model as the first layer, see 👀 [Integrations](integrations.md)
+    You can use the preprocessing model independently to preprocess your data or integrate it into your Keras model as the first layer, see 👀 [Integrations](integrations.md)

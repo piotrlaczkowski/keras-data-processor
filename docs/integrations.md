@@ -37,7 +37,32 @@ class FunctionalModelWithPreprocessing(tf.keras.Model):
         """Call the item model with the given inputs."""
         return self.model(inputs)
 
-# not define the full model with builting preprocessing layers:
+# Defining this model is not easy with builtin preprocessing layers:
+
+from kdp import PreprocessingModel
+from kdp import FeatureType
+
+# DEFINING FEATURES PROCESSORS
+features_specs = {
+    # ======= NUMERICAL Features =========================
+    "feat1": FeatureType.FLOAT_NORMALIZED,
+    "feat2": FeatureType.FLOAT_RESCALED,
+    # ======= CATEGORICAL Features ========================
+    "feat3": FeatureType.STRING_CATEGORICAL,
+    "feat4": FeatureType.INTEGER_CATEGORICAL,
+    # ======= TEXT Features ========================
+    "feat5": FeatureType.TEXT,
+}
+
+# INSTANTIATE THE PREPROCESSING MODEL with your data
+ppr = PreprocessingModel(
+    path_data="data/my_data.csv",
+    features_specs=features_spec,
+)
+# construct the preprocessing pipelines
+ppr.build_preprocessor()
+
+# building a production / deployment ready model
 full_model = FunctionalModelWithPreprocessing(
     preprocessing_model=ppr.model,
 )

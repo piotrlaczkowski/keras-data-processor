@@ -4,7 +4,7 @@
   <img src="docs/kdp_logo.png" width="350"/>
 </p>
 
-** Welcome to the Future of Data Preprocessing!**
+**Welcome to the Future of Data Preprocessing!**
 
 Diving into the world of machine learning and data science, we often find ourselves tangled in the preprocessing jungle.
 Worry no more! Introducing a state-of-the-art data preprocessing model based on TensorFlow Keras and the innovative use of Keras preprocessing layers.
@@ -13,7 +13,7 @@ Say goodbye to tedious data preparation tasks and hello to streamlined, efficien
 
 ## 🔑 Key Features:
 
-- Automated Feature Engineering: Automatically detects and applies the optimal preprocessing steps for each feature type in your dataset.
+- Automatic and scalable features statistics extraction: Automatically infer the feature tatistics from your data, saving you time and efforts.
 
 - Customizable Preprocessing Pipelines: Tailor your preprocessing steps with ease, choosing from a wide range of options for numeric, categorical, and even complex feature crosses.
 
@@ -95,6 +95,12 @@ This will result in the following preprocessing steps:
 <p align="center">
   <img src="docs/imgs/Model_Architecture.png" width="800"/>
 </p>
+
+
+**This preprocessing model can be used independentyly or as the first layer of any Keras model.
+This means you can ship your model with the preprocessing pipeline (built-in) as a single entity and deploy it with ease using Tesnorflow Serving.**
+
+```python
 
 ## 🔍 Dive Deeper:
 

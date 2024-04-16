@@ -7,7 +7,7 @@ from kdp.custom_layers import CastToFloat32Layer, TextPreprocessingLayer
 
 class PreprocessorLayerFactory:
     @staticmethod
-    def create_layer(layer_class, name: str = None, **kwargs) -> tf.keras.layers.Layer:
+    def create_layer(layer_class, name: str = None, **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a layer, automatically filtering kwargs based on the provided layer_class.
 
         Args:
@@ -33,7 +33,7 @@ class PreprocessorLayerFactory:
 
     # Example usage for specific layer types
     @staticmethod
-    def normalization_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+    def normalization_layer(name: str, **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a Normalization layer.
 
         Args:
@@ -50,7 +50,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def discretization_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+    def discretization_layer(name: str, **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a Discretization layer.
 
         Args:
@@ -67,7 +67,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def rescaling_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+    def rescaling_layer(name: str, **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a Rescaling layer.
 
         Args:
@@ -84,7 +84,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def embedding_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+    def embedding_layer(name: str, **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a Embedding layer.
 
         Args:
@@ -101,7 +101,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def category_encoding_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+    def category_encoding_layer(name: str, **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a CategoryEncoding layer.
 
         Args:
@@ -118,7 +118,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def string_lookup_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+    def string_lookup_layer(name: str, **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a StringLookup layer.
 
         Args:
@@ -135,7 +135,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def integer_lookup_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+    def integer_lookup_layer(name: str, **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a IntegerLookup layer.
 
         Args:
@@ -152,7 +152,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def crossing_layer(name: str, **kwargs) -> tf.keras.layers.Layer:
+    def crossing_layer(name: str, **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a HashedCrossing layer.
 
         Args:
@@ -169,7 +169,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def flatten_layer(name: str = "flatten", **kwargs) -> tf.keras.layers.Layer:
+    def flatten_layer(name: str = "flatten", **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a Flatten layer.
 
         Args:
@@ -186,7 +186,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def concat_layer(name: str = "concat", **kwargs) -> tf.keras.layers.Layer:
+    def concat_layer(name: str = "concat", **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a Concatenate layer.
 
         Args:
@@ -203,7 +203,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def text_preprocessing_layer(name: str = "text_preprocessing", **kwargs) -> tf.keras.layers.Layer:
+    def text_preprocessing_layer(name: str = "text_preprocessing", **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a TextPreprocessingLayer layer.
 
         Args:
@@ -220,7 +220,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def text_vectorization_layer(name: str = "text_vectorization", **kwargs) -> tf.keras.layers.Layer:
+    def text_vectorization_layer(name: str = "text_vectorization", **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a TextVectorization layer.
 
         Args:
@@ -237,7 +237,7 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def cast_to_float32_layer(name: str = "cast_to_float32", **kwargs) -> tf.keras.layers.Layer:
+    def cast_to_float32_layer(name: str = "cast_to_float32", **kwargs: dict) -> tf.keras.layers.Layer:
         """Create a CastToFloat32Layer layer.
 
         Args:
