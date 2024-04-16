@@ -211,30 +211,30 @@ Example cross feature between INTEGER_CATEGORICAL and STRING_CATEGORICAL:
 If you require even more customization, you can define custom preprocessing steps using the `Feature` class, using `preprocessors` attribute.
 
 !!! info
-The `preprocessors` attribute accepts a list of methods defined in `PreprocessorLayerFactory`.
+    The `preprocessors` attribute accepts a list of methods defined in `PreprocessorLayerFactory`.
 
-```python
-from kdp.features import Feature
-from kdp.layers_factory import PreprocessorLayerFactory
+    ```python
+    from kdp.features import Feature
+    from kdp.layers_factory import PreprocessorLayerFactory
 
-features_specs = {
-    "feat1": FeatureType.FLOAT_NORMALIZED,
-    "feat2": Feature(
-        name="custom_feature_pipeline",
-        feature_type=FeatureType.FLOAT_NORMALIZED,
-        preprocessors=[
-            PreprocessorLayerFactory.rescaling_layer,
-            PreprocessorLayerFactory.normalization_layer,
+    features_specs = {
+        "feat1": FeatureType.FLOAT_NORMALIZED,
+        "feat2": Feature(
+            name="custom_feature_pipeline",
+            feature_type=FeatureType.FLOAT_NORMALIZED,
+            preprocessors=[
+                PreprocessorLayerFactory.rescaling_layer,
+                PreprocessorLayerFactory.normalization_layer,
 
-        ],
-        # leyers required kwargs
-        scale=1,
-    )
-}
-```
+            ],
+            # leyers required kwargs
+            scale=1,
+        )
+    }
+    ```
 
-Here's how the text feature preprocessing pipeline looks:
+    Here's how the text feature preprocessing pipeline looks:
 
-![Text Feature Pipeline](imgs/custom_feature_pipeline.png)
+    ![Text Feature Pipeline](imgs/custom_feature_pipeline.png)
 
-The full list of availble layers can be found: [Preprocessing Layers Factory](layers_factory.md)
+    The full list of availble layers can be found: [Preprocessing Layers Factory](layers_factory.md)
