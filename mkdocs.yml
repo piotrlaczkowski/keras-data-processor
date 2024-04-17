@@ -39,6 +39,7 @@ nav:
   - 🛠️ Defining Features: features.md
   - 🏭 Layers Factory: layers_factory.md
   - 📦 Integrating Preprocessing Model: integrations.md
+  - 🍦 Motivation: motivation.md
   - 🍻 Contributing: contributing.md
 
 repo_name: Keras Data Preprocessor
