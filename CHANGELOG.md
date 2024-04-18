@@ -1,3 +1,16 @@
+## [1.5.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.4.0...kdp.1.5.0) (2024-04-18)
+
+
+### :hotsprings: Infra
+
+* ops(KDP): adjusting tests display on MR ([0459a68](https://github.com/piotrlaczkowski/keras-data-processor/commit/0459a68a64e7cd1ba82faa119d9b0292b12fa6e7))
+* ops(KDP): disabeling prettier ([9cfab3a](https://github.com/piotrlaczkowski/keras-data-processor/commit/9cfab3a2a4b9a9a8089cf15e1a979bac572edc0d))
+
+
+### :beetle: Bug Fixes
+
+* fix(KDP): fixing output dim display for DICT output ([2c2b147](https://github.com/piotrlaczkowski/keras-data-processor/commit/2c2b147b3d904f878b0d6d2979be78559eb093c7))
+
 ## [1.4.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.3.0...kdp.1.4.0) (2024-04-15)
 
 
