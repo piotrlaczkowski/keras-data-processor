@@ -570,7 +570,11 @@ class PreprocessingModel:
         )
 
         # displaying information.
-        _output_dims = self.model.output_shape[1]
+        logger.info("Building preprocessor Model")
+        _output_dims = (
+            self.model.output_shape[1] if self.output_mode == OutputModeOptions.CONCAT else self.model.output_shape
+        )
+
         logger.info(f"Preprocessor Model built successfully ✅, summary: {self.model.summary()}")
         logger.info(f"Imputs: {self.inputs.keys()}")
         logger.info(f"Output model mode: {self.output_mode} with size: {_output_dims}")
