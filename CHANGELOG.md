@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.5.0...kdp.1.5.1) (2024-04-19)
+
+
+### :beetle: Bug Fixes
+
+* fix(KDP): adding missing text features vocab attribution ([d9cbc13](https://github.com/piotrlaczkowski/keras-data-processor/commit/d9cbc136f0dc282567dea9807d8993953269f44f))
+
 ## [1.5.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.4.0...kdp.1.5.0) (2024-04-18)
 
 
