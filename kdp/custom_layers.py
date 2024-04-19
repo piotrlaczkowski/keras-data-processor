@@ -29,7 +29,6 @@ class TextPreprocessingLayer(tf.keras.layers.Layer):
         """
         x = tf.strings.lower(x)
         x = tf.strings.regex_replace(x, f"[{self.punctuation_pattern}]", " ")
-        x = tf.strings.regex_replace(x, r"[\d+]", " ")
         stop_words_regex = rf"\b({self.stop_words_pattern})\b\s?"
         x = tf.strings.regex_replace(x, stop_words_regex, " ")
         x = tf.strings.regex_replace(x, r"\s+", " ")

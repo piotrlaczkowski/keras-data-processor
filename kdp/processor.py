@@ -181,6 +181,7 @@ class PreprocessingModel:
                 features_specs=self.features_specs,
                 numeric_features=self.numeric_features,
                 categorical_features=self.categorical_features,
+                text_features=self.text_features,
             )
             self.features_stats = self.stats_instance._load_stats()
 
@@ -404,15 +405,20 @@ class PreprocessingModel:
         # adding outputs
         self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
 
-    def _add_pipeline_text(self, feature_name: str, input_layer) -> None:
+    def _add_pipeline_text(self, feature_name: str, input_layer, stats: dict) -> None:
         """Add a text preprocessing step to the pipeline.
 
         Args:
             feature_name (str): The name of the feature to be preprocessed.
             input_layer: The input layer for the feature.
+            stats (dict): A dictionary containing the metadata of the feature, including
         """
         # getting feature object
         _feature = self.features_specs[feature_name]
+
+        # getting stats
+        _vocab = stats["vocab"]
+        logger.debug(f"TEXT: {_vocab = }")
 
         # initializing preprocessor
         preprocessor = FeaturePreprocessor(name=feature_name)
@@ -440,6 +446,7 @@ class PreprocessingModel:
             preprocessor.add_processing_step(
                 layer_creator=PreprocessorLayerFactory.text_vectorization_layer,
                 name=f"text_vactorizer_{feature_name}",
+                vocabulary=_vocab,
                 **_feature.kwargs,
             )
             # for concatenation we need the same format
@@ -535,7 +542,7 @@ class PreprocessingModel:
                         stats=stats,
                     )
                 # CATEGORICAL FEATURES
-                elif "vocab" in stats:
+                elif "vocab" in stats and feature_name not in self.text_features:
                     self._add_pipeline_categorical(
                         feature_name=feature_name,
                         input_layer=input_layer,
@@ -555,6 +562,7 @@ class PreprocessingModel:
             self._add_pipeline_text(
                 feature_name=feature_name,
                 input_layer=input_layer,
+                stats=stats,
             )
 
         # Preparing outputs

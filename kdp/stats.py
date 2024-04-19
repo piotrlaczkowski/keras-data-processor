@@ -101,6 +101,54 @@ class CategoricalAccumulator:
         return tf.unique(all_values)[0].numpy().tolist()
 
 
+class TextAccumulator:
+    def __init__(self) -> None:
+        """Initializes the accumulator for text values, where each entry is a list of words separated by spaces.
+
+        Attributes:
+            words (tf.Variable): TensorFlow variable to store unique words as strings.
+        """
+        self.words = tf.Variable(
+            [],
+            dtype=tf.string,
+            shape=tf.TensorShape(None),
+            trainable=False,
+        )
+        logger.info("TextAccumulator initialized.")
+
+    @tf.function
+    def update(self, new_texts: tf.Tensor) -> None:
+        """Updates the accumulator with new text values, extracting words and accumulating unique ones.
+
+        Args:
+            new_texts: A batch of text values (tf.Tensor of dtype tf.string),
+            each entry containing words separated by spaces.
+
+        Raises:
+            ValueError: If the input tensor is not of dtype tf.string.
+        """
+        if new_texts.dtype != tf.string:
+            raise ValueError(f"Unsupported data type for text features: {new_texts.dtype}")
+
+        # Split each string into words and flatten the list
+        new_texts = tf.strings.regex_replace(new_texts, r"\s+", " ")
+        split_words = tf.strings.split(new_texts).flat_values
+        split_words = tf.strings.lower(split_words)
+
+        # Concatenate new words with existing words and update unique words
+        updated_words = tf.unique(tf.concat([self.words, split_words], axis=0))[0]
+        self.words.assign(updated_words)
+
+    def get_unique_words(self) -> list:
+        """Returns the unique words accumulated so far as a list of strings.
+
+        Returns:
+            list of str: Unique words accumulated.
+        """
+        unique_words = self.words.value().numpy().tolist()
+        return unique_words
+
+
 class DatasetStatistics:
     def __init__(
         self,
@@ -108,6 +156,7 @@ class DatasetStatistics:
         features_specs: dict[str, FeatureType | str] = None,
         numeric_features: list[NumericalFeature] = None,
         categorical_features: list[CategoricalFeature] = None,
+        text_features: list[CategoricalFeature] = None,
         features_stats_path: Path = None,
         overwrite_stats: bool = False,
         batch_size: int = 50_000,
@@ -124,10 +173,12 @@ class DatasetStatistics:
                 Easier alternative to proviginh numerical and categorical lists.
             numeric_features: A list of numerical features to calculate statistics for (defaults to None).
             categorical_features: A list of categorical features to calculate statistics for (defaults to None).
+            text_features: A list of text features to calculate statistics for (defaults to None).
         """
         self.path_data = path_data
         self.numeric_features = numeric_features or []
         self.categorical_features = categorical_features or []
+        self.text_features = text_features or []
         self.features_specs = features_specs or {}
         self.features_stats_path = features_stats_path or "features_stats.json"
         self.overwrite_stats = overwrite_stats
@@ -139,6 +190,7 @@ class DatasetStatistics:
         # Initializing placeholders for statistics
         self.numeric_stats = {col: WelfordAccumulator() for col in self.numeric_features}
         self.categorical_stats = {col: CategoricalAccumulator() for col in self.categorical_features}
+        self.text_stats = {col: TextAccumulator() for col in self.text_features}
 
     def _get_csv_file_pattern(self, path) -> str:
         """Get the csv file pattern that will handle directories and file paths.
@@ -187,10 +239,17 @@ class DatasetStatistics:
         for feature in self.categorical_features:
             self.categorical_stats[feature].update(batch[feature])
 
+        for feature in self.text_features:
+            self.text_stats[feature].update(batch[feature])
+
     def _compute_final_statistics(self) -> dict[str, dict]:
         """Compute final statistics for numeric and categorical features."""
         logger.info("Computing final statistics for numeric and categorical features 📊")
-        final_stats = {"numeric_stats": {}, "categorical_stats": {}}
+        final_stats = {
+            "numeric_stats": {},
+            "categorical_stats": {},
+            "text_stats": {},
+        }
         for feature in self.numeric_features:
             logger.debug(f"numeric {feature =}")
             final_stats["numeric_stats"][feature] = {
@@ -217,6 +276,15 @@ class DatasetStatistics:
                 "size": len(unique_values),
                 "vocab": unique_values,
                 "dtype": _dtype,
+            }
+
+        for feature in self.text_features:
+            logger.debug(f"text {feature = }, {self.text_stats = }")
+            unique_words = self.text_stats[feature].get_unique_words()
+            final_stats["text_stats"][feature] = {
+                "size": len(unique_words),
+                "vocab": unique_words,
+                "dtype": self.features_specs[feature].dtype,
             }
 
         return final_stats
