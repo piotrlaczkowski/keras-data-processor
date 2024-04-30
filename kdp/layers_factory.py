@@ -2,7 +2,7 @@ import inspect
 
 import tensorflow as tf
 
-from kdp.custom_layers import CastToFloat32Layer, TextPreprocessingLayer
+from kdp.custom_layers import CastToFloat32Layer, TextPreprocessingLayer, TransformerBlock
 
 
 class PreprocessorLayerFactory:
@@ -249,6 +249,23 @@ class PreprocessorLayerFactory:
         """
         return PreprocessorLayerFactory.create_layer(
             layer_class=CastToFloat32Layer,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def transformer_block_layer(name: str = "transformer", **kwargs: dict) -> tf.keras.layers.Layer:
+        """Create a TransformerBlock layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the TransformerBlock layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=TransformerBlock,
             name=name,
             **kwargs,
         )

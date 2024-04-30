@@ -106,6 +106,10 @@ class PreprocessingModel:
         overwrite_stats: bool = False,
         log_to_file: bool = False,
         features_specs: dict[str, FeatureType | str] = None,
+        transfo_nr_blocks: int = None,
+        transfo_nr_heads: int = 3,
+        transfo_ff_units: int = 16,
+        transfo_dropout_rate: float = 0.25,
     ) -> None:
         """Initialize a preprocessing model.
 
@@ -121,6 +125,11 @@ class PreprocessingModel:
             overwrite_stats (bool): A boolean indicating whether to overwrite the statistics.
             log_to_file (bool): A boolean indicating whether to log to a file.
             features_specs (dict[str, FeatureType | str]): A dictionary containing the features and their types.
+            transfo_nr_blocks (int): The number of transformer blocks for the transformer block
+                (default=None, transformer block is disabled).
+            transfo_nr_heads (int): The number of heads for the transformer block (categorical variables).
+            transfo_ff_units (int): The number of feed forward units for the transformer
+            transfo_dropout_rate (float): The dropout rate for the transformer block (default=0.25).
         """
         self.path_data = path_data
         self.batch_size = batch_size or 50_000
@@ -130,12 +139,18 @@ class PreprocessingModel:
         self.feature_crosses = feature_crosses or []
         self.output_mode = output_mode
         self.overwrite_stats = overwrite_stats
+        # transformer blocks controll
+        self.transfo_nr_blocks = transfo_nr_blocks
+        self.transfo_nr_heads = transfo_nr_heads
+        self.transfo_ff_units = transfo_ff_units
+        self.transfo_dropout_rate = transfo_dropout_rate
 
         # PLACEHOLDERS
         self.preprocessors = {}
         self.inputs = {}
         self.signature = {}
         self.outputs = {}
+        self.outputs_categorical = {}
 
         if log_to_file:
             logger.info("Logging to file enabled 🗂️")
@@ -322,11 +337,6 @@ class PreprocessingModel:
         # defining the pipeline input layer
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
 
-        # adjusting output
-        # if _feature.feature_type == FeatureType.FLOAT_DISCRETIZED:
-        # Cast the crossed feature to float32
-        # _output_pipeline = tf.cast(_output_pipeline, tf.float32)
-
         # defining output
         self.outputs[feature_name] = _output_pipeline
 
@@ -402,8 +412,9 @@ class PreprocessingModel:
             layer_creator=PreprocessorLayerFactory.flatten_layer,
             name=f"flatten_{feature_name}",
         )
+
         # adding outputs
-        self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
+        self.outputs_categorical[feature_name] = preprocessor.chain(input_layer=input_layer)
 
     def _add_pipeline_text(self, feature_name: str, input_layer, stats: dict) -> None:
         """Add a text preprocessing step to the pipeline.
@@ -455,7 +466,9 @@ class PreprocessingModel:
                 layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
                 name=f"cast_to_float_{feature_name}",
             )
-        self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
+        # adding outputs
+        self.outputs_categorical[feature_name] = preprocessor.chain(input_layer=input_layer)
+        # self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
 
     def _add_pipeline_cross(self) -> None:
         """Add a crossing preprocessing step to the pipeline.
@@ -500,9 +513,41 @@ class PreprocessingModel:
         """
         logger.info("Building preprocessor Model")
         if self.output_mode == OutputModeOptions.CONCAT:
+            # getting all features to concatenate
             self.features_to_concat = list(self.outputs.values())
-            self.concat = tf.keras.layers.Concatenate(axis=-1)
-            self.outputs = self.concat(self.features_to_concat)
+            self.features_cat_to_concat = list(self.outputs_categorical.values())
+
+            # Concatenate numerical features
+            concat_num = tf.keras.layers.Concatenate(
+                name="ConcatenateNumeric",
+                axis=-1,
+            )(self.features_to_concat)
+
+            # Concatenate categorical features
+            concat_cat = tf.keras.layers.Concatenate(
+                name="ConcatenateCategorical",
+                axis=-1,
+            )(self.features_cat_to_concat)
+
+            # adding transformer layers
+            if self.transfo_nr_blocks:
+                logger.info(f"Adding transformer blocks: #{self.transfo_nr_blocks}")
+                for block_idx in range(self.transfo_nr_blocks):
+                    concat_cat = PreprocessorLayerFactory.transformer_block_layer(
+                        dim_model=concat_cat.shape[1],
+                        num_heads=self.transfo_nr_heads,
+                        ff_units=self.transfo_ff_units,
+                        dropout_rate=self.transfo_dropout_rate,
+                        name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
+                    )(concat_cat)
+
+            # Combine concatenated numerical and categorical features
+            self.outputs = tf.keras.layers.Concatenate(
+                name="ConcatenateAllFeatures",
+                axis=-1,
+            )([concat_num, concat_cat])
+
+            # self.outputs = self.concat(self.features_to_concat + [self.concat])
             logger.info("Concatenating outputs mode enabled")
         else:
             outputs = OrderedDict([(k, None) for k in self.inputs if k in self.outputs])
