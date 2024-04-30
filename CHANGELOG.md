@@ -1,3 +1,16 @@
+## [1.6.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.5.1...kdp.1.6.0) (2024-04-30)
+
+
+### :gift: Features
+
+* feat(KDP): adding TransformerBlocks to all Features Options ([e27b0e5](https://github.com/piotrlaczkowski/keras-data-processor/commit/e27b0e5880e4bb69deb50ad8d2a3ca0cb8c33eb7))
+* feat(KDP): adding TransformerBlocks layers to categorical and text variables ([0338fb4](https://github.com/piotrlaczkowski/keras-data-processor/commit/0338fb4085312b6e63752821cd628f402dcd5607))
+
+
+### :hotsprings: Infra
+
+* ops(KDP): updating to lates version in the config ([5cf8998](https://github.com/piotrlaczkowski/keras-data-processor/commit/5cf8998374d4e7e7b2b7b33cefe6132597669650))
+
 ## [1.5.1](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.5.0...kdp.1.5.1) (2024-04-19)
 
 
