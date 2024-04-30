@@ -12,11 +12,13 @@ Say goodbye to tedious data preparation tasks and hello to streamlined, efficien
 
 ## 🔑 Key Features:
 
-- Automated Feature Engineering: Automatically detects and applies the optimal preprocessing steps for each feature type in your dataset.
+- Automated Feature Engineering: Automatically detects and applies predefined preprocessing steps for each feature type in your dataset.
 
-- Customizable Preprocessing Pipelines: Tailor your preprocessing steps with ease, choosing from a wide range of options for numeric, categorical, and even complex feature crosses.
+- Customizable Preprocessing Pipelines: Tailor your preprocessing steps with ease, choosing from a wide range of options for numeric, categorical, text, and even complex feature crosses.
 
 - Scalability and Efficiency: Designed for performance, handling large datasets with ease thanks to TensorFlow's powerful backend.
+
+- Additional power with Transformer Blocks: Add transformer blocks to your preprocessing model to enhance feature interactions and capture complex patterns in your data.
 
 - Easy Integration: Seamlessly fits into your TensorFlow Keras models (as first layers of the mode), making it a breeze to go from raw data to trained model faster than ever.
 
