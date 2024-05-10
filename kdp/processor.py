@@ -258,7 +258,7 @@ class PreprocessingModel:
         for preprocessor_step in feature.preprocessors:
             logger.info(f"Adding custom {preprocessor =} for {feature_name =}, {_feature.kwargs =}")
             preprocessor.add_processing_step(
-                layer_creator=preprocessor_step,
+                layer_class=preprocessor_step,
                 name=f"{preprocessor_step.__name__}_{feature_name}",
                 **_feature.kwargs,
             )
@@ -300,7 +300,7 @@ class PreprocessingModel:
             if _feature.feature_type == FeatureType.FLOAT_NORMALIZED:
                 logger.debug("Adding Float Normalized Feature")
                 preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.normalization_layer,
+                    layer_class="Normalization",
                     mean=mean,
                     variance=variance,
                     name=f"norm_{feature_name}",
@@ -309,7 +309,7 @@ class PreprocessingModel:
                 logger.debug("Adding Float Rescaled Feature")
                 rescaling_scale = _feature.kwargs.get("scale", 1.0)  # Default scale is 1.0 if not specified
                 preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.rescaling_layer,
+                    layer_class="Rescaling",
                     scale=rescaling_scale,
                     name=f"rescale_{feature_name}",
                 )
@@ -318,12 +318,12 @@ class PreprocessingModel:
                 # output dimentions will be > 1
                 _out_dims = len(_feature.kwargs.get("bin_boundaries", 1.0)) + 1
                 preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.discretization_layer,
+                    layer_class="Discretization",
                     **_feature.kwargs,
                     name=f"discretize_{feature_name}",
                 )
                 preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.category_encoding_layer,
+                    layer_class="CategoryEncoding",
                     num_tokens=_out_dims,
                     output_mode="one_hot",
                     name=f"one_hot_{feature_name}",
@@ -337,7 +337,7 @@ class PreprocessingModel:
             else:
                 logger.debug("Adding Float Normalized Feature -> Default Option")
                 preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.normalization_layer,
+                    layer_class="Normalization",
                     mean=mean,
                     variance=variance,
                     name=f"norm_{feature_name}",
@@ -376,14 +376,14 @@ class PreprocessingModel:
             # Default behavior if no specific preprocessing is defined
             if _feature.feature_type == FeatureType.STRING_CATEGORICAL:
                 preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.string_lookup_layer,
+                    layer_class="StringLookup",
                     vocabulary=vocab,
                     num_oov_indices=1,
                     name=f"lookup_{feature_name}",
                 )
             elif _feature.feature_type == FeatureType.INTEGER_CATEGORICAL:
                 preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.integer_lookup_layer,
+                    layer_class="IntegerLookup",
                     vocabulary=vocab,
                     num_oov_indices=1,
                     name=f"lookup_{feature_name}",
@@ -396,14 +396,14 @@ class PreprocessingModel:
             emb_size = _custom_embedding_size or _feature._embedding_size_rule(nr_categories=_vocab_size)
             logger.debug(f"{feature_name = }, {emb_size = }")
             preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.embedding_layer,
+                layer_class="Embedding",
                 input_dim=len(vocab) + 1,
                 output_dim=emb_size,
                 name=f"embed_{feature_name}",
             )
         elif _feature.category_encoding == CategoryEncodingOptions.ONE_HOT_ENCODING:
             preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.category_encoding_layer,
+                layer_class="CategoryEncoding",
                 num_tokens=len(vocab) + 1,
                 output_mode="one_hot",
                 name=f"one_hot_{feature_name}",
@@ -417,7 +417,7 @@ class PreprocessingModel:
 
         # we need to flatten the categorical feature
         preprocessor.add_processing_step(
-            layer_creator=PreprocessorLayerFactory.flatten_layer,
+            layer_class="Flatten",
             name=f"flatten_{feature_name}",
         )
 
@@ -463,7 +463,7 @@ class PreprocessingModel:
 
             # adding text vectorization
             preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.text_vectorization_layer,
+                layer_class="TextVectorization",
                 name=f"text_vactorizer_{feature_name}",
                 vocabulary=_vocab,
                 **_feature.kwargs,
@@ -500,7 +500,7 @@ class PreprocessingModel:
 
             feature_name = f"{feature_a}_x_{feature_b}"
             preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.crossing_layer,
+                layer_class="HashedCrossing",
                 num_bins=nr_bins,
                 name=f"cross_{feature_name}",
             )

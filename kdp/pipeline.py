@@ -3,6 +3,8 @@ from collections.abc import Callable
 import tensorflow as tf
 from loguru import logger
 
+from kdp.layers_factory import PreprocessorLayerFactory
+
 
 class ProcessingStep:
     def __init__(self, layer_creator: Callable[..., tf.keras.layers.Layer], **layer_kwargs) -> None:
@@ -67,6 +69,20 @@ class Pipeline:
             output_layer = step.connect(output_layer)
         return output_layer
 
+    def transform(self, input_data: tf.Tensor) -> tf.Tensor:
+        """Apply the pipeline to the input data.
+
+        Args:
+            input_data: The input data to process.
+
+        Returns:
+            tf.Tensor: The processed data.
+        """
+        output_data = input_data
+        for step in self.steps:
+            output_data = step.process(output_data)
+        return output_data
+
 
 class FeaturePreprocessor:
     def __init__(self, name: str) -> None:
@@ -78,13 +94,15 @@ class FeaturePreprocessor:
         self.name = name
         self.pipeline = Pipeline(name=name)
 
-    def add_processing_step(self, layer_creator: Callable[..., tf.keras.layers.Layer], **layer_kwargs) -> None:
+    def add_processing_step(self, layer_creator: Callable[..., tf.keras.layers.Layer] = None, **layer_kwargs) -> None:
         """Add a processing step to the feature preprocessor.
 
         Args:
             layer_creator (Callable[..., tf.keras.layers.Layer]): A callable that creates a layer.
+                If not provided, the default layer creator is used.
             **layer_kwargs: Additional keyword arguments for the layer creator.
         """
+        layer_creator = layer_creator or PreprocessorLayerFactory.create_layer
         step = ProcessingStep(layer_creator=layer_creator, **layer_kwargs)
         self.pipeline.add_step(step=step)
 
@@ -95,3 +113,14 @@ class FeaturePreprocessor:
             input_layer: The input layer to start the chain from.
         """
         return self.pipeline.chain(input_layer)
+
+    def transform(self, input_data: tf.Tensor) -> tf.Tensor:
+        """Apply the feature preprocessor to the input data.
+
+        Args:
+            input_data: The input data to process.
+
+        Returns:
+            tf.Tensor: The processed data.
+        """
+        return self.pipeline.transform(input_data)
