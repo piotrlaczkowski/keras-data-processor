@@ -65,15 +65,6 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
     return pd.DataFrame(data)
 
 
-class TestPreprocessorLayerFactory(unittest.TestCase):
-    """Unit tests for the PreprocessorLayerFactory class."""
-
-    def test_create_normalization_layer(self):
-        """Test creating a normalization layer."""
-        layer = PreprocessorLayerFactory.normalization_layer(mean=0.0, variance=1.0, name="normalize")
-        self.assertIsInstance(layer, tf.keras.layers.Layer)
-
-
 class TestFeatureSpaceConverter(unittest.TestCase):
     def setUp(self):
         """Setup test case environment."""
@@ -264,8 +255,8 @@ class TestPreprocessingModel(unittest.TestCase):
                 name="feat9",
                 feature_type=FeatureType.FLOAT_NORMALIZED,
                 preprocessors=[
-                    PreprocessorLayerFactory.rescaling_layer,
-                    PreprocessorLayerFactory.normalization_layer,
+                    tf.keras.layers.Rescaling,
+                    tf.keras.layers.Normalization,
                 ],
                 # leyers required kwargs
                 scale=1,
