@@ -33,6 +33,7 @@ jobs:
         run: |
           git checkout gh-pages
           git rebase origin/gh-pages
+          git checkout main
 
       - name: "Releasing new documentation with mike"
         shell: bash
