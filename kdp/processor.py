@@ -522,8 +522,8 @@ class PreprocessingModel:
         logger.info("Building preprocessor Model")
         if self.output_mode == OutputModeOptions.CONCAT:
             # getting all features to concatenate
-            self.features_to_concat = list(self.outputs.values())
-            self.features_cat_to_concat = list(self.outputs_categorical.values())
+            self.features_to_concat = list(self.outputs.values()) or []
+            self.features_cat_to_concat = list(self.outputs_categorical.values()) or []
 
             # Concatenate numerical features
             concat_num = tf.keras.layers.Concatenate(
@@ -532,31 +532,35 @@ class PreprocessingModel:
             )(self.features_to_concat)
 
             # Concatenate categorical features
-            concat_cat = tf.keras.layers.Concatenate(
-                name="ConcatenateCategorical",
-                axis=-1,
-            )(self.features_cat_to_concat)
+            if self.features_cat_to_concat:
+                concat_cat = tf.keras.layers.Concatenate(
+                    name="ConcatenateCategorical",
+                    axis=-1,
+                )(self.features_cat_to_concat)
 
-            # adding transformer layers
-            if self.transfo_nr_blocks and self.transfo_placement == TransformerBlockPlacementOptions.CATEGORICAL:
-                logger.info(f"Adding transformer blocks CATEGORICAL: #{self.transfo_nr_blocks}")
-                for block_idx in range(self.transfo_nr_blocks):
-                    concat_cat = PreprocessorLayerFactory.transformer_block_layer(
-                        dim_model=concat_cat.shape[1],
-                        num_heads=self.transfo_nr_heads,
-                        ff_units=self.transfo_ff_units,
-                        dropout_rate=self.transfo_dropout_rate,
-                        name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
-                    )(concat_cat)
+                # adding transformer layers
+                if self.transfo_nr_blocks and self.transfo_placement == TransformerBlockPlacementOptions.CATEGORICAL:
+                    logger.info(f"Adding transformer blocks CATEGORICAL: #{self.transfo_nr_blocks}")
+                    for block_idx in range(self.transfo_nr_blocks):
+                        concat_cat = PreprocessorLayerFactory.transformer_block_layer(
+                            dim_model=concat_cat.shape[1],
+                            num_heads=self.transfo_nr_heads,
+                            ff_units=self.transfo_ff_units,
+                            dropout_rate=self.transfo_dropout_rate,
+                            name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
+                        )(concat_cat)
 
-            # Combine concatenated numerical and categorical features
-            logger.info("Concatenating all features")
-            self.outputs = tf.keras.layers.Concatenate(
-                name="ConcatenateAllFeatures",
-                axis=-1,
-            )([concat_num, concat_cat])
+                # Combine concatenated numerical and categorical features
+                logger.info("Concatenating all features (numerical and categorical)")
+                self.outputs = tf.keras.layers.Concatenate(
+                    name="ConcatenateAllFeatures",
+                    axis=-1,
+                )([concat_num, concat_cat])
+            else:
+                logger.warning("Only numerical features were defined (no categorical features)")
+                concat_cat = []
+                self.outputs = concat_num
 
-            # TODO: check shape mismatch here (Inputs have incompatible shapes. Received shapes (1, 141) and (1, 4))
             if self.transfo_nr_blocks and self.transfo_placement == TransformerBlockPlacementOptions.ALL_FEATURES:
                 _transfor_input_shape = self.outputs.shape[1]
                 logger.info(

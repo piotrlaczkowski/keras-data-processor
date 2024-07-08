@@ -212,7 +212,6 @@ The `preprocessors` attribute accepts a list of methods defined in `Preprocessor
 
 ```python
 from kdp.features import Feature
-from kdp.layers_factory import PreprocessorLayerFactory
 
 features_specs = {
     "feat1": FeatureType.FLOAT_NORMALIZED,
@@ -220,8 +219,8 @@ features_specs = {
         name="custom_feature_pipeline",
         feature_type=FeatureType.FLOAT_NORMALIZED,
         preprocessors=[
-            PreprocessorLayerFactory.rescaling_layer,
-            PreprocessorLayerFactory.normalization_layer,
+            tf.keras.layers.Rescaling,
+            tf.keras.layers.Normalization,
 
         ],
         # leyers required kwargs
