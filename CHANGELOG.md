@@ -1,3 +1,23 @@
+## [1.7.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.6.0...kdp.1.7.0) (2024-07-08)
+
+
+### :hotsprings: Infra
+
+* ops(KDP): fixing u-tests action ([d4bdf24](https://github.com/piotrlaczkowski/keras-data-processor/commit/d4bdf24a17b1b6812835a0fb750ed6c3d1552633))
+* ops(KDP): adding manual PyPI release action ([a192d08](https://github.com/piotrlaczkowski/keras-data-processor/commit/a192d08c3eb3adb4b9599e027bec5dfb6051427b))
+* ops(KDP): updating to lates version in the config ([c0454ad](https://github.com/piotrlaczkowski/keras-data-processor/commit/c0454ad4ba02cb0987263db059635b68c4b81816))
+
+
+### :tools: Maintenance
+
+* refactor(KDP): simplifying layers factory creator (#5) ([b63a504](https://github.com/piotrlaczkowski/keras-data-processor/commit/b63a50419f01372196bd1be42801ec275ef75bf6)), closes [#5](https://github.com/piotrlaczkowski/keras-data-processor/issues/5)
+* refactor(KDP): simplifying layers factory creator ([ee0c466](https://github.com/piotrlaczkowski/keras-data-processor/commit/ee0c466ee9bdaef533891ff9a0e763f3927c032c))
+
+
+### :beetle: Bug Fixes
+
+* fix(KDP): fixing functionality for missing categorical features ([bb569bf](https://github.com/piotrlaczkowski/keras-data-processor/commit/bb569bff62a9c22a7e44a91f02b503773246e484))
+
 ## [1.6.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.5.1...kdp.1.6.0) (2024-04-30)
 
 
