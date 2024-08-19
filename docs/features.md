@@ -203,6 +203,53 @@ Example cross feature between INTEGER_CATEGORICAL and STRING_CATEGORICAL:
 
 ![Cross Features Pipeline](imgs/cross_features.png)
 
+## 📆 Date Features
+
+You can even process string encoded date features (format: 'YYYY-MM-DD'):
+
+=== "🔧 Using FeatureType"
+
+    Use `FeatureType` for automatic default preprocessing setups.
+
+    ```python
+    from kdp.processor import PreprocessingModel
+
+    ppr = PreprocessingModel(
+        path_data="data/data.csv",
+        features_specs={
+            "feat1": FeatureType.FLOAT,
+            "feat2": FeatureType.DATE,
+        },
+    )
+    ```
+
+=== "💪 Custom DateFeature"
+
+    Customize text preprocessing by passing specific arguments to `TextFeature`.
+
+    ```python
+    from kdp.features import DateFeature
+
+    features_specs = {
+        "feat1": DateFeature(
+            name="feat2",
+            feature_type=FeatureType.FLOAT,
+        ),
+        "feat2": TextFeature(
+            name="feat2",
+            feature_type=FeatureType.DATE,
+            # additional option to add season layer:
+            add_season=True,  # adds one-hot season indicator (summer, winter, etc) defaults to False
+        ),
+        ...
+    }
+    ```
+
+Example date and numeric processing pipeline:
+
+![Date Features Pipeline](imgs/date_features.png)
+
+
 ## 🚀 Custom Preprocessing Steps
 
 If you require even more customization, you can define custom preprocessing steps using the `Feature` class, using `preprocessors` attribute.
@@ -233,4 +280,4 @@ Here's how the text feature preprocessing pipeline looks:
 
 ![Text Feature Pipeline](imgs/custom_feature_pipeline.png)
 
-The full list of availble layers can be found: [Preprocessing Layers Factory](layers_factory.md)
+The full list of available layers can be found: [Preprocessing Layers Factory](layers_factory.md)

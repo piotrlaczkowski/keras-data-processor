@@ -9,6 +9,7 @@ from loguru import logger
 from kdp.features import (
     CategoricalFeature,
     CategoryEncodingOptions,
+    DateFeature,
     Feature,
     FeatureType,
     NumericalFeature,
@@ -35,7 +36,6 @@ class TransformerBlockPlacementOptions(auto):
     ALL_FEATURES = "all_features"
 
 
-# testing conversion
 class FeatureSpaceConverter:
     def __init__(self):
         """Initialize the FeatureSpaceConverter class."""
@@ -43,6 +43,7 @@ class FeatureSpaceConverter:
         self.numeric_features = []
         self.categorical_features = []
         self.text_features = []
+        self.date_features = []  # Add date_features list
 
     def _init_features_specs(self, features_specs: dict) -> None:
         """Format the features space into a dictionary.
@@ -54,7 +55,7 @@ class FeatureSpaceConverter:
         """
         for name, spec in features_specs.items():
             # Direct instance check for standard pipelines
-            if isinstance(spec, NumericalFeature | CategoricalFeature | TextFeature):
+            if isinstance(spec, NumericalFeature | CategoricalFeature | TextFeature | DateFeature):
                 feature_instance = spec
             else:
                 # handling custom features pipelines
@@ -76,10 +77,12 @@ class FeatureSpaceConverter:
                     feature_instance = CategoricalFeature(name=name, feature_type=feature_type)
                 elif feature_type == FeatureType.TEXT:
                     feature_instance = TextFeature(name=name, feature_type=feature_type)
+                elif feature_type == FeatureType.DATE:
+                    feature_instance = DateFeature(name=name, feature_type=feature_type)
                 else:
                     raise ValueError(f"Unsupported feature type for feature '{name}': {spec}")
 
-            # addigning custom pipelines
+            # Adding custom pipelines
             if isinstance(spec, Feature):
                 logger.info(f"Adding custom preprocessors to the object: {spec.preprocessors}")
                 feature_instance.preprocessors = spec.preprocessors
@@ -92,6 +95,8 @@ class FeatureSpaceConverter:
                 self.categorical_features.append(name)
             elif isinstance(feature_instance, TextFeature):
                 self.text_features.append(name)
+            elif isinstance(feature_instance, DateFeature):
+                self.date_features.append(name)
 
             # Adding formatted spec to the features_space dictionary
             self.features_space[name] = feature_instance
@@ -188,6 +193,7 @@ class PreprocessingModel:
         self.numeric_features = fsc.numeric_features
         self.categorical_features = fsc.categorical_features
         self.text_features = fsc.text_features
+        self.date_features = fsc.date_features
 
     def _init_stats(self) -> None:
         """Initialize the statistics for the model.
@@ -273,7 +279,7 @@ class PreprocessingModel:
             stats (dict): A dictionary containing the metadata of the feature, including
                 the mean and variance of the feature.
         """
-        # exgtracting stats
+        # extracting stats
         mean = stats["mean"]
         variance = stats["var"]
 
@@ -513,6 +519,57 @@ class PreprocessingModel:
             crossed_input = [self.inputs[feature_a], self.inputs[feature_b]]
             self.outputs[feature_name] = preprocessor.chain(input_layer=crossed_input)
 
+    def _add_pipeline_date(self, feature_name: str, input_layer) -> None:
+        """Add a date preprocessing step to the pipeline.
+
+        Args:
+            feature_name (str): The name of the feature to be preprocessed.
+            input_layer: The input layer for the feature.
+        """
+        # getting feature object
+        _feature = self.features_specs[feature_name]
+
+        # initializing preprocessor
+        preprocessor = FeaturePreprocessor(name=feature_name)
+
+        # Check if feature has specific preprocessing steps defined
+        if hasattr(_feature, "preprocessors") and _feature.preprocessors:
+            logger.info(f"Custom Preprocessors detected 📐: {_feature.preprocessors}")
+            self._add_custom_steps(
+                preprocessor=preprocessor,
+                feature=_feature,
+                feature_name=feature_name,
+            )
+        else:
+            # Default behavior if no specific preprocessing is defined
+            if _feature.feature_type == FeatureType.DATE:
+                logger.debug("Adding Date Parsing layer")
+                date_format = _feature.kwargs.get("format", "YYYY-MM-DD")  # Default format if not specified
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.date_parsing_layer,
+                    date_format=date_format,
+                    name=f"date_parsing_{feature_name}",
+                )
+
+                logger.debug("Adding Date Encoding layer")
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.date_encoding_layer,
+                    name=f"date_encoding_{feature_name}",
+                )
+
+                # Optionally, add SeasonLayer
+                if _feature.kwargs.get("add_season", False):
+                    logger.debug("Adding Season layer")
+                    preprocessor.add_processing_step(
+                        layer_creator=PreprocessorLayerFactory.date_season_layer,
+                        name=f"date_season_{feature_name}",
+                    )
+            else:
+                logger.warning(f"No default preprocessing for {feature_name =} defined")
+
+        # Adding preprocessed layer to the model outputs
+        self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
+
     def _prepare_outputs(self) -> None:
         """Preparing the outputs of the model.
 
@@ -521,15 +578,23 @@ class PreprocessingModel:
         """
         logger.info("Building preprocessor Model")
         if self.output_mode == OutputModeOptions.CONCAT:
-            # getting all features to concatenate
             self.features_to_concat = list(self.outputs.values()) or []
             self.features_cat_to_concat = list(self.outputs_categorical.values()) or []
 
+            # Reshape tensors to make them compatible
+            reshaped_features = []
+            for feature in self.features_to_concat:
+                reshaped = tf.keras.layers.Reshape((-1,))(feature) if len(feature.shape) == 2 | 4 else feature
+                reshaped_features.append(reshaped)
+
             # Concatenate numerical features
-            concat_num = tf.keras.layers.Concatenate(
-                name="ConcatenateNumeric",
-                axis=-1,
-            )(self.features_to_concat)
+            if reshaped_features:
+                concat_num = tf.keras.layers.Concatenate(
+                    name="ConcatenateNumeric",
+                    axis=-1,
+                )(reshaped_features)
+            else:
+                concat_num = None
 
             # Concatenate categorical features
             if self.features_cat_to_concat:
@@ -537,43 +602,47 @@ class PreprocessingModel:
                     name="ConcatenateCategorical",
                     axis=-1,
                 )(self.features_cat_to_concat)
+            else:
+                concat_cat = None
 
-                # adding transformer layers
-                if self.transfo_nr_blocks and self.transfo_placement == TransformerBlockPlacementOptions.CATEGORICAL:
-                    logger.info(f"Adding transformer blocks CATEGORICAL: #{self.transfo_nr_blocks}")
-                    for block_idx in range(self.transfo_nr_blocks):
-                        concat_cat = PreprocessorLayerFactory.transformer_block_layer(
-                            dim_model=concat_cat.shape[1],
-                            num_heads=self.transfo_nr_heads,
-                            ff_units=self.transfo_ff_units,
-                            dropout_rate=self.transfo_dropout_rate,
-                            name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
-                        )(concat_cat)
-
-                # Combine concatenated numerical and categorical features
-                logger.info("Concatenating all features (numerical and categorical)")
-                self.outputs = tf.keras.layers.Concatenate(
-                    name="ConcatenateAllFeatures",
+            # Combine numerical and categorical features
+            if concat_num is not None and concat_cat is not None:
+                self.concat_all = tf.keras.layers.Concatenate(
+                    name="ConcatenateAll",
                     axis=-1,
                 )([concat_num, concat_cat])
+            elif concat_num is not None:
+                self.concat_all = concat_num
+            elif concat_cat is not None:
+                self.concat_all = concat_cat
             else:
-                logger.warning("Only numerical features were defined (no categorical features)")
-                concat_cat = []
-                self.outputs = concat_num
+                self.concat_all = None
+
+            # Adding transformer layers
+            if self.transfo_nr_blocks and self.transfo_placement == TransformerBlockPlacementOptions.CATEGORICAL:
+                logger.info(f"Adding transformer blocks CATEGORICAL: #{self.transfo_nr_blocks}")
+                for block_idx in range(self.transfo_nr_blocks):
+                    self.concat_all = PreprocessorLayerFactory.transformer_block_layer(
+                        dim_model=self.concat_all.shape[1],
+                        num_heads=self.transfo_nr_heads,
+                        ff_units=self.transfo_ff_units,
+                        dropout_rate=self.transfo_dropout_rate,
+                        name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
+                    )(self.concat_all)
 
             if self.transfo_nr_blocks and self.transfo_placement == TransformerBlockPlacementOptions.ALL_FEATURES:
-                _transfor_input_shape = self.outputs.shape[1]
+                _transfor_input_shape = self.concat_all.shape[1]
                 logger.info(
                     f"Adding transformer blocks ALL_FEATURES: #{self.transfo_nr_blocks}",
                 )
                 for block_idx in range(self.transfo_nr_blocks):
-                    self.outputs = PreprocessorLayerFactory.transformer_block_layer(
+                    self.concat_all = PreprocessorLayerFactory.transformer_block_layer(
                         dim_model=_transfor_input_shape,
                         num_heads=self.transfo_nr_heads,
                         ff_units=self.transfo_ff_units,
                         dropout_rate=self.transfo_dropout_rate,
                         name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
-                    )(self.outputs)
+                    )(self.concat_all)
 
             logger.info("Concatenating outputs mode enabled")
         else:
@@ -627,7 +696,7 @@ class PreprocessingModel:
 
         # TEXT FEATURES (based on defined inputs)
         for feature_name in self.text_features:
-            logger.info("Processing feature type: text")
+            logger.info(f"Processing feature type (text): {feature_name}")
             self._add_input_column(feature_name=feature_name, dtype=tf.string)
             self._add_input_signature(feature_name=feature_name, dtype=tf.string)
             input_layer = self.inputs[feature_name]
@@ -635,6 +704,18 @@ class PreprocessingModel:
                 feature_name=feature_name,
                 input_layer=input_layer,
                 stats=stats,
+            )
+
+        # DATE FEATURES
+        for feat_name in self.date_features:
+            logger.info(f"Processing feature type (date): {feat_name}")
+            self._add_input_column(feature_name=feat_name, dtype=tf.string)
+            self._add_input_signature(feature_name=feat_name, dtype=tf.string)
+            input_layer = self.inputs[feat_name]
+            self._add_pipeline_date(
+                feature_name=feat_name,
+                input_layer=input_layer,
+                # stats=stats,
             )
 
         # Preparing outputs
@@ -645,7 +726,7 @@ class PreprocessingModel:
         logger.info("Building preprocessor Model 🏗️")
         self.model = tf.keras.Model(
             inputs=self.inputs,
-            outputs=self.outputs,
+            outputs=self.concat_all,
             name="preprocessor",
         )
 
