@@ -1,3 +1,22 @@
+## [1.8.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.7.0...kdp.1.8.0) (2024-08-19)
+
+
+### :beetle: Bug Fixes
+
+* fix(KDP): fixing functionality for missing categorical features ([62d10f9](https://github.com/piotrlaczkowski/keras-data-processor/commit/62d10f99d4d04c80f4e0de11b58d5aa22e2171c3))
+* fix(KDP): fixing functionality for missing categorical features ([40c85d7](https://github.com/piotrlaczkowski/keras-data-processor/commit/40c85d7f1c085a0e7b1825c9822db8dd57828552))
+* fix(KDP): fixing functionality for missing categorical features ([22593e9](https://github.com/piotrlaczkowski/keras-data-processor/commit/22593e9cd62df1bcd7fd96e16e2533bbc113ea68))
+
+
+### :gift: Features
+
+* feat(kdp): adding date preprocessing layers and core code (#7) ([3560933](https://github.com/piotrlaczkowski/keras-data-processor/commit/3560933b81d83e363877bc4452555895eba70207)), closes [#7](https://github.com/piotrlaczkowski/keras-data-processor/issues/7)
+* feat(kdp): adding date preprocessing layers ([5ffa865](https://github.com/piotrlaczkowski/keras-data-processor/commit/5ffa8658f45fdd9d2f58203df59c4940e750599a))
+* feat(kdp): adding date preprocessing layers ([f97e497](https://github.com/piotrlaczkowski/keras-data-processor/commit/f97e497deb0a4a31f28caff726aef04f3c5b77f2))
+* feat(kdp): adding date preprocessing layers ([f4ae5b2](https://github.com/piotrlaczkowski/keras-data-processor/commit/f4ae5b27d5406cc6d52b6f65d0b2fd37d7626e28))
+* feat(kdp): adding date preprocessing layers ([552f26b](https://github.com/piotrlaczkowski/keras-data-processor/commit/552f26b6d11ea082d2735ed094e164973f145bd0))
+* feat(kdp): adding date preprocessing layers ([23eca47](https://github.com/piotrlaczkowski/keras-data-processor/commit/23eca4770be133c97d845d2f3a2816c9b94b3f2c))
+
 ## [1.7.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.6.0...kdp.1.7.0) (2024-07-08)
 
 
