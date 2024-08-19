@@ -149,6 +149,65 @@ class TextAccumulator:
         return unique_words
 
 
+class DateAccumulator:
+    """Accumulator for computing statistics of date features including cyclical encoding."""
+
+    def __init__(self):
+        """Initializes the accumulators for date features."""
+        # For year, month, and day of the week
+        self.year_accumulator = WelfordAccumulator()
+        self.month_sin_accumulator = WelfordAccumulator()
+        self.month_cos_accumulator = WelfordAccumulator()
+        self.day_of_week_sin_accumulator = WelfordAccumulator()
+        self.day_of_week_cos_accumulator = WelfordAccumulator()
+
+    @tf.function
+    def update(self, dates: tf.Tensor) -> None:
+        """Updates the accumulators with new date values.
+
+        Args:
+            dates: A tensor of shape [batch_size, 3] where each row contains [year, month, day_of_week].
+        """
+        year = dates[:, 0]
+        month = dates[:, 1]
+        day_of_week = dates[:, 2]
+
+        # Cyclical encoding
+        pi = tf.math.pi
+        month_sin = tf.math.sin(2 * pi * month / 12)
+        month_cos = tf.math.cos(2 * pi * month / 12)
+        day_of_week_sin = tf.math.sin(2 * pi * day_of_week / 7)
+        day_of_week_cos = tf.math.cos(2 * pi * day_of_week / 7)
+
+        self.year_accumulator.update(year)
+        self.month_sin_accumulator.update(month_sin)
+        self.month_cos_accumulator.update(month_cos)
+        self.day_of_week_sin_accumulator.update(day_of_week_sin)
+        self.day_of_week_cos_accumulator.update(day_of_week_cos)
+
+    @property
+    def mean(self) -> dict:
+        """Returns the mean statistics for date features."""
+        return {
+            "year": self.year_accumulator.mean.numpy(),
+            "month_sin": self.month_sin_accumulator.mean.numpy(),
+            "month_cos": self.month_cos_accumulator.mean.numpy(),
+            "day_of_week_sin": self.day_of_week_sin_accumulator.mean.numpy(),
+            "day_of_week_cos": self.day_of_week_cos_accumulator.mean.numpy(),
+        }
+
+    @property
+    def variance(self) -> dict:
+        """Returns the variance statistics for date features."""
+        return {
+            "year": self.year_accumulator.variance.numpy(),
+            "month_sin": self.month_sin_accumulator.variance.numpy(),
+            "month_cos": self.month_cos_accumulator.variance.numpy(),
+            "day_of_week_sin": self.day_of_week_sin_accumulator.variance.numpy(),
+            "day_of_week_cos": self.day_of_week_cos_accumulator.variance.numpy(),
+        }
+
+
 class DatasetStatistics:
     def __init__(
         self,
@@ -157,11 +216,12 @@ class DatasetStatistics:
         numeric_features: list[NumericalFeature] = None,
         categorical_features: list[CategoricalFeature] = None,
         text_features: list[CategoricalFeature] = None,
+        date_features: list[str] = None,
         features_stats_path: Path = None,
         overwrite_stats: bool = False,
         batch_size: int = 50_000,
     ) -> None:
-        """Initializes the statistics accumulators for numeric and categorical features.
+        """Initializes the statistics accumulators for numeric, categorical, text, and date features.
 
         Args:
             path_data: Path to the folder containing the CSV files.
@@ -170,62 +230,27 @@ class DatasetStatistics:
             overwrite_stats: Whether or not to overwrite existing statistics file (defaults to False).
             features_specs:
                 A dictionary mapping feature names to feature specifications (defaults to None).
-                Easier alternative to proviginh numerical and categorical lists.
+                Easier alternative to providing numerical and categorical lists.
             numeric_features: A list of numerical features to calculate statistics for (defaults to None).
             categorical_features: A list of categorical features to calculate statistics for (defaults to None).
             text_features: A list of text features to calculate statistics for (defaults to None).
+            date_features: A list of date features to calculate statistics for (defaults to None).
         """
         self.path_data = path_data
         self.numeric_features = numeric_features or []
         self.categorical_features = categorical_features or []
         self.text_features = text_features or []
+        self.date_features = date_features or []
         self.features_specs = features_specs or {}
         self.features_stats_path = features_stats_path or "features_stats.json"
         self.overwrite_stats = overwrite_stats
         self.batch_size = batch_size
 
-        # placeholders
-        self.features_dtypes = {}
-
         # Initializing placeholders for statistics
         self.numeric_stats = {col: WelfordAccumulator() for col in self.numeric_features}
         self.categorical_stats = {col: CategoricalAccumulator() for col in self.categorical_features}
         self.text_stats = {col: TextAccumulator() for col in self.text_features}
-
-    def _get_csv_file_pattern(self, path) -> str:
-        """Get the csv file pattern that will handle directories and file paths.
-
-        Args:
-            path (str): Path to the csv file (can be a directory or a file)
-
-        Returns:
-            str: File pattern that always has *.csv at the end
-
-        """
-        file_path = Path(path)
-        # Check if the path is a directory
-        if file_path.suffix:
-            # Get the parent directory if the path is a file
-            base_path = file_path.parent
-            csv_pattern = base_path / "*.csv"
-        else:
-            csv_pattern = file_path / "*.csv"
-
-        return str(csv_pattern)
-
-    def _read_data_into_dataset(self) -> tf.data.Dataset:
-        """Reading CSV files from the provided path into a tf.data.Dataset."""
-        logger.info(f"Reading CSV data from the corresponding folder: {self.path_data}")
-        _path_csvs_regex = self._get_csv_file_pattern(path=self.path_data)
-        self.ds = tf.data.experimental.make_csv_dataset(
-            file_pattern=_path_csvs_regex,
-            num_epochs=1,
-            shuffle=False,
-            ignore_errors=True,
-            batch_size=self.batch_size,
-        )
-        logger.info(f"DataSet Ready to be used (batched by: {self.batch_size}) ✅")
-        return self.ds
+        self.date_stats = {col: DateAccumulator() for col in self.date_features}
 
     def _process_batch(self, batch: tf.Tensor) -> None:
         """Update statistics accumulators for each batch.
@@ -242,16 +267,19 @@ class DatasetStatistics:
         for feature in self.text_features:
             self.text_stats[feature].update(batch[feature])
 
+        for feature in self.date_features:
+            self.date_stats[feature].update(batch[feature])
+
     def _compute_final_statistics(self) -> dict[str, dict]:
-        """Compute final statistics for numeric and categorical features."""
-        logger.info("Computing final statistics for numeric and categorical features 📊")
+        """Compute final statistics for numeric, categorical, text, and date features."""
+        logger.info("Computing final statistics for all features 📊")
         final_stats = {
             "numeric_stats": {},
             "categorical_stats": {},
             "text_stats": {},
+            "date_stats": {},
         }
         for feature in self.numeric_features:
-            logger.debug(f"numeric {feature =}")
             final_stats["numeric_stats"][feature] = {
                 "mean": self.numeric_stats[feature].mean.numpy(),
                 "count": self.numeric_stats[feature].count.numpy(),
@@ -260,18 +288,13 @@ class DatasetStatistics:
             }
 
         for feature in self.categorical_features:
-            logger.debug(f"categorical {feature =}")
-            # Convert TensorFlow string tensor to Python list for unique values
             _dtype = self.features_specs[feature].dtype
-            logger.debug(f"{_dtype =}")
-            # converting unique values
             if _dtype == tf.int32:
                 unique_values = [int(_byte) for _byte in self.categorical_stats[feature].get_unique_values()]
                 unique_values.sort()
             else:
                 _unique_values = self.categorical_stats[feature].get_unique_values()
                 unique_values = [(_byte).decode("utf-8") for _byte in _unique_values]
-            # forming stats
             final_stats["categorical_stats"][feature] = {
                 "size": len(unique_values),
                 "vocab": unique_values,
@@ -279,13 +302,26 @@ class DatasetStatistics:
             }
 
         for feature in self.text_features:
-            logger.debug(f"text {feature = }, {self.text_stats = }")
             unique_words = self.text_stats[feature].get_unique_words()
             final_stats["text_stats"][feature] = {
                 "size": len(unique_words),
                 "vocab": unique_words,
                 "dtype": self.features_specs[feature].dtype,
             }
+
+        for feature in self.date_features:
+            # init stats dates
+            final_stats["date_stats"][feature] = {}
+
+            # adding means stats
+            _means_data: dict = self.date_stats[feature].mean
+            for feat_name in _means_data:
+                final_stats["date_stats"][feature][f"mean_{feat_name}"] = _means_data.get("feat_name", 0)
+
+            # adding var stats
+            _vars_data: dict = self.date_stats[feature].variance
+            for feat_name in _vars_data:
+                final_stats["date_stats"][feature][f"mean_{feat_name}"] = _vars_data.get("feat_name", 0)
 
         return final_stats
 

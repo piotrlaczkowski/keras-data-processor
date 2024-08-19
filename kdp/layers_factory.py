@@ -2,7 +2,14 @@ import inspect
 
 import tensorflow as tf
 
-from kdp.custom_layers import CastToFloat32Layer, TextPreprocessingLayer, TransformerBlock
+from kdp.custom_layers import (
+    CastToFloat32Layer,
+    DateEncodingLayer,
+    DateParsingLayer,
+    SeasonLayer,
+    TextPreprocessingLayer,
+    TransformerBlock,
+)
 
 
 class PreprocessorLayerFactory:
@@ -67,6 +74,57 @@ class PreprocessorLayerFactory:
         """
         return PreprocessorLayerFactory.create_layer(
             layer_class=CastToFloat32Layer,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def date_parsing_layer(name: str = "date_parsing_layer", **kwargs: dict) -> tf.keras.layers.Layer:
+        """Create a DateParsingLayer layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the DateParsingLayer layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=DateParsingLayer,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def date_encoding_layer(name: str = "date_encoding_layer", **kwargs: dict) -> tf.keras.layers.Layer:
+        """Create a DateEncodingLayer layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the DateEncodingLayer layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=DateEncodingLayer,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def date_season_layer(name: str = "date_season_layer", **kwargs: dict) -> tf.keras.layers.Layer:
+        """Create a SeasonLayer layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the SeasonLayer layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=SeasonLayer,
             name=name,
             **kwargs,
         )

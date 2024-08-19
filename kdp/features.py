@@ -13,7 +13,7 @@ class TextVectorizerOutputOptions(Enum):
     MULTI_HOT = auto()
 
 
-class CategoryEncodingOptions(auto):
+class CategoryEncodingOptions:
     ONE_HOT_ENCODING = "ONE_HOT_ENCODING"
     EMBEDDING = "EMBEDDING"
 
@@ -31,6 +31,7 @@ class FeatureType(Enum):
     STRING_CATEGORICAL = auto()
     TEXT = auto()
     CROSSES = auto()
+    DATE = auto()
 
 
 class Feature:
@@ -145,6 +146,22 @@ class TextFeature(Feature):
 
     def __init__(self, name: str, feature_type: FeatureType = FeatureType.TEXT, **kwargs) -> None:
         """Initializes a TextFeature instance.
+
+        Args:
+            name (str): The name of the feature.
+            feature_type (FeatureType): The type of the feature.
+            **kwargs: Additional keyword arguments for the feature.
+        """
+        super().__init__(name, feature_type, **kwargs)
+        self.dtype = tf.string
+        self.kwargs = kwargs
+
+
+class DateFeature(Feature):
+    """TextFeature with dynamic kwargs passing."""
+
+    def __init__(self, name: str, feature_type: FeatureType = FeatureType.DATE, **kwargs) -> None:
+        """Initializes a DateFeature instance.
 
         Args:
             name (str): The name of the feature.
