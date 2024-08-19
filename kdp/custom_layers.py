@@ -248,6 +248,7 @@ class SeasonLayer(tf.keras.layers.Layer):
         """Initializing SeasonLayer."""
         super().__init__(**kwargs)
 
+    @tf.function
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
         """Adds seasonal one-hot encoding to the input tensor.
 
@@ -261,22 +262,24 @@ class SeasonLayer(tf.keras.layers.Layer):
         Raises:
             ValueError: If the input tensor does not have shape [batch_size, 3] or contains invalid month values.
         """
-        # Check the shape of the input
-        if tf.shape(inputs)[-1] != 3:
-            raise ValueError("Input tensor must have 3 features: [year, month, day_of_week]")
+        # Ensure inputs is 2D
+        if len(tf.shape(inputs)) == 1:
+            inputs = tf.expand_dims(inputs, axis=0)
 
-        # Extract month
+        # Extract month (assuming it's the second column)
         month = tf.cast(inputs[:, 1], tf.int32)
 
-        # Validate month values
-        if tf.reduce_any(tf.logical_or(month < 1, month > 12)):
-            raise ValueError("Month values must be in the range [1, 12]")
+        # Determine season using TensorFlow operations
+        is_winter = tf.logical_or(tf.less_equal(month, 2), tf.equal(month, 12))
+        is_spring = tf.logical_and(tf.greater(month, 2), tf.less_equal(month, 5))
+        is_summer = tf.logical_and(tf.greater(month, 5), tf.less_equal(month, 8))
+        is_fall = tf.logical_and(tf.greater(month, 8), tf.less_equal(month, 11))
 
-        # Determine season
-        season = tf.where(
-            tf.logical_or(month <= 2, month == 12),
-            0,
-            tf.where(month <= 5, 1, tf.where(month <= 8, 2, 3)),
+        season = (
+            tf.cast(is_winter, tf.int32) * 0
+            + tf.cast(is_spring, tf.int32) * 1
+            + tf.cast(is_summer, tf.int32) * 2
+            + tf.cast(is_fall, tf.int32) * 3
         )
 
         # Convert season to one-hot encoding
@@ -284,14 +287,20 @@ class SeasonLayer(tf.keras.layers.Layer):
 
         return tf.concat([inputs, season_one_hot], axis=-1)
 
+    def compute_output_shape(self, input_shape: int) -> int:
+        """Calculating output shape."""
+        # Convert input_shape to TensorShape if it's not already
+        input_shape = tf.TensorShape(input_shape)
+        # Add 4 to the last dimension for the one-hot encoded season
+        return input_shape[:-1].concatenate([input_shape[-1] + 4])
+
     def get_config(self) -> dict:
         """Returns the configuration of the layer as a dictionary.
 
         Returns:
             dict: The configuration dictionary.
         """
-        config = super().get_config()
-        return config
+        return super().get_config()
 
     @classmethod
     def from_config(cls, config: dict) -> object:

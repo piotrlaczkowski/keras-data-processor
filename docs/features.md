@@ -205,19 +205,45 @@ Example cross feature between INTEGER_CATEGORICAL and STRING_CATEGORICAL:
 
 ## 📆 Date Features
 
-You can even process string encoded date features (format: 'YYYY-MM-DD'):
+You can even process string encoded date features:
 
-```python
-from kdp.processor import PreprocessingModel
+=== "🔧 Using FeatureType"
 
-ppr = PreprocessingModel(
-    path_data="data/data.csv",
-    features_specs={
-        "feat1": FeatureType.FLOAT,
-        "feat2": FeatureType.DATE,
-    },
-)
-```
+    Use `FeatureType` for automatic default preprocessing setups.
+
+    ```python
+    from kdp.processor import PreprocessingModel
+
+    ppr = PreprocessingModel(
+        path_data="data/data.csv",
+        features_specs={
+            "feat1": FeatureType.FLOAT,
+            "feat2": FeatureType.DATE,
+        },
+    )
+    ```
+
+=== "💪 Custom DateFeature"
+
+    Customize text preprocessing by passing specific arguments to `TextFeature`.
+
+    ```python
+    from kdp.features import DateFeature
+
+    features_specs = {
+        "feat1": DateFeature(
+            name="feat2",
+            feature_type=FeatureType.FLOAT,
+        ),
+        "feat2": TextFeature(
+            name="feat2",
+            feature_type=FeatureType.DATE,
+            # additional option to add season layer:
+            add_season=True,  # adds one-hot season indicator (summer, winter, etc) defaults to False
+        ),
+        ...
+    }
+    ```
 
 Example date and numeric processing pipeline:
 
