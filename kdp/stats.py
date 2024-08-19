@@ -252,6 +252,41 @@ class DatasetStatistics:
         self.text_stats = {col: TextAccumulator() for col in self.text_features}
         self.date_stats = {col: DateAccumulator() for col in self.date_features}
 
+    def _get_csv_file_pattern(self, path) -> str:
+        """Get the csv file pattern that will handle directories and file paths.
+
+        Args:
+            path (str): Path to the csv file (can be a directory or a file)
+
+        Returns:
+            str: File pattern that always has *.csv at the end
+
+        """
+        file_path = Path(path)
+        # Check if the path is a directory
+        if file_path.suffix:
+            # Get the parent directory if the path is a file
+            base_path = file_path.parent
+            csv_pattern = base_path / "*.csv"
+        else:
+            csv_pattern = file_path / "*.csv"
+
+        return str(csv_pattern)
+
+    def _read_data_into_dataset(self) -> tf.data.Dataset:
+        """Reading CSV files from the provided path into a tf.data.Dataset."""
+        logger.info(f"Reading CSV data from the corresponding folder: {self.path_data}")
+        _path_csvs_regex = self._get_csv_file_pattern(path=self.path_data)
+        self.ds = tf.data.experimental.make_csv_dataset(
+            file_pattern=_path_csvs_regex,
+            num_epochs=1,
+            shuffle=False,
+            ignore_errors=True,
+            batch_size=self.batch_size,
+        )
+        logger.info(f"DataSet Ready to be used (batched by: {self.batch_size}) ✅")
+        return self.ds
+
     def _process_batch(self, batch: tf.Tensor) -> None:
         """Update statistics accumulators for each batch.
 

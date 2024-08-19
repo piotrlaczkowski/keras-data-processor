@@ -14,7 +14,7 @@ with the following arguments:
 
 - `transfo_placement` (str): The placement of the transformer block withe the following options:
     - `CATEGORICAL` -> only after categorical and text variables
-    - `ALL_FEATURES` -> after all concatenaded features).
+    - `ALL_FEATURES` -> after all concatenated features).
 
 
 This used a dedicated TransformerBlockLayer to handle the transformer block logic.
@@ -25,9 +25,9 @@ This used a dedicated TransformerBlockLayer to handle the transformer block logi
 from kdp.processor import PreprocessingModel, OutputModeOptions, TransformerBlockPlacementOptions
 
 ppr = PreprocessingModel(
-    path_data="data/test_saad.csv",
+    path_data="data/test_data.csv",
     features_specs=features_specs,
-    features_stats_path="stats_saad.json",
+    features_stats_path="stats_data.json",
     output_mode=OutputModeOptions.CONCAT,
     # TRANSFORMERS BLOCK CONTROLL
     transfo_nr_blocks=3, # if 0, transformer block is disabled

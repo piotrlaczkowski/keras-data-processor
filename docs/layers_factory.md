@@ -1,6 +1,6 @@
 # 🏭 Preprocessing Layers Factory
 
-You can find all availble layers in the `PreprocessorLayerFactory` class:
+You can find all available layers in the `PreprocessorLayerFactory` class:
 
 ::: kdp.layers_factory.PreprocessorLayerFactory
     handler: python

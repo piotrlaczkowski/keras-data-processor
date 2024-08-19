@@ -203,6 +203,27 @@ Example cross feature between INTEGER_CATEGORICAL and STRING_CATEGORICAL:
 
 ![Cross Features Pipeline](imgs/cross_features.png)
 
+## 📆 Date Features
+
+You can even process string encoded date features (format: 'YYYY-MM-DD'):
+
+```python
+from kdp.processor import PreprocessingModel
+
+ppr = PreprocessingModel(
+    path_data="data/data.csv",
+    features_specs={
+        "feat1": FeatureType.FLOAT,
+        "feat2": FeatureType.DATE,
+    },
+)
+```
+
+Example date and numeric processing pipeline:
+
+![Date Features Pipeline](imgs/date_features.png)
+
+
 ## 🚀 Custom Preprocessing Steps
 
 If you require even more customization, you can define custom preprocessing steps using the `Feature` class, using `preprocessors` attribute.
@@ -233,4 +254,4 @@ Here's how the text feature preprocessing pipeline looks:
 
 ![Text Feature Pipeline](imgs/custom_feature_pipeline.png)
 
-The full list of availble layers can be found: [Preprocessing Layers Factory](layers_factory.md)
+The full list of available layers can be found: [Preprocessing Layers Factory](layers_factory.md)

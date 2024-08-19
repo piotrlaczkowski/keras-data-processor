@@ -558,7 +558,7 @@ class PreprocessingModel:
                 )
 
                 # Optionally, add SeasonLayer
-                if _feature.kwargs.get("add_season", False):
+                if _feature.kwargs.get("add_season", True):
                     logger.debug("Adding Season layer")
                     preprocessor.add_processing_step(
                         layer_creator=PreprocessorLayerFactory.date_season_layer,
@@ -715,7 +715,7 @@ class PreprocessingModel:
             self._add_pipeline_date(
                 feature_name=feat_name,
                 input_layer=input_layer,
-                stats=stats,
+                # stats=stats,
             )
 
         # Preparing outputs

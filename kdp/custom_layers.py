@@ -1,3 +1,4 @@
+import math
 import re
 import string
 
@@ -84,56 +85,28 @@ class CastToFloat32Layer(tf.keras.layers.Layer):
 
 
 class DateParsingLayer(tf.keras.layers.Layer):
-    """A Keras Layer that parses a date string and extracts features: year, month, and day of the week.
-
-    This layer assumes the input tensor contains date strings in the format 'YYYY-MM-DD' or 'DD-MM-YYYY',
-    and converts these strings into numerical features suitable for further processing.
-
-    Required Input Format:
-        - A tensor of shape [batch_size, 1], where each row contains a date string.
-
-    Args:
-        date_format (str): The format of the date string. Options are 'YYYY-MM-DD' or 'DD-MM-YYYY'.
-
-    Methods:
-        call(inputs): Parses the date strings and extracts features including year, month, day_of_week.
-        get_config(): Returns the configuration of the layer as a dictionary.
-        from_config(config): Instantiates a DateParsingLayer from its configuration dictionary.
-    """
-
-    def __init__(self, date_format: str = "YYYY-MM-DD", **kwargs):
+    def __init__(self, date_format: str = "YYYY-MM-DD", **kwargs) -> None:
         """Initializing DateParsingLayer.
 
         Args:
-            date_format (str, optional): Date formats that layer accepts. Defaults to 'YYYY-MM-DD'.
-            **kwargs (dict): additional parameters.
+            date_format (str): format of the string encoded date to parse.
+            kwargs (dict): other params to pass to the class.
         """
         super().__init__(**kwargs)
         self.date_format = date_format
 
     @tf.function
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Parses the date strings and extracts features.
+        """Base forward pass definition.
 
         Args:
-            inputs (tf.Tensor): A tensor of shape [batch_size, 1] where each row contains a date string.
+            inputs (tf.Tensor): Tensor with input data.
 
         Returns:
-            tf.Tensor: A tensor of shape [batch_size, 3] with extracted features: year, month, day_of_week.
-
-        Raises:
-            ValueError: If the date_format is not recognized or if the input tensor does not have the correct shape.
+            tf.Tensor: processed date tensor with all cyclic components.
         """
 
-        def parse_date(date_str: str) -> tuple:
-            """Parsing date into a stacked tensor.
-
-            Args:
-                date_str (str): date to be parsed.
-
-            Returns:
-                tuple (tf.tensor): representing stacked year, month and day.
-            """
+        def parse_date(date_str: str) -> tf.Tensor:
             parts = tf.strings.split(date_str, "-")
             year = tf.strings.to_number(parts[0], out_type=tf.int32)
             month = tf.strings.to_number(parts[1], out_type=tf.int32)
@@ -150,105 +123,90 @@ class DateParsingLayer(tf.keras.layers.Layer):
             return tf.stack([year, month, day_of_week])
 
         parsed_dates = tf.map_fn(parse_date, tf.squeeze(inputs), fn_output_signature=tf.int32)
-        return tf.expand_dims(parsed_dates, axis=-1)
+        return parsed_dates
 
-    def compute_output_shape(self, input_shape) -> tf.TensorShape:
-        """Computing tensor shape.
-
-        Args:
-            input_shape (_type_): initial tensor shape.
-
-        Returns:
-            _type_ (tf.TensorShape): return tensor shape.
-        """
-        return tf.TensorShape([input_shape[0], input_shape[1], 3, 1])
+    def compute_output_shape(self, input_shape: int) -> int:
+        """Getting output shape."""
+        return tf.TensorShape([input_shape[0], 3])
 
     def get_config(self) -> dict:
-        """Returns the configuration of the layer as a dictionary.
-
-        Returns:
-            dict: The configuration dictionary.
-        """
+        """Saving configuration."""
         config = super().get_config()
         config.update({"date_format": self.date_format})
         return config
 
     @classmethod
     def from_config(cls, config: dict) -> object:
-        """Instantiates a DateParsingLayer from its configuration dictionary.
-
-        Args:
-            config (dict): The configuration dictionary.
-
-        Returns:
-            object: The DateParsingLayer instance.
-        """
+        """Restoring configuration."""
         return cls(**config)
 
 
 class DateEncodingLayer(tf.keras.layers.Layer):
-    """A Keras Layer that performs date feature encoding, including cyclical encoding for month and day of the week.
-
-    This layer extracts the year, month, and day of the week from the input tensor, and applies cyclical encoding
-    to the month and day of the week. The cyclical encoding helps the model learn cyclical patterns in these features.
-
-    Required Input Format:
-        - A tensor of shape [batch_size, 3], where each row contains:
-            - year (int): Year as a numerical value.
-            - month (int): Month as an integer from 1 to 12.
-            - day_of_week (int): Day of the week as an integer from 0 to 6 (where 0=Monday).
-
-    Args:
-        **kwargs: Additional keyword arguments for the Keras Layer.
-
-    Methods:
-        call(inputs): Applies date feature encoding to the input tensor.
-        get_config(): Returns the configuration of the layer as a dictionary.
-        from_config(config): Instantiates a DateEncodingLayer from its configuration dictionary.
-    """
-
     def __init__(self, **kwargs):
         """Initializing DateEncodingLayer."""
         super().__init__(**kwargs)
 
     @tf.function
-    def call(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Applies date feature encoding to the input tensor.
+    def normalize_year(self, year: tf.Tensor) -> tf.Tensor:
+        """Normalize the year to a fractional year value (0-1)."""
+        # Example: year could be something like 2023.5 representing mid-2023
+        return year % 1.0
+
+    @tf.function
+    def cyclic_encoding(self, value: tf.Tensor, period: float) -> tuple[tf.Tensor, tf.Tensor]:
+        """Encode a value as a cyclical feature using sine and cosine transformations.
 
         Args:
-            inputs (tf.Tensor): A tensor of shape [batch_size, 3] where each row contains [year, month, day_of_week].
+            value: A tensor of floats representing the value to be encoded.
+            period: The period of the cycle (e.g., 12 for months, 7 for days).
 
         Returns:
-            tf.Tensor: A tensor of shape [batch_size, 5] with encoded features including year, month cyclical encoding,
-                        and day of week cyclical encoding.
+            A tuple (sin_encoded, cos_encoded) representing the cyclical features.
+        """
+        _pi = tf.constant(math.pi)
+        normalized_value = value / period
+        sin_component = tf.math.sin(2 * _pi * normalized_value)
+        cos_component = tf.math.cos(2 * _pi * normalized_value)
+        return sin_component, cos_component
 
-        Raises:
-            ValueError: If the input tensor does not have shape [batch_size, 3]
-                or contains invalid month/day_of_week values.
+    @tf.function
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """Splits the date into 3 components: year, month and day and
+        encodes it into sin and cos cyclical projections.
+
+        Args:
+            inputs (tf.Tensor): input data.
+
+        Returns:
+            (tf.Tensor): cyclically encoded data (sin and cos).
         """
         # Reshape input if necessary
         input_shape = tf.shape(inputs)
-        if len(input_shape) == 4:
+        if len(input_shape) == 3:
             inputs = tf.squeeze(inputs, axis=-1)
 
         # Extract features
-        year = inputs[..., 0]
-        month = inputs[..., 1]
-        day_of_week = inputs[..., 2]
+        year = inputs[:, 0]
+        month = inputs[:, 1]
+        day_of_week = inputs[:, 2]
 
         # Cyclical encoding
+        year_float = tf.cast(year, tf.float32)
         month_float = tf.cast(month, tf.float32)
         day_of_week_float = tf.cast(day_of_week, tf.float32)
-        _pi = tf.const(3.1415)
 
-        month_sin = tf.math.sin(2 * _pi * month_float / 12)
-        month_cos = tf.math.cos(2 * _pi * month_float / 12)
-        day_of_week_sin = tf.math.sin(2 * _pi * day_of_week_float / 7)
-        day_of_week_cos = tf.math.cos(2 * _pi * day_of_week_float / 7)
+        # Ensure inputs are in the correct range
+        year_float = self.normalize_year(year_float)
+
+        # Encode each feature
+        year_sin, year_cos = self.cyclic_encoding(year_float, period=1.0)
+        month_sin, month_cos = self.cyclic_encoding(month_float, period=12.0)
+        day_of_week_sin, day_of_week_cos = self.cyclic_encoding(day_of_week_float, period=7.0)
 
         encoded = tf.stack(
             [
-                tf.cast(year, tf.float32),
+                year_sin,
+                year_cos,
                 month_sin,
                 month_cos,
                 day_of_week_sin,
@@ -257,34 +215,19 @@ class DateEncodingLayer(tf.keras.layers.Layer):
             axis=-1,
         )
 
-        # Reshape to 2D tensor
-        encoded_flat = tf.reshape(encoded, [-1, 5])
-
-        return encoded_flat
+        return encoded
 
     def compute_output_shape(self, input_shape: int) -> int:
-        """COmputing tensor shape."""
-        return tf.TensorShape([input_shape[0], 5])
+        """Getting output shape."""
+        return tf.TensorShape([input_shape[0], 6])
 
     def get_config(self) -> dict:
-        """Returns the configuration of the layer as a dictionary.
-
-        Returns:
-            dict: The configuration dictionary.
-        """
-        config = super().get_config()
-        return config
+        """Returns the configuration of the layer as a dictionary."""
+        return super().get_config()
 
     @classmethod
     def from_config(cls, config: dict) -> object:
-        """Instantiates a DateEncodingLayer from its configuration dictionary.
-
-        Args:
-            config (dict): The configuration dictionary.
-
-        Returns:
-            object: The DateEncodingLayer instance.
-        """
+        """Reloading current configuration."""
         return cls(**config)
 
 
