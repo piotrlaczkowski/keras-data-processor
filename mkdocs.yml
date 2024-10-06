@@ -37,9 +37,9 @@ theme:
 nav:
   - 💡 KDP: index.md
   - 🛠️ Defining Features: features.md
-  - 🤖 TransformerBlocks: transformer_blocks.md
   - 🏭 Layers Factory: layers_factory.md
   - 📦 Integrating Preprocessing Model: integrations.md
+  - 🤖 TransformerBlocks: transformer_blocks.md
   - 🍦 Motivation: motivation.md
   - 🍻 Contributing: contributing.md
 

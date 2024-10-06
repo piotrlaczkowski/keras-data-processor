@@ -12,7 +12,7 @@ Say goodbye to tedious data preparation tasks and hello to streamlined, efficien
 
 ## 🔑 Key Features:
 
-- 🛠 **Automated Feature Engineering**: Automatically detects and applies the most suitable preprocessing steps for each feature type in your dataset, ensuring optimal data preparation with minimal manual intervention.
+- 🛠 **Flexible Feature Engineering**: Applies predefined preprocessing steps based on user-specified feature types, allowing for efficient and customizable data preparation with minimal manual coding.
 
 - 🎨 **Customizable Preprocessing Pipelines**: Tailor your preprocessing steps with ease. Choose from a comprehensive range of options for numeric, categorical, text data, and even complex feature crosses, allowing for precise and effective data handling.
 
@@ -43,7 +43,7 @@ Then you can simply configure your preprocessor:
 
 ## 🛠️ Building Preprocessor:
 
-The simplest application of ths preprocessing model is as follows:
+The simplest application of the preprocessing model is as follows:
 
 ```python
 from kdp import PreprocessingModel
@@ -70,7 +70,7 @@ ppr = PreprocessingModel(
 ppr.build_preprocessor()
 ```
 
-This wil output:
+This will output:
 
 ```JS
 {
@@ -109,9 +109,9 @@ This will result in the following preprocessing steps:
 !!! info
     You can use the preprocessing model independently to preprocess your data or integrate it into your Keras model as the first layer, see 👀 [Integrations](integrations.md)
 
-## Advanced Configuration Options
+## 💪🏻 Advanced Configuration Options
 
-### Transformer Blocks Configuration
+### 🤖 Transformer Blocks Configuration
 
 Enhance your preprocessing model with transformer blocks to capture complex patterns and interactions between features, see 👀 [Transformer Blocks](transformer_blocks.md). You can configure the transformer blocks as follows:
 
@@ -139,7 +139,7 @@ ppr = PreprocessingModel(
 )
 ```
 
-### Custom Preprocessors
+### 🏗️ Custom Preprocessors
 
 Tailor your preprocessing steps with custom preprocessors for each feature type. Define specific preprocessing logic that fits your data characteristics or domain-specific requirements, see 👀 [Custom Preprocessors](features.md#🚀-custom-preprocessing-steps).
 
@@ -164,7 +164,7 @@ ppr = PreprocessingModel(
 )
 ```
 
-### Feature Crosses
+### ♱ Feature Crosses
 
 Create complex feature interactions by crossing features. This method combines features into a single feature, which can be particularly useful for models that benefit from understanding interactions between specific features, see 👀 [Feature Crosses](features.md#❌-cross-features).
 
