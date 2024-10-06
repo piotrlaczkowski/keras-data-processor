@@ -371,17 +371,17 @@
         <li class="md-nav__item">
   <a href="#advanced-configuration-options" class="md-nav__link">
     <span class="md-ellipsis">
-      Advanced Configuration Options
+      💪🏻 Advanced Configuration Options
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Advanced Configuration Options">
+    <nav class="md-nav" aria-label="💪🏻 Advanced Configuration Options">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#transformer-blocks-configuration" class="md-nav__link">
     <span class="md-ellipsis">
-      Transformer Blocks Configuration
+      🤖 Transformer Blocks Configuration
     </span>
   </a>
   
@@ -390,7 +390,7 @@
           <li class="md-nav__item">
   <a href="#custom-preprocessors" class="md-nav__link">
     <span class="md-ellipsis">
-      Custom Preprocessors
+      🏗️ Custom Preprocessors
     </span>
   </a>
   
@@ -399,7 +399,7 @@
           <li class="md-nav__item">
   <a href="#feature-crosses" class="md-nav__link">
     <span class="md-ellipsis">
-      Feature Crosses
+      ♱ Feature Crosses
     </span>
   </a>
   
@@ -445,26 +445,6 @@
   
   
     <li class="md-nav__item">
-      <a href="transformer_blocks/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    🤖 TransformerBlocks
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="layers_factory/" class="md-nav__link">
         
   
@@ -490,6 +470,26 @@
   
   <span class="md-ellipsis">
     📦 Integrating Preprocessing Model
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="transformer_blocks/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    🤖 TransformerBlocks
   </span>
   
 
@@ -594,17 +594,17 @@
         <li class="md-nav__item">
   <a href="#advanced-configuration-options" class="md-nav__link">
     <span class="md-ellipsis">
-      Advanced Configuration Options
+      💪🏻 Advanced Configuration Options
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Advanced Configuration Options">
+    <nav class="md-nav" aria-label="💪🏻 Advanced Configuration Options">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#transformer-blocks-configuration" class="md-nav__link">
     <span class="md-ellipsis">
-      Transformer Blocks Configuration
+      🤖 Transformer Blocks Configuration
     </span>
   </a>
   
@@ -613,7 +613,7 @@
           <li class="md-nav__item">
   <a href="#custom-preprocessors" class="md-nav__link">
     <span class="md-ellipsis">
-      Custom Preprocessors
+      🏗️ Custom Preprocessors
     </span>
   </a>
   
@@ -622,7 +622,7 @@
           <li class="md-nav__item">
   <a href="#feature-crosses" class="md-nav__link">
     <span class="md-ellipsis">
-      Feature Crosses
+      ♱ Feature Crosses
     </span>
   </a>
   
@@ -662,7 +662,7 @@
 <h2 id="key-features">🔑 Key Features:</h2>
 <ul>
 <li>
-<p>🛠 <strong>Automated Feature Engineering</strong>: Automatically detects and applies the most suitable preprocessing steps for each feature type in your dataset, ensuring optimal data preparation with minimal manual intervention.</p>
+<p>🛠 <strong>Flexible Feature Engineering</strong>: Applies predefined preprocessing steps based on user-specified feature types, allowing for efficient and customizable data preparation with minimal manual coding.</p>
 </li>
 <li>
 <p>🎨 <strong>Customizable Preprocessing Pipelines</strong>: Tailor your preprocessing steps with ease. Choose from a comprehensive range of options for numeric, categorical, text data, and even complex feature crosses, allowing for precise and effective data handling.</p>
@@ -688,7 +688,7 @@ Then you can install the dependencies by running:</p>
 </code></pre></div>
 <p>Then you can simply configure your preprocessor:</p>
 <h2 id="building-preprocessor">🛠️ Building Preprocessor:</h2>
-<p>The simplest application of ths preprocessing model is as follows:</p>
+<p>The simplest application of the preprocessing model is as follows:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span> <span class="nn">kdp</span> <span class="kn">import</span> <span class="n">PreprocessingModel</span>
 <span class="kn">from</span> <span class="nn">kdp</span> <span class="kn">import</span> <span class="n">FeatureType</span>
 
@@ -712,7 +712,7 @@ Then you can install the dependencies by running:</p>
 <span class="c1"># construct the preprocessing pipelines</span>
 <span class="n">ppr</span><span class="o">.</span><span class="n">build_preprocessor</span><span class="p">()</span>
 </code></pre></div>
-<p>This wil output:</p>
+<p>This will output:</p>
 <div class="highlight"><pre><span></span><code><span class="p">{</span>
 <span class="s1">&#39;model&#39;</span><span class="o">:</span><span class="w"> </span><span class="o">&lt;</span><span class="nx">Functional</span><span class="w"> </span><span class="nx">name</span><span class="o">=</span><span class="nx">preprocessor</span><span class="p">,</span><span class="w"> </span><span class="nx">built</span><span class="o">=</span><span class="nx">True</span><span class="o">&gt;</span><span class="p">,</span>
 <span class="s1">&#39;inputs&#39;</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
@@ -747,8 +747,8 @@ Then you can install the dependencies by running:</p>
 <p class="admonition-title">Info</p>
 <p>You can use the preprocessing model independently to preprocess your data or integrate it into your Keras model as the first layer, see 👀 <a href="integrations/">Integrations</a></p>
 </div>
-<h2 id="advanced-configuration-options">Advanced Configuration Options</h2>
-<h3 id="transformer-blocks-configuration">Transformer Blocks Configuration</h3>
+<h2 id="advanced-configuration-options">💪🏻 Advanced Configuration Options</h2>
+<h3 id="transformer-blocks-configuration">🤖 Transformer Blocks Configuration</h3>
 <p>Enhance your preprocessing model with transformer blocks to capture complex patterns and interactions between features, see 👀 <a href="transformer_blocks/">Transformer Blocks</a>. You can configure the transformer blocks as follows:</p>
 <ul>
 <li><strong>Number of Blocks</strong>: Define how many transformer blocks to include in the preprocessing pipeline.</li>
@@ -772,7 +772,7 @@ Then you can install the dependencies by running:</p>
     <span class="o">**</span><span class="n">transfo_config</span>
 <span class="p">)</span>
 </code></pre></div>
-<h3 id="custom-preprocessors">Custom Preprocessors</h3>
+<h3 id="custom-preprocessors">🏗️ Custom Preprocessors</h3>
 <p>Tailor your preprocessing steps with custom preprocessors for each feature type. Define specific preprocessing logic that fits your data characteristics or domain-specific requirements, see 👀 <a href="features/#🚀-custom-preprocessing-steps">Custom Preprocessors</a>.</p>
 <ul>
 <li><strong>Custom Steps</strong>: Add custom preprocessing layers or functions to the predefined feature types.</li>
@@ -793,7 +793,7 @@ Then you can install the dependencies by running:</p>
     <span class="n">features_specs</span><span class="o">=</span><span class="n">features_spec</span>
 <span class="p">)</span>
 </code></pre></div>
-<h3 id="feature-crosses">Feature Crosses</h3>
+<h3 id="feature-crosses">♱ Feature Crosses</h3>
 <p>Create complex feature interactions by crossing features. This method combines features into a single feature, which can be particularly useful for models that benefit from understanding interactions between specific features, see 👀 <a href="features/#❌-cross-features">Feature Crosses</a>.</p>
 <ul>
 <li><strong>Crossing Features</strong>: Specify pairs of features to be crossed and the number of bins for hashing the crossed feature.</li>
