@@ -100,6 +100,9 @@ This will result in the following preprocessing steps:
 **This preprocessing model can be used independentyly or as the first layer of any Keras model.
 This means you can ship your model with the preprocessing pipeline (built-in) as a single entity and deploy it with ease using Tesnorflow Serving.**
 
+Try KDP on a sample dataset in Colab:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1zBdw8-QUszohlU1BkO8BbYATzWXdZ1k0?usp=sharing)
 ```python
 
 ## 🔍 Dive Deeper:
