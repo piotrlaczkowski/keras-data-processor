@@ -284,7 +284,7 @@ class DatasetStatistics:
             ignore_errors=True,
             batch_size=self.batch_size,
         )
-        logger.info(f"DataSet Ready to be used (batched by: {self.batch_size}) ✅")
+        logger.info(f"DataSet Ready to be used (batched by: {self.batch_size}) ")
         return self.ds
 
     def _process_batch(self, batch: tf.Tensor) -> None:
@@ -307,11 +307,11 @@ class DatasetStatistics:
 
     def _compute_final_statistics(self) -> dict[str, dict]:
         """Compute final statistics for numeric, categorical, text, and date features."""
-        logger.info("Computing final statistics for all features 📊")
+        logger.info("Computing final statistics for all features ")
         final_stats = {
             "numeric_stats": {},
             "categorical_stats": {},
-            "text_stats": {},
+            "text": {},
             "date_stats": {},
         }
         for feature in self.numeric_features:
@@ -338,10 +338,13 @@ class DatasetStatistics:
 
         for feature in self.text_features:
             unique_words = self.text_stats[feature].get_unique_words()
-            final_stats["text_stats"][feature] = {
+            final_stats["text"] = final_stats.get("text", {})  # Ensure "text" key exists
+            final_stats["text"][feature] = {
                 "size": len(unique_words),
                 "vocab": unique_words,
-                "dtype": self.features_specs[feature].dtype,
+                "sequence_length": 100,  # Default sequence length
+                "vocab_size": min(10000, len(unique_words)),  # Default vocab size capped at 10000
+                "dtype": tf.string,
             }
 
         for feature in self.date_features:
@@ -366,7 +369,7 @@ class DatasetStatistics:
         Args:
             dataset: The dataset for which to calculate statistics.
         """
-        logger.info("Calculating statistics for the dataset 📊")
+        logger.info("Calculating statistics for the dataset ")
         for batch in dataset:
             self._process_batch(batch)
 
@@ -399,7 +402,7 @@ class DatasetStatistics:
         path_obj = Path(self.features_stats_path)
         with path_obj.open("w") as f:
             json.dump(self.features_stats, f, default=self._custom_serializer)
-        logger.info("features_stats saved ✅")
+        logger.info("features_stats saved ")
 
     def _load_stats(self) -> dict:
         """Loads serialized features stats from a file, with custom handling for TensorFlow dtypes.
@@ -408,7 +411,7 @@ class DatasetStatistics:
             A dictionary containing the loaded features statistics.
         """
         if self.overwrite_stats:
-            logger.info("overwrite_stats is currently active ⚙️")
+            logger.info("overwrite_stats is currently active ")
             return {}
 
         stats_path = Path(self.features_stats_path)
@@ -422,7 +425,7 @@ class DatasetStatistics:
                 for _, feature_stats in stats_type.items():
                     if "dtype" in feature_stats:
                         feature_stats["dtype"] = tf.dtypes.as_dtype(feature_stats["dtype"])
-            logger.info("features_stats loaded ✅")
+            logger.info("features_stats loaded ")
         else:
             logger.info("No serialized features stats were detected ...")
             self.features_stats = {}
