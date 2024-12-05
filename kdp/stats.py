@@ -1,4 +1,6 @@
 import json
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -7,6 +9,8 @@ import tensorflow as tf
 from loguru import logger
 
 from kdp.features import CategoricalFeature, FeatureType, NumericalFeature
+
+MAX_WORKERS = os.cpu_count() or 4
 
 
 class WelfordAccumulator:
@@ -287,79 +291,203 @@ class DatasetStatistics:
         logger.info(f"DataSet Ready to be used (batched by: {self.batch_size}) ")
         return self.ds
 
-    def _process_batch(self, batch: tf.Tensor) -> None:
-        """Update statistics accumulators for each batch.
+    def _process_numeric_feature(self, feature: str, batch: tf.Tensor) -> None:
+        """Process a single numeric feature from a batch.
 
         Args:
-            batch: A batch of data from the dataset.
+            feature: Feature name
+            batch: Batch of data
         """
-        for feature in self.numeric_features:
-            self.numeric_stats[feature].update(batch[feature])
+        self.numeric_stats[feature].update(batch[feature])
 
-        for feature in self.categorical_features:
-            self.categorical_stats[feature].update(batch[feature])
+    def _process_categorical_feature(self, feature: str, batch: tf.Tensor) -> None:
+        """Process a single categorical feature from a batch.
 
-        for feature in self.text_features:
-            self.text_stats[feature].update(batch[feature])
+        Args:
+            feature: Feature name
+            batch: Batch of data
+        """
+        self.categorical_stats[feature].update(batch[feature])
 
-        for feature in self.date_features:
-            self.date_stats[feature].update(batch[feature])
+    def _process_text_feature(self, feature: str, batch: tf.Tensor) -> None:
+        """Process a single text feature from a batch.
+
+        Args:
+            feature: Feature name
+            batch: Batch of data
+        """
+        self.text_stats[feature].update(batch[feature])
+
+    def _process_date_feature(self, feature: str, batch: tf.Tensor) -> None:
+        """Process a single date feature from a batch.
+
+        Args:
+            feature: Feature name
+            batch: Batch of data
+        """
+        self.date_stats[feature].update(batch[feature])
+
+    def _process_batch_parallel(self, batch: tf.Tensor) -> None:
+        """Process a batch of data in parallel using ThreadPoolExecutor.
+
+        Args:
+            batch: Batch of data to process
+        """
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = []
+
+            # Submit numeric feature processing tasks
+            for feature in self.numeric_features:
+                futures.append(
+                    executor.submit(self._process_numeric_feature, feature, batch),
+                )
+
+            # Submit categorical feature processing tasks
+            for feature in self.categorical_features:
+                futures.append(
+                    executor.submit(self._process_categorical_feature, feature, batch),
+                )
+
+            # Submit text feature processing tasks
+            for feature in self.text_features:
+                futures.append(
+                    executor.submit(self._process_text_feature, feature, batch),
+                )
+
+            # Submit date feature processing tasks
+            for feature in self.date_features:
+                futures.append(
+                    executor.submit(self._process_date_feature, feature, batch),
+                )
+
+            # Wait for all tasks to complete
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as e:
+                    logger.error(f"Error processing feature: {str(e)}")
+                    raise
+
+    def _compute_feature_stats_parallel(self, feature_type: str, features: list[str]) -> dict[str, Any]:
+        """Compute statistics for a group of features in parallel.
+
+        Args:
+            feature_type: Type of features (numeric, categorical, text, or date)
+            features: List of feature names
+
+        Returns:
+            Dictionary containing computed statistics
+        """
+
+        def compute_feature_stats(feature: str) -> tuple[str, dict]:
+            """Compute statistics for a single feature.
+
+            Args:
+                feature: Name of the feature to compute statistics for
+
+            Returns:
+                tuple: A tuple containing:
+                    - str: Feature name
+                    - dict: Dictionary of computed statistics for the feature
+
+            The computed statistics vary based on the feature_type:
+                - numeric: mean, count, variance, and dtype
+                - categorical: size of vocabulary, unique values, and dtype
+                - text: vocabulary size, unique words, sequence length, and dtype
+                - date: mean and variance for each date component
+            """
+            if feature_type == "numeric":
+                return feature, {
+                    "mean": self.numeric_stats[feature].mean.numpy(),
+                    "count": self.numeric_stats[feature].count.numpy(),
+                    "var": self.numeric_stats[feature].variance.numpy(),
+                    "dtype": self.features_specs[feature].dtype,
+                }
+            elif feature_type == "categorical":
+                _dtype = self.features_specs[feature].dtype
+                if _dtype == tf.int32:
+                    unique_values = [int(_byte) for _byte in self.categorical_stats[feature].get_unique_values()]
+                    unique_values.sort()
+                else:
+                    _unique_values = self.categorical_stats[feature].get_unique_values()
+                    unique_values = [(_byte).decode("utf-8") for _byte in _unique_values]
+                return feature, {
+                    "size": len(unique_values),
+                    "vocab": unique_values,
+                    "dtype": _dtype,
+                }
+            elif feature_type == "text":
+                unique_words = self.text_stats[feature].get_unique_words()
+                return feature, {
+                    "size": len(unique_words),
+                    "vocab": unique_words,
+                    "sequence_length": 100,
+                    "vocab_size": min(10000, len(unique_words)),
+                    "dtype": tf.string,
+                }
+            elif feature_type == "date":
+                _means_data: dict = self.date_stats[feature].mean()
+                _vars_data: dict = self.date_stats[feature].variance()
+                date_stats = {}
+                for feat_name in _means_data:
+                    date_stats[f"mean_{feat_name}"] = _means_data[feat_name]
+                    date_stats[f"var_{feat_name}"] = _vars_data[feat_name]
+                return feature, date_stats
+
+            return feature, {}  # Default empty stats for unknown feature types
+
+        stats = {}
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            # Submit all tasks to the executor
+            future_to_feature = {executor.submit(compute_feature_stats, feature): feature for feature in features}
+
+            # Collect results as they complete
+            for future in as_completed(future_to_feature):
+                feature_name, feature_stats = future.result()
+                stats[feature_name] = feature_stats
+
+        return stats
 
     def _compute_final_statistics(self) -> dict[str, dict]:
-        """Compute final statistics for numeric, categorical, text, and date features."""
-        logger.info("Computing final statistics for all features ")
+        """Compute final statistics for all features in parallel."""
+        logger.info("Computing final statistics for all features")
+
         final_stats = {
             "numeric_stats": {},
             "categorical_stats": {},
             "text": {},
             "date_stats": {},
         }
-        for feature in self.numeric_features:
-            final_stats["numeric_stats"][feature] = {
-                "mean": self.numeric_stats[feature].mean.numpy(),
-                "count": self.numeric_stats[feature].count.numpy(),
-                "var": self.numeric_stats[feature].variance.numpy(),
-                "dtype": self.features_specs[feature].dtype,
+
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            feature_types = [
+                ("numeric", self.numeric_features),
+                ("categorical", self.categorical_features),
+                ("text", self.text_features),
+                ("date", self.date_features),
+            ]
+
+            futures = {
+                executor.submit(
+                    self._compute_feature_stats_parallel,
+                    feature_type,
+                    features,
+                ): feature_type
+                for feature_type, features in feature_types
+                if features
             }
 
-        for feature in self.categorical_features:
-            _dtype = self.features_specs[feature].dtype
-            if _dtype == tf.int32:
-                unique_values = [int(_byte) for _byte in self.categorical_stats[feature].get_unique_values()]
-                unique_values.sort()
-            else:
-                _unique_values = self.categorical_stats[feature].get_unique_values()
-                unique_values = [(_byte).decode("utf-8") for _byte in _unique_values]
-            final_stats["categorical_stats"][feature] = {
-                "size": len(unique_values),
-                "vocab": unique_values,
-                "dtype": _dtype,
-            }
-
-        for feature in self.text_features:
-            unique_words = self.text_stats[feature].get_unique_words()
-            final_stats["text"] = final_stats.get("text", {})  # Ensure "text" key exists
-            final_stats["text"][feature] = {
-                "size": len(unique_words),
-                "vocab": unique_words,
-                "sequence_length": 100,  # Default sequence length
-                "vocab_size": min(10000, len(unique_words)),  # Default vocab size capped at 10000
-                "dtype": tf.string,
-            }
-
-        for feature in self.date_features:
-            # init stats dates
-            final_stats["date_stats"][feature] = {}
-
-            # adding means stats
-            _means_data: dict = self.date_stats[feature].mean
-            for feat_name in _means_data:
-                final_stats["date_stats"][feature][f"mean_{feat_name}"] = _means_data.get("feat_name", 0)
-
-            # adding var stats
-            _vars_data: dict = self.date_stats[feature].variance
-            for feat_name in _vars_data:
-                final_stats["date_stats"][feature][f"mean_{feat_name}"] = _vars_data.get("feat_name", 0)
+            for future in as_completed(futures):
+                feature_type = futures[future]
+                try:
+                    stats = future.result()
+                    if feature_type == "text":
+                        final_stats["text"] = stats
+                    else:
+                        final_stats[f"{feature_type}_stats"] = stats
+                except Exception as e:
+                    logger.error(f"Error computing {feature_type} statistics: {str(e)}")
+                    raise
 
         return final_stats
 
@@ -371,7 +499,7 @@ class DatasetStatistics:
         """
         logger.info("Calculating statistics for the dataset ")
         for batch in dataset:
-            self._process_batch(batch)
+            self._process_batch_parallel(batch)
 
         # calculating data statistics
         self.features_stats = self._compute_final_statistics()
