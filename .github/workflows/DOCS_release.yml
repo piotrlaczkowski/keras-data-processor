@@ -2,6 +2,11 @@ name: "MIKE DOC Release Manual"
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (optional, defaults to poetry version)'
+        required: false
+        type: string
 
 jobs:
   MIKE_RELEASE_DOCs:
@@ -38,10 +43,16 @@ jobs:
       - name: "Releasing new documentation with mike"
         shell: bash
         run: |
-          echo "CURRENT TAG: $(poetry version -s)"
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            VERSION=$(poetry version -s)
+            echo "Using poetry version: $VERSION"
+          else
+            echo "Using manually specified version: $VERSION"
+          fi
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor }}@users.noreply.github.com"
-          mike deploy --push --update-aliases $(poetry version -s) latest
+          mike deploy --push --update-aliases $VERSION latest
 
       - name: Push changes
         run: |

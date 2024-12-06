@@ -37,6 +37,7 @@ mkdocs-gen-files = "^0.5.0"
 mkdocstrings-python = "^1.7.5"
 mkdocstrings = {extras = ["python"], version = "^0.24.0"}
 mike = ">=2.0.0"
+griffe = "^0.37.0"
 
 [tool.pytest.ini_options]
 python_paths = "kdp"
