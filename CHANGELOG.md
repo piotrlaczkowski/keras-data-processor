@@ -1,3 +1,17 @@
+## [1.9.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.8.0...kdp.1.9.0) (2024-12-06)
+
+
+### :gift: Features
+
+* feat(kdp): migrating stats to pools executor ([ad2496a](https://github.com/piotrlaczkowski/keras-data-processor/commit/ad2496a05fba380f3327e9a1948d85d5a4fa4303))
+* feat(kdp): adding parallelization + fixes ([788e7f5](https://github.com/piotrlaczkowski/keras-data-processor/commit/788e7f5248ba17e1ac000b86901ae3ad6a8529ba))
+
+
+### :beetle: Bug Fixes
+
+* fix(kdp): fixing tests + new coverage ([c9f895f](https://github.com/piotrlaczkowski/keras-data-processor/commit/c9f895ffca2e1be0668a1fdc56d25f65eaed4879))
+* fix(kdp): reparing shapes and transformer blocks ([2334171](https://github.com/piotrlaczkowski/keras-data-processor/commit/23341712ad47cf70767c2f089b6c97c7e4b7074d))
+
 ## [1.8.0](https://github.com/piotrlaczkowski/keras-data-processor/compare/kdp.1.7.0...kdp.1.8.0) (2024-08-19)
 
 
