@@ -516,7 +516,7 @@ class PreprocessingModel:
                 )
             elif _feature.feature_type == FeatureType.FLOAT_DISCRETIZED:
                 logger.debug("Adding Float Discretized Feature")
-                # output dimentions will be > 1
+                # output dimensions will be > 1
                 _out_dims = len(_feature.kwargs.get("bin_boundaries", 1.0)) + 1
                 preprocessor.add_processing_step(
                     layer_class="Discretization",
@@ -542,13 +542,6 @@ class PreprocessingModel:
         preprocessor.add_processing_step(
             layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
             name=f"cast_to_float_{feature_name}",
-        )
-
-        # Ensure output is 2D for concatenation
-        preprocessor.add_processing_step(
-            layer_class="Reshape",
-            target_shape=(1,),  # Batch dimension is automatically handled
-            name=f"reshape_{feature_name}",
         )
 
         # Process the feature
