@@ -25,14 +25,14 @@ from kdp.pipeline import FeaturePreprocessor
 from kdp.stats import DatasetStatistics
 
 
-class OutputModeOptions(Enum):
+class OutputModeOptions(str, Enum):
     """Output mode options for the preprocessor model."""
 
     CONCAT = "concat"
     DICT = "dict"
 
 
-class TextVectorizerOutputOptions(Enum):
+class TextVectorizerOutputOptions(str, Enum):
     """Output options for text vectorization."""
 
     TF_IDF = "tf_idf"
@@ -40,7 +40,7 @@ class TextVectorizerOutputOptions(Enum):
     MULTI_HOT = "multi_hot"
 
 
-class TransformerBlockPlacementOptions(Enum):
+class TransformerBlockPlacementOptions(str, Enum):
     """Placement options for transformer blocks."""
 
     CATEGORICAL = "categorical"
@@ -180,8 +180,9 @@ class PreprocessingModel:
         self.preprocessors = {}
         self.inputs = {}
         self.signature = {}
-        self.outputs = {}
-        self.outputs_categorical = {}
+        self.outputs = {}  # Final outputs for DICT mode
+        self.processed_features = {}  # All processed features before final output
+        self.concat_all = None  # Final concatenated output for CONCAT mode
         self._preprocessed_cache = {} if use_caching else None
 
         if log_to_file:
@@ -238,7 +239,6 @@ class PreprocessingModel:
 
         return wrapper
 
-    @_monitor_performance
     def _init_features_specs(self, features_specs: dict[str, FeatureType | str]) -> None:
         """Format the features space into a dictionary.
 
@@ -259,7 +259,6 @@ class PreprocessingModel:
         self.text_features = fsc.text_features
         self.date_features = fsc.date_features
 
-    @_monitor_performance
     def _init_stats(self) -> None:
         """Initialize the statistics for the model.
 
@@ -279,7 +278,6 @@ class PreprocessingModel:
             )
             self.features_stats = self.stats_instance._load_stats()
 
-    @_monitor_performance
     def _add_input_column(self, feature_name: str, dtype: tf.dtypes.DType) -> None:
         """Add an input column to the model.
 
@@ -498,7 +496,6 @@ class PreprocessingModel:
                 feature=_feature,
                 feature_name=feature_name,
             )
-
         else:
             # Default behavior if no specific preprocessing is defined
             if _feature.feature_type == FeatureType.FLOAT_NORMALIZED:
@@ -532,12 +529,6 @@ class PreprocessingModel:
                     output_mode="one_hot",
                     name=f"one_hot_{feature_name}",
                 )
-                # for concatenation we need the same format
-                # so the cast to float 32 is necessary
-                preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
-                    name=f"cast_to_float_{feature_name}",
-                )
             else:
                 logger.debug("Adding Float Normalized Feature -> Default Option")
                 preprocessor.add_processing_step(
@@ -546,11 +537,25 @@ class PreprocessingModel:
                     variance=variance,
                     name=f"norm_{feature_name}",
                 )
-        # defining the pipeline input layer
+
+        # Add cast to float32 for concatenation compatibility
+        preprocessor.add_processing_step(
+            layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+            name=f"cast_to_float_{feature_name}",
+        )
+
+        # Ensure output is 2D for concatenation
+        preprocessor.add_processing_step(
+            layer_class="Reshape",
+            target_shape=(1,),  # Batch dimension is automatically handled
+            name=f"reshape_{feature_name}",
+        )
+
+        # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
 
-        # defining output
-        self.outputs[feature_name] = _output_pipeline
+        # Store processed feature
+        self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
     def _add_pipeline_categorical(self, feature_name: str, input_layer, stats: dict) -> None:
@@ -566,6 +571,10 @@ class PreprocessingModel:
 
         # getting feature object
         _feature = self.features_specs[feature_name]
+
+        # getting stats
+        _vocab = stats["vocab"]
+        logger.debug(f"TEXT: {_vocab = }")
 
         # initializing preprocessor
         preprocessor = FeaturePreprocessor(name=feature_name)
@@ -627,8 +636,9 @@ class PreprocessingModel:
             name=f"flatten_{feature_name}",
         )
 
-        # adding outputs
-        self.outputs_categorical[feature_name] = preprocessor.chain(input_layer=input_layer)
+        # Process the feature
+        _output_pipeline = preprocessor.chain(input_layer=input_layer)
+        self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
     def _add_pipeline_text(self, feature_name: str, input_layer, stats: dict) -> None:
@@ -682,47 +692,9 @@ class PreprocessingModel:
                 layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
                 name=f"cast_to_float_{feature_name}",
             )
-        # adding outputs
-        if self.output_mode == OutputModeOptions.CONCAT.value:
-            self.outputs_categorical[feature_name] = preprocessor.chain(input_layer=input_layer)
-        else:
-            self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
-
-    @_monitor_performance
-    def _add_pipeline_cross(self) -> None:
-        """Add a crossing preprocessing step to the pipeline.
-
-        Args:
-            stats (dict): A dictionary containing the metadata of the feature, including
-                the list of features it is crossed with and the depth of the crossing.
-        """
-        for feature_a, feature_b, nr_bins in self.feature_crosses:
-            preprocessor = FeaturePreprocessor(name=f"{feature_a}_x_{feature_b}")
-
-            # checking inputs existance for feature A
-            for _feature_name in [feature_a, feature_b]:
-                # getting feature object
-                _feature = self.features_specs[_feature_name]
-                _input = self.inputs.get(_feature_name)
-                if _input is None:
-                    logger.info(f"Creating: {_feature} inputs and signature")
-                    _col_dtype = _feature.dtype
-                    self._add_input_column(feature_name=_feature, dtype=_col_dtype)
-
-            feature_name = f"{feature_a}_x_{feature_b}"
-            preprocessor.add_processing_step(
-                layer_class="HashedCrossing",
-                num_bins=nr_bins,
-                name=f"cross_{feature_name}",
-            )
-            # for concatenation we need the same format
-            # so the cast to float 32 is necessary
-            preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
-                name=f"cast_to_float_{feature_name}",
-            )
-            crossed_input = [self.inputs[feature_a], self.inputs[feature_b]]
-            self.outputs[feature_name] = preprocessor.chain(input_layer=crossed_input)
+        # Process the feature
+        _output_pipeline = preprocessor.chain(input_layer=input_layer)
+        self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
     def _add_pipeline_date(self, feature_name: str, input_layer) -> None:
@@ -770,49 +742,109 @@ class PreprocessingModel:
                         layer_creator=PreprocessorLayerFactory.date_season_layer,
                         name=f"date_season_{feature_name}",
                     )
+
+                # Add cast to float32 for concatenation compatibility
+                preprocessor.add_processing_step(
+                    layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                    name=f"cast_to_float_{feature_name}",
+                )
             else:
                 logger.warning(f"No default preprocessing for {feature_name =} defined")
 
-        # Adding preprocessed layer to the model outputs
-        self.outputs[feature_name] = preprocessor.chain(input_layer=input_layer)
+        # Process the feature
+        _output_pipeline = preprocessor.chain(input_layer=input_layer)
+        self.processed_features[feature_name] = _output_pipeline
+
+    @_monitor_performance
+    def _add_pipeline_cross(self) -> None:
+        """Add a crossing preprocessing step to the pipeline.
+
+        This method processes feature crosses by:
+        1. Creating inputs for both features if they don't exist
+        2. Applying hashed crossing
+        3. Converting output to float32 for compatibility
+        4. Adding the result to appropriate output collection based on output mode
+        """
+        for feature_a, feature_b, nr_bins in self.feature_crosses:
+            preprocessor = FeaturePreprocessor(name=f"{feature_a}_x_{feature_b}")
+
+            # checking inputs existance for feature A
+            for _feature_name in [feature_a, feature_b]:
+                # getting feature object
+                _feature = self.features_specs[_feature_name]
+                _input = self.inputs.get(_feature_name)
+                if _input is None:
+                    logger.info(f"Creating: {_feature} inputs and signature")
+                    _col_dtype = _feature.dtype
+                    self._add_input_column(feature_name=_feature, dtype=_col_dtype)
+
+            feature_name = f"{feature_a}_x_{feature_b}"
+            preprocessor.add_processing_step(
+                layer_class="HashedCrossing",
+                num_bins=nr_bins,
+                name=f"cross_{feature_name}",
+            )
+            # for concatenation we need the same format
+            # so the cast to float 32 is necessary
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                name=f"cast_to_float_{feature_name}",
+            )
+            crossed_input = [self.inputs[feature_a], self.inputs[feature_b]]
+            _output_pipeline = preprocessor.chain(input_layer=crossed_input)
+
+            # Process the feature
+            self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
     def _prepare_outputs(self) -> None:
-        """Preparing the outputs of the model.
+        """Prepare model outputs based on output mode."""
+        logger.info("Building preprocessor Model")
+        if self.output_mode == OutputModeOptions.CONCAT:
+            # Get features to concatenate
+            numeric_features = []
+            categorical_features = []
 
-        Note:
-            Two outputs are possible based on output_model variable.
-        """
-        logger.info("Building preprocessor Model ")
-        if self.output_mode == OutputModeOptions.CONCAT.value:
-            self.features_to_concat = list(self.outputs.values()) or []
-            self.features_cat_to_concat = list(self.outputs_categorical.values()) or []
+            # Process features based on their type
+            for feature_name, feature in self.processed_features.items():
+                if feature is None:
+                    logger.warning(f"Skipping {feature_name} as it is None")
+                    continue
 
-            # Reshape tensors to make them compatible
-            reshaped_features = []
-            for feature in self.features_to_concat:
-                reshaped = tf.keras.layers.Reshape((-1,))(feature) if len(feature.shape) == 2 | 4 else feature
-                reshaped_features.append(reshaped)
+                # Add to appropriate list based on feature type
+                feature_spec = self.features_specs.get(feature_name)
+                if feature_spec is None:
+                    logger.warning(f"No feature spec found for {feature_name}, skipping")
+                    continue
 
-            # Concatenate numerical features
-            if reshaped_features:
+                if feature_name in self.numeric_features or feature_name in self.date_features:
+                    logger.debug(f"Adding {feature_name} to numeric features")
+                    numeric_features.append(feature)
+                elif feature_name in self.categorical_features or feature_name in self.text_features:
+                    logger.debug(f"Adding {feature_name} to categorical features")
+                    categorical_features.append(feature)
+                else:
+                    logger.warning(f"Unknown feature type for {feature_name}")
+
+            # Concatenate numeric features
+            if numeric_features:
                 concat_num = tf.keras.layers.Concatenate(
                     name="ConcatenateNumeric",
                     axis=-1,
-                )(reshaped_features)
+                )(numeric_features)
             else:
                 concat_num = None
 
             # Concatenate categorical features
-            if self.features_cat_to_concat:
+            if categorical_features:
                 concat_cat = tf.keras.layers.Concatenate(
                     name="ConcatenateCategorical",
                     axis=-1,
-                )(self.features_cat_to_concat)
+                )(categorical_features)
             else:
                 concat_cat = None
 
-            # Combine numerical and categorical features
+            # Combine all features
             if concat_num is not None and concat_cat is not None:
                 self.concat_all = tf.keras.layers.Concatenate(
                     name="ConcatenateAll",
@@ -823,38 +855,52 @@ class PreprocessingModel:
             elif concat_cat is not None:
                 self.concat_all = concat_cat
             else:
-                self.concat_all = None
+                raise ValueError("No features available for concatenation")
 
-            # Adding transformer layers
-            if self.transfo_nr_blocks and self.transfo_placement == TransformerBlockPlacementOptions.CATEGORICAL.value:
-                logger.info(f"Adding transformer blocks CATEGORICAL: #{self.transfo_nr_blocks}")
-                for block_idx in range(self.transfo_nr_blocks):
-                    self.concat_all = PreprocessorLayerFactory.transformer_block_layer(
-                        dim_model=self.concat_all.shape[1],
-                        num_heads=self.transfo_nr_heads,
-                        ff_units=self.transfo_ff_units,
-                        dropout_rate=self.transfo_dropout_rate,
-                        name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
-                    )(self.concat_all)
+            # Add transformer blocks if specified
+            if self.transfo_nr_blocks:
+                if self.transfo_placement == TransformerBlockPlacementOptions.CATEGORICAL and concat_cat is not None:
+                    logger.info(f"Adding transformer blocks to categorical features: #{self.transfo_nr_blocks}")
+                    transformed = concat_cat
+                    for block_idx in range(self.transfo_nr_blocks):
+                        transformed = PreprocessorLayerFactory.transformer_block_layer(
+                            dim_model=transformed.shape[-1],
+                            num_heads=self.transfo_nr_heads,
+                            ff_units=self.transfo_ff_units,
+                            dropout_rate=self.transfo_dropout_rate,
+                            name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
+                        )(transformed)
+                    # Reshape transformer output to remove the extra dimension
+                    transformed = tf.keras.layers.Reshape(
+                        target_shape=(-1,),  # Flatten to match numeric shape
+                        name="reshape_transformer_output",
+                    )(transformed)
 
-            if self.transfo_nr_blocks and self.transfo_placement == TransformerBlockPlacementOptions.ALL_FEATURES.value:
-                _transfor_input_shape = self.concat_all.shape[1]
-                logger.info(
-                    f"Adding transformer blocks ALL_FEATURES: #{self.transfo_nr_blocks}",
-                )
-                for block_idx in range(self.transfo_nr_blocks):
-                    self.concat_all = PreprocessorLayerFactory.transformer_block_layer(
-                        dim_model=_transfor_input_shape,
-                        num_heads=self.transfo_nr_heads,
-                        ff_units=self.transfo_ff_units,
-                        dropout_rate=self.transfo_dropout_rate,
-                        name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
-                    )(self.concat_all)
+                    # Recombine with numeric features if they exist
+                    if concat_num is not None:
+                        self.concat_all = tf.keras.layers.Concatenate(
+                            name="ConcatenateTransformed",
+                            axis=-1,
+                        )([concat_num, transformed])
+                    else:
+                        self.concat_all = transformed
+
+                elif self.transfo_placement == TransformerBlockPlacementOptions.ALL_FEATURES:
+                    logger.info(f"Adding transformer blocks to all features: #{self.transfo_nr_blocks}")
+                    for block_idx in range(self.transfo_nr_blocks):
+                        self.concat_all = PreprocessorLayerFactory.transformer_block_layer(
+                            dim_model=self.concat_all.shape[-1],
+                            num_heads=self.transfo_nr_heads,
+                            ff_units=self.transfo_ff_units,
+                            dropout_rate=self.transfo_dropout_rate,
+                            name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
+                        )(self.concat_all)
 
             logger.info("Concatenating outputs mode enabled")
         else:
-            outputs = OrderedDict([(k, None) for k in self.inputs if k in self.outputs])
-            outputs.update(OrderedDict(self.outputs))
+            # Dictionary mode
+            outputs = OrderedDict([(k, None) for k in self.inputs if k in self.processed_features])
+            outputs.update(OrderedDict(self.processed_features))
             self.outputs = outputs
             logger.info("OrderedDict outputs mode enabled")
 
@@ -906,10 +952,12 @@ class PreprocessingModel:
                 self.features_stats = self.stats_instance.main()
                 logger.debug(f"Features Stats were calculated: {self.features_stats}")
 
+            # Process all features
             # NUMERICAL AND CATEGORICAL FEATURES (based on stats)
             for _key in self.features_stats:
                 logger.info(f"Processing feature type: {_key = }")
                 self._process_features_parallel(features_dict=self.features_stats[_key])
+
             # CROSSING FEATURES (based on defined inputs)
             if self.feature_crosses:
                 logger.info("Processing feature type: cross feature")
@@ -953,42 +1001,45 @@ class PreprocessingModel:
                 self._add_pipeline_date(
                     feature_name=feat_name,
                     input_layer=input_layer,
-                    # stats=stats,
                 )
 
-            # Preparing outputs
+            # Prepare outputs based on mode
             logger.info("Preparing outputs for the model")
             self._prepare_outputs()
 
-            # building model
-            logger.info("Building preprocessor Model ")
-            self.model = tf.keras.Model(
-                inputs=self.inputs,
-                outputs=self.concat_all if self.output_mode == OutputModeOptions.CONCAT.value else self.outputs,
-                name="preprocessor",
-            )
-
-            # displaying information.
+            # Build the model based on output mode
             logger.info("Building preprocessor Model")
-            _output_dims = (
-                self.model.output_shape[1]
-                if self.output_mode == OutputModeOptions.CONCAT.value
-                else self.model.output_shape
-            )
+            if self.output_mode == OutputModeOptions.CONCAT.value:
+                if self.concat_all is None:
+                    raise ValueError("No features were concatenated. Check if features were properly processed.")
+                self.model = tf.keras.Model(
+                    inputs=self.inputs,
+                    outputs=self.concat_all,  # Use concat_all for CONCAT mode
+                    name="preprocessor",
+                )
+                _output_dims = self.model.output_shape[1]
+            else:  # DICT mode
+                if not self.outputs:
+                    raise ValueError("No outputs were created. Check if features were properly processed.")
+                self.model = tf.keras.Model(
+                    inputs=self.inputs,
+                    outputs=self.outputs,  # Use outputs dict for DICT mode
+                    name="preprocessor",
+                )
+                _output_dims = self.model.output_shape
 
-            logger.info(f"Preprocessor Model built successfully , summary: {self.model.summary()}")
-            logger.info(f"Inputs: {self.inputs.keys()}")
-            logger.info(f"Output model mode: {self.output_mode} with size: {_output_dims}")
+            # Log model information
+            logger.info("Preprocessor Model built successfully")
+            logger.info(f"Model Summary: {self.model.summary()}")
+            logger.info(f"Inputs: {list(self.inputs.keys())}")
+            logger.info(f"Output Mode: {self.output_mode}")
+            logger.info(f"Output Dimensions: {_output_dims}")
 
-            # Get feature statistics
+            # Get feature statistics for return
             feature_stats = {
-                "feature_statistics": self.features_stats,
-                "numeric_features": self.numeric_features,
-                "categorical_features": self.categorical_features,
-                "text_features": self.text_features,
-                "date_features": self.date_features,
-                "feature_crosses": self.feature_crosses,
-                "output_mode": self.output_mode,
+                "numeric": self.features_stats.get("numeric", {}),
+                "categorical": self.features_stats.get("categorical", {}),
+                "text": self.features_stats.get("text", {}),
             }
 
             # Clean up intermediate tensors
@@ -1001,9 +1052,9 @@ class PreprocessingModel:
                 "output_dims": _output_dims,
                 "feature_stats": feature_stats,
             }
+
         except Exception as e:
-            logger.error(f"Error building preprocessor: {str(e)}")
-            self._cleanup_intermediate_tensors()
+            logger.error(f"Error building preprocessor model: {str(e)}")
             raise
 
     def _predict_batch_parallel(self, batches: list[tf.Tensor], model: tf.keras.Model) -> list[tf.Tensor]:
