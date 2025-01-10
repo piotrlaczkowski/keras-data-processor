@@ -929,12 +929,12 @@ class PreprocessingModel:
                             d_model=self.tabular_attention_dim,
                             embedding_dim=self.tabular_attention_embedding_dim,
                             dropout_rate=self.tabular_attention_dropout,
-                            name="multi_resolution_attention"
+                            name="multi_resolution_attention",
                         )(concat_num, concat_cat)
-                        
+
                         self.concat_all = tf.keras.layers.Concatenate(
                             name="ConcatenateMultiResolutionAttention",
-                            axis=-1
+                            axis=-1,
                         )([num_output, cat_output])
                     else:
                         logger.warning("Multi-resolution attention requires both numerical and categorical features")
@@ -945,42 +945,42 @@ class PreprocessingModel:
                 else:
                     # Original tabular attention logic
                     if self.tabular_attention_placement == TabularAttentionPlacementOptions.ALL_FEATURES:
-                        logger.info(f"Adding tabular attention to all features")
+                        logger.info("Adding tabular attention to all features")
                         self.concat_all = PreprocessorLayerFactory.tabular_attention_layer(
                             num_heads=self.tabular_attention_heads,
                             d_model=self.tabular_attention_dim,
                             dropout_rate=self.tabular_attention_dropout,
-                            name="tabular_attention"
+                            name="tabular_attention",
                         )(self.concat_all)
                     elif self.tabular_attention_placement == TabularAttentionPlacementOptions.NUMERIC:
-                        logger.info(f"Adding tabular attention to numeric features")
+                        logger.info("Adding tabular attention to numeric features")
                         if concat_num is not None:
                             concat_num = PreprocessorLayerFactory.tabular_attention_layer(
                                 num_heads=self.tabular_attention_heads,
                                 d_model=self.tabular_attention_dim,
                                 dropout_rate=self.tabular_attention_dropout,
-                                name="tabular_attention_numeric"
+                                name="tabular_attention_numeric",
                             )(concat_num)
                         if concat_cat is not None:
                             self.concat_all = tf.keras.layers.Concatenate(
                                 name="ConcatenateTabularAttention",
-                                axis=-1
+                                axis=-1,
                             )([concat_num, concat_cat])
                         else:
                             self.concat_all = concat_num
                     elif self.tabular_attention_placement == TabularAttentionPlacementOptions.CATEGORICAL:
-                        logger.info(f"Adding tabular attention to categorical features")
+                        logger.info("Adding tabular attention to categorical features")
                         if concat_cat is not None:
                             concat_cat = PreprocessorLayerFactory.tabular_attention_layer(
                                 num_heads=self.tabular_attention_heads,
                                 d_model=self.tabular_attention_dim,
                                 dropout_rate=self.tabular_attention_dropout,
-                                name="tabular_attention_categorical"
+                                name="tabular_attention_categorical",
                             )(concat_cat)
                         if concat_num is not None:
                             self.concat_all = tf.keras.layers.Concatenate(
                                 name="ConcatenateTabularAttention",
-                                axis=-1
+                                axis=-1,
                             )([concat_num, concat_cat])
                         else:
                             self.concat_all = concat_cat

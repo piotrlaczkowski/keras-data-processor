@@ -153,7 +153,7 @@ class PreprocessorLayerFactory:
         num_heads: int,
         d_model: int,
         name: str = "tabular_attention",
-        **kwargs: dict
+        **kwargs: dict,
     ) -> tf.keras.layers.Layer:
         """Create a TabularAttention layer.
 
@@ -170,7 +170,7 @@ class PreprocessorLayerFactory:
             num_heads=num_heads,
             d_model=d_model,
             name=name,
-            **kwargs
+            **kwargs,
         )
 
     @staticmethod
@@ -179,7 +179,7 @@ class PreprocessorLayerFactory:
         d_model: int,
         embedding_dim: int = 32,
         name: str = "multi_resolution_attention",
-        **kwargs: dict
+        **kwargs: dict,
     ) -> tf.keras.layers.Layer:
         """Create a MultiResolutionTabularAttention layer.
 
@@ -198,5 +198,5 @@ class PreprocessorLayerFactory:
             d_model=d_model,
             embedding_dim=embedding_dim,
             name=name,
-            **kwargs
+            **kwargs,
         )
