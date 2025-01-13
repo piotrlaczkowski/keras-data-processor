@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kdp"
-version = "1.9.0"
+version = "1.10.0"
 documentation = "http://piotrlaczkowski.github.io/keras-data-processor/"
 repository = "https://github.com/piotrlaczkowski/keras-data-processor"
 description = "Data Preprocessing model based on Keras preprocessing layers"
@@ -14,7 +14,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.9,<3.13"
 tensorflow = "^2.15.0"
 numpy = "^1.26.4"
 pandas = "^2.2.0"

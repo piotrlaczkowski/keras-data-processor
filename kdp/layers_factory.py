@@ -6,7 +6,9 @@ from kdp.custom_layers import (
     CastToFloat32Layer,
     DateEncodingLayer,
     DateParsingLayer,
+    MultiResolutionTabularAttention,
     SeasonLayer,
+    TabularAttention,
     TextPreprocessingLayer,
     TransformerBlock,
 )
@@ -142,6 +144,59 @@ class PreprocessorLayerFactory:
         """
         return PreprocessorLayerFactory.create_layer(
             layer_class=TransformerBlock,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def tabular_attention_layer(
+        num_heads: int,
+        d_model: int,
+        name: str = "tabular_attention",
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a TabularAttention layer.
+
+        Args:
+            num_heads (int): Number of attention heads
+            d_model (int): Dimensionality of the attention model
+            name (str): Name of the layer
+            **kwargs: Additional arguments to pass to the layer
+
+        Returns:
+            TabularAttention: A TabularAttention layer instance
+        """
+        return TabularAttention(
+            num_heads=num_heads,
+            d_model=d_model,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def multi_resolution_attention_layer(
+        num_heads: int,
+        d_model: int,
+        embedding_dim: int = 32,
+        name: str = "multi_resolution_attention",
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a MultiResolutionTabularAttention layer.
+
+        Args:
+            num_heads (int): Number of attention heads
+            d_model (int): Dimensionality of the attention model
+            embedding_dim (int): Dimension for categorical embeddings
+            name (str): Name of the layer
+            **kwargs: Additional arguments to pass to the layer
+
+        Returns:
+            MultiResolutionTabularAttention: A MultiResolutionTabularAttention layer instance
+        """
+        return MultiResolutionTabularAttention(
+            num_heads=num_heads,
+            d_model=d_model,
+            embedding_dim=embedding_dim,
             name=name,
             **kwargs,
         )

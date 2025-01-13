@@ -40,6 +40,7 @@ nav:
   - 🏭 Layers Factory: layers_factory.md
   - 📦 Integrating Preprocessing Model: integrations.md
   - 🤖 TransformerBlocks: transformer_blocks.md
+  - 🎯 TabularAttention: tabular_attention.md
   - 🍦 Motivation: motivation.md
   - 🍻 Contributing: contributing.md
 

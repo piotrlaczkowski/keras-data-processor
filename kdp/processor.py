@@ -47,6 +47,16 @@ class TransformerBlockPlacementOptions(str, Enum):
     ALL_FEATURES = "all_features"
 
 
+class TabularAttentionPlacementOptions(str, Enum):
+    """Placement options for tabular attention."""
+
+    NONE = "none"
+    NUMERIC = "numeric"
+    CATEGORICAL = "categorical"
+    ALL_FEATURES = "all_features"
+    MULTI_RESOLUTION = "multi_resolution"
+
+
 class FeatureSpaceConverter:
     def __init__(self) -> None:
         """Initialize the FeatureSpaceConverter class."""
@@ -54,7 +64,7 @@ class FeatureSpaceConverter:
         self.numeric_features = []
         self.categorical_features = []
         self.text_features = []
-        self.date_features = []  # Add date_features list
+        self.date_features = []
 
     def _init_features_specs(self, features_specs: dict[str, FeatureType | str]) -> dict[str, Feature]:
         """Format the features space into a dictionary.
@@ -135,6 +145,12 @@ class PreprocessingModel:
         transfo_ff_units: int = 16,
         transfo_dropout_rate: float = 0.25,
         transfo_placement: str = TransformerBlockPlacementOptions.CATEGORICAL.value,
+        tabular_attention: bool = False,
+        tabular_attention_heads: int = 4,
+        tabular_attention_dim: int = 64,
+        tabular_attention_dropout: float = 0.1,
+        tabular_attention_placement: str = TabularAttentionPlacementOptions.ALL_FEATURES.value,
+        tabular_attention_embedding_dim: int = 32,
         use_caching: bool = True,
     ) -> None:
         """Initialize a preprocessing model.
@@ -157,6 +173,12 @@ class PreprocessingModel:
             transfo_ff_units (int): The number of feed forward units for the transformer
             transfo_dropout_rate (float): The dropout rate for the transformer block (default=0.25).
             transfo_placement (str): The placement of the transformer block (categorical | all_features).
+            tabular_attention (bool): Whether to use tabular attention (default=False).
+            tabular_attention_heads (int): Number of attention heads for tabular attention.
+            tabular_attention_dim (int): Dimension of the attention model.
+            tabular_attention_dropout (float): Dropout rate for tabular attention.
+            tabular_attention_placement (str): Where to apply tabular attention (none|numeric|categorical|all_features).
+            tabular_attention_embedding_dim (int): Dimension of the embedding for multi-resolution attention.
             use_caching (bool): Whether to cache preprocessed features (default=True).
         """
         self.path_data = path_data
@@ -175,6 +197,14 @@ class PreprocessingModel:
         self.transfo_ff_units = transfo_ff_units
         self.transfo_dropout_rate = transfo_dropout_rate
         self.transfo_placement = transfo_placement
+
+        # tabular attention control
+        self.tabular_attention = tabular_attention
+        self.tabular_attention_heads = tabular_attention_heads
+        self.tabular_attention_dim = tabular_attention_dim
+        self.tabular_attention_dropout = tabular_attention_dropout
+        self.tabular_attention_placement = tabular_attention_placement
+        self.tabular_attention_embedding_dim = tabular_attention_embedding_dim
 
         # PLACEHOLDERS
         self.preprocessors = {}
@@ -888,6 +918,72 @@ class PreprocessingModel:
                             dropout_rate=self.transfo_dropout_rate,
                             name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
                         )(self.concat_all)
+
+            # Add tabular attention if specified
+            if self.tabular_attention:
+                if self.tabular_attention_placement == TabularAttentionPlacementOptions.MULTI_RESOLUTION:
+                    logger.info("Adding multi-resolution tabular attention")
+                    if concat_num is not None and concat_cat is not None:
+                        num_output, cat_output = PreprocessorLayerFactory.multi_resolution_attention_layer(
+                            num_heads=self.tabular_attention_heads,
+                            d_model=self.tabular_attention_dim,
+                            embedding_dim=self.tabular_attention_embedding_dim,
+                            dropout_rate=self.tabular_attention_dropout,
+                            name="multi_resolution_attention",
+                        )(concat_num, concat_cat)
+
+                        self.concat_all = tf.keras.layers.Concatenate(
+                            name="ConcatenateMultiResolutionAttention",
+                            axis=-1,
+                        )([num_output, cat_output])
+                    else:
+                        logger.warning("Multi-resolution attention requires both numerical and categorical features")
+                        if concat_num is not None:
+                            self.concat_all = concat_num
+                        elif concat_cat is not None:
+                            self.concat_all = concat_cat
+                else:
+                    # Original tabular attention logic
+                    if self.tabular_attention_placement == TabularAttentionPlacementOptions.ALL_FEATURES:
+                        logger.info("Adding tabular attention to all features")
+                        self.concat_all = PreprocessorLayerFactory.tabular_attention_layer(
+                            num_heads=self.tabular_attention_heads,
+                            d_model=self.tabular_attention_dim,
+                            dropout_rate=self.tabular_attention_dropout,
+                            name="tabular_attention",
+                        )(self.concat_all)
+                    elif self.tabular_attention_placement == TabularAttentionPlacementOptions.NUMERIC:
+                        logger.info("Adding tabular attention to numeric features")
+                        if concat_num is not None:
+                            concat_num = PreprocessorLayerFactory.tabular_attention_layer(
+                                num_heads=self.tabular_attention_heads,
+                                d_model=self.tabular_attention_dim,
+                                dropout_rate=self.tabular_attention_dropout,
+                                name="tabular_attention_numeric",
+                            )(concat_num)
+                        if concat_cat is not None:
+                            self.concat_all = tf.keras.layers.Concatenate(
+                                name="ConcatenateTabularAttention",
+                                axis=-1,
+                            )([concat_num, concat_cat])
+                        else:
+                            self.concat_all = concat_num
+                    elif self.tabular_attention_placement == TabularAttentionPlacementOptions.CATEGORICAL:
+                        logger.info("Adding tabular attention to categorical features")
+                        if concat_cat is not None:
+                            concat_cat = PreprocessorLayerFactory.tabular_attention_layer(
+                                num_heads=self.tabular_attention_heads,
+                                d_model=self.tabular_attention_dim,
+                                dropout_rate=self.tabular_attention_dropout,
+                                name="tabular_attention_categorical",
+                            )(concat_cat)
+                        if concat_num is not None:
+                            self.concat_all = tf.keras.layers.Concatenate(
+                                name="ConcatenateTabularAttention",
+                                axis=-1,
+                            )([concat_num, concat_cat])
+                        else:
+                            self.concat_all = concat_cat
 
             logger.info("Concatenating outputs mode enabled")
         else:
