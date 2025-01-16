@@ -205,7 +205,7 @@ Example cross feature between INTEGER_CATEGORICAL and STRING_CATEGORICAL:
 
 ## 📆 Date Features
 
-You can even process string encoded date features (format: 'YYYY-MM-DD'):
+You can even process string encoded date features (format: 'YYYY-MM-DD' or 'YYYY/MM/DD'):
 
 === "🔧 Using FeatureType"
 

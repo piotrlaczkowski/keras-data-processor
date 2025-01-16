@@ -59,7 +59,7 @@ If you wan't to request a new feature or you have detected an issue, please use 
 
 - [x] Create your first Merge Request (MR) as soon as possible.
 
-  > Merge requests will be responsible for semantic-release storytelling and so use them wisely! The changelog report generated automatically will be based on your commits merged into main branch and should cover all the thins you did for the project, as an example:
+  > Merge requests will be responsible for semantic-release storytelling and so use them wisely! The changelog report generated automatically will be based on your commits merged into main branch and should cover all the things you did for the project, as an example:
 
 - [x] Separate your merge requests based on LABEL or functionality if you are working on `feat` label
 
@@ -75,7 +75,7 @@ If you wan't to request a new feature or you have detected an issue, please use 
 
         `{LABEL}(KDP): {message}`
 
-- [x] Use small Merge Requests but do them more ofthen < 400 ligns for quicker and simple review and not the whole project !
+- [x] Use small Merge Requests but do them more ofthen < 400 lines for quicker and simple review and not the whole project !
 
 - [x] Ask for a Code Review !
 
