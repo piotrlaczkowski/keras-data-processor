@@ -64,10 +64,13 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
             sentences = ["First sentence special x", "Second sentence special y"]
             data[feature] = np.random.choice(sentences, size=num_rows)
         elif feature_type == FeatureType.DATE:
+            # Generate dates and convert them to string format
             start_date = pd.Timestamp("2020-01-01")
             end_date = pd.Timestamp("2023-01-01")
             date_range = pd.date_range(start=start_date, end=end_date, freq="D")
-            data[feature] = np.random.choice(date_range, size=num_rows)
+            dates = pd.Series(np.random.choice(date_range, size=num_rows))
+            data[feature] = dates.dt.strftime("%Y-%m-%d")
+
     return pd.DataFrame(data)
 
 
@@ -478,6 +481,161 @@ class TestPreprocessingModel(unittest.TestCase):
             use_caching=False,
         )
         self.assertIsNone(model_no_cache._preprocessed_cache)
+
+    def test_end_to_end_feature_combinations(self):
+        """Test different combinations of features with dates."""
+
+        test_cases = [
+            {
+                "name": "numeric_and_dates",
+                "features": {
+                    "num1": FeatureType.FLOAT_NORMALIZED,
+                    "num2": FeatureType.FLOAT_RESCALED,
+                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                },
+            },
+            {
+                "name": "numeric_categorical_dates",
+                "features": {
+                    "num1": FeatureType.FLOAT_NORMALIZED,
+                    "cat1": FeatureType.STRING_CATEGORICAL,
+                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                },
+            },
+            {
+                "name": "categorical_and_dates",
+                "features": {
+                    "cat1": FeatureType.STRING_CATEGORICAL,
+                    "cat2": FeatureType.INTEGER_CATEGORICAL,
+                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                },
+            },
+            {
+                "name": "dates_and_text",
+                "features": {
+                    "text1": TextFeature(
+                        name="text1",
+                        max_tokens=100,
+                    ),
+                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                },
+            },
+            {
+                "name": "all_features_with_transformer",
+                "features": {
+                    "num1": FeatureType.FLOAT_NORMALIZED,
+                    "cat1": FeatureType.STRING_CATEGORICAL,
+                    "text1": TextFeature(name="text1", max_tokens=100),
+                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                },
+                "use_transformer": True,
+            },
+            {
+                "name": "multiple_dates",
+                "features": {
+                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                    "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, output_format="year"),
+                    "date3": DateFeature(name="date3", feature_type=FeatureType.DATE, output_format="month"),
+                },
+            },
+        ]
+
+        for test_case in test_cases:
+            with self.subTest(msg=f"Testing {test_case['name']}"):
+                # Generate fake data
+                df = generate_fake_data(test_case["features"], num_rows=100)
+
+                df.to_csv(self._path_data, index=False)
+
+                # Create preprocessor
+                ppr = PreprocessingModel(
+                    path_data=str(self._path_data),
+                    features_specs=test_case["features"],
+                    features_stats_path=self.features_stats_path,
+                    overwrite_stats=True,
+                    output_mode=OutputModeOptions.CONCAT,
+                    # Add transformer blocks if specified
+                    transfo_nr_blocks=2 if test_case.get("use_transformer") else None,
+                    transfo_nr_heads=4 if test_case.get("use_transformer") else None,
+                    transfo_ff_units=32 if test_case.get("use_transformer") else None,
+                )
+
+                # Build and verify preprocessor
+                result = ppr.build_preprocessor()
+                self.assertIsNotNone(result["model"])
+
+                # Create a small batch of test data
+                test_data = generate_fake_data(test_case["features"], num_rows=5)
+                dataset = tf.data.Dataset.from_tensor_slices(dict(test_data))
+
+                # Test preprocessing
+                preprocessed = ppr.batch_predict(dataset)
+                self.assertIsNotNone(preprocessed)
+
+                # Additional checks based on feature combination
+                if "date1" in test_case["features"]:
+                    date_feature = test_case["features"]["date1"]
+                    if getattr(date_feature, "add_season", False):
+                        # Check if output shape includes seasonal encoding
+                        self.assertGreaterEqual(preprocessed.shape[-1], 4)  # At least 4 dims for season
+
+                if test_case.get("use_transformer"):
+                    # Verify transformer layers are present
+                    self.assertTrue(any("transformer" in layer.name.lower() for layer in result["model"].layers))
+
+    def test_date_feature_variations(self):
+        """Test different date feature configurations."""
+
+        date_configs = [
+            {
+                "name": "basic_date",
+                "config": DateFeature(
+                    name="date",
+                    feature_type=FeatureType.DATE,
+                ),
+            },
+            {
+                "name": "date_with_season",
+                "config": DateFeature(name="date", feature_type=FeatureType.DATE, add_season=True),
+            },
+            {
+                "name": "custom_format_date",
+                "config": DateFeature(name="date", feature_type=FeatureType.DATE, date_format="%m/%d/%Y"),
+            },
+            {
+                "name": "date_year_only",
+                "config": DateFeature(name="date", feature_type=FeatureType.DATE, output_format="year"),
+            },
+        ]
+
+        for config in date_configs:
+            with self.subTest(msg=f"Testing {config['name']}"):
+                features_specs = {"date": config["config"]}
+
+                # Generate and save test data
+                df = generate_fake_data(features_specs, num_rows=50)
+                df.to_csv(self._path_data, index=False)
+
+                # Create and build preprocessor
+                ppr = PreprocessingModel(
+                    path_data=str(self._path_data),
+                    features_specs=features_specs,
+                    features_stats_path=self.features_stats_path,
+                    overwrite_stats=True,
+                )
+
+                result = ppr.build_preprocessor()
+                self.assertIsNotNone(result["model"])
+
+                # Test with specific date formats
+                if config["name"] == "custom_format_date":
+                    test_data = pd.DataFrame({"date": ["01/15/2023", "12/31/2022"]})
+                else:
+                    test_data = pd.DataFrame({"date": ["2023-01-15", "2022-12-31"]})
+
+                dataset = tf.data.Dataset.from_tensor_slices(dict(test_data))
+                preprocessed = ppr.batch_predict(dataset)
+                self.assertIsNotNone(preprocessed)
 
 
 if __name__ == "__main__":
