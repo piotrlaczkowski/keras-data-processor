@@ -1,10 +1,19 @@
 """Tests for custom layers in the KDP package."""
 
+import math
+from datetime import datetime
+
 import numpy as np
 import pytest
 import tensorflow as tf
 
-from kdp.custom_layers import MultiResolutionTabularAttention, TabularAttention
+from kdp.custom_layers import (
+    DateEncodingLayer,
+    DateParsingLayer,
+    MultiResolutionTabularAttention,
+    SeasonLayer,
+    TabularAttention,
+)
 from kdp.layers_factory import PreprocessorLayerFactory
 
 
@@ -258,3 +267,264 @@ def test_multi_resolution_attention_end_to_end():
     # Check if loss was computed
     assert "loss" in history.history
     assert len(history.history["loss"]) == 1
+
+
+class TestDateParsingLayer:
+    """Test suite for DateParsingLayer."""
+
+    def test_date_parsing_valid_formats(self):
+        """Test parsing of valid date formats."""
+        layer = DateParsingLayer()
+
+        # Test different valid formats
+        dates = tf.constant(
+            [
+                ["2025-01-17"],
+                ["2024/06/16"],
+                ["2023-12-31"],
+            ]
+        )
+
+        result = layer(dates)
+        assert result.shape == (3, 4)  # [batch_size, (year, month, day, day_of_week)]
+
+        # Check first date (2023-01-15)
+        assert result[0][0] == 2025  # year
+        assert result[0][1] == 1  # month
+        assert result[0][2] == 17  # day
+        assert result[0][3] == 5  # day of week (Friday)
+
+    def test_date_parsing_invalid_formats(self):
+        """Test handling of invalid date formats."""
+        layer = DateParsingLayer()
+
+        # Test invalid formats
+        invalid_dates = tf.constant(
+            [
+                ["20230115"],  # No separators
+                ["2023-99-15"],  # Invalid month
+                ["2023-01-32"],  # Invalid day
+            ]
+        )
+
+        with pytest.raises(tf.errors.InvalidArgumentError):
+            layer(invalid_dates)
+
+    def test_date_parsing_edge_cases(self):
+        """Test edge cases for date parsing."""
+        layer = DateParsingLayer()
+
+        edge_dates = tf.constant(
+            [
+                ["2023-01-01"],  # Start of year
+                ["2023-12-31"],  # End of year
+                ["2024-02-29"],  # Leap year
+            ]
+        )
+
+        result = layer(edge_dates)
+        assert result.shape == (3, 4)
+
+        # Check New Year's Day
+        assert result[0][0] == 2023  # year
+        assert result[0][1] == 1  # month
+        assert result[0][2] == 1  # day
+        assert result[0][3] == 0  # day of week (Sunday)
+
+
+class TestDateEncodingLayer:
+    """Test suite for DateEncodingLayer."""
+
+    def test_cyclic_encoding(self):
+        """Test cyclic encoding of date components."""
+        layer = DateEncodingLayer()
+
+        # Create sample parsed dates [year, month, day, day_of_week]
+        dates = tf.constant(
+            [
+                [2023, 1, 15, 6],  # Sunday
+                [2023, 6, 30, 4],  # Friday
+                [2023, 12, 30, 5],  # Saturday
+            ],
+            dtype=tf.int32,
+        )
+
+        result = layer(dates)
+        assert result.shape == (
+            3,
+            8,
+        )  # [batch_size, (year_sin, year_cos, month_sin, month_cos, day_sin, day_cos, weekday_sin, weekday_cos)]
+
+        # Check that all values are between -1 and 1 (sine/cosine range)
+        assert tf.reduce_all(tf.less_equal(tf.abs(result), 1.0))
+
+    def test_year_normalization(self):
+        """Test year normalization."""
+        layer = DateEncodingLayer()
+
+        # Test different years
+        dates = tf.constant(
+            [
+                [2023, 1, 1, 6],
+                [2024, 1, 1, 6],
+                [2025, 1, 1, 6],
+            ],
+            dtype=tf.int32,
+        )
+
+        result = layer(dates)
+        # Year encoding should be cyclic, so 2023, 2024, 2025 should have similar patterns
+        assert tf.reduce_all(tf.abs(result[0, :2] - result[1, :2]) < 0.01)
+
+    def test_cyclic_continuity(self):
+        """Test that cyclic encoding is continuous at boundaries."""
+        layer = DateEncodingLayer()
+
+        # Test month transition (December to January)
+        dates = tf.constant(
+            [
+                [2023, 12, 31, 6],
+                [2024, 1, 1, 0],
+            ],
+            dtype=tf.int32,
+        )
+
+        result = layer(dates)
+        month_encoding_dec = result[0, 2:4]  # month sine and cosine for December
+        month_encoding_jan = result[1, 2:4]  # month sine and cosine for January
+
+        # calculate the angle between the two vectors
+        dot_product = month_encoding_dec[0] * month_encoding_jan[0] + month_encoding_dec[1] * month_encoding_jan[1]
+        angle_rad = math.acos(dot_product)
+        angle_deg = math.degrees(angle_rad)
+
+        # The encodings should be similar for consecutive months
+        assert abs(angle_deg) <= 52  # ensure that the angle is less than 52 degrees
+
+    def test_weekday_encoding(self):
+        """Test that weekday encoding is correct and cyclic."""
+        layer = DateEncodingLayer()
+
+        # Test all days of the week
+        dates = tf.constant(
+            [
+                [2023, 1, 1, 0],  # Sunday
+                [2023, 1, 2, 1],  # Monday
+                [2023, 1, 3, 2],  # Tuesday
+                [2023, 1, 4, 3],  # Wednesday
+                [2023, 1, 5, 4],  # Thursday
+                [2023, 1, 6, 5],  # Friday
+                [2023, 1, 7, 6],  # Saturday
+            ],
+            dtype=tf.int32,
+        )
+
+        result = layer(dates)
+
+        # Check that Sunday and Saturday encodings are similar (cyclic)
+        sunday_encoding = result[0, 6:8]  # weekday sine and cosine for Sunday
+        saturday_encoding = result[6, 6:8]  # weekday sine and cosine for Saturday
+
+        dot_product = sunday_encoding[0] * saturday_encoding[0] + sunday_encoding[1] * saturday_encoding[1]
+        angle_rad = math.acos(dot_product)
+        angle_deg = math.degrees(angle_rad)
+        print("ANGLE DEGREES:", angle_deg)
+
+        assert abs(angle_deg) <= 60  # ensure that the angle is less than 60 degrees
+
+
+class TestSeasonLayer:
+    """Test suite for SeasonLayer."""
+
+    def test_season_encoding(self):
+        """Test seasonal encoding of months."""
+        layer = SeasonLayer()
+
+        # Test different months
+        dates = tf.constant(
+            [
+                [2023, 1, 1, 6],  # Winter
+                [2023, 4, 1, 6],  # Spring
+                [2023, 7, 1, 6],  # Summer
+                [2023, 10, 1, 6],  # Fall
+            ],
+            dtype=tf.int32,
+        )
+
+        result = layer(dates)
+
+        # Check winter (December-February)
+        assert tf.reduce_all(result[0, -4:] == [1, 0, 0, 0])
+
+        # Check spring (March-May)
+        assert tf.reduce_all(result[1, -4:] == [0, 1, 0, 0])
+
+        # Check summer (June-August)
+        assert tf.reduce_all(result[2, -4:] == [0, 0, 1, 0])
+
+        # Check fall (September-November)
+        assert tf.reduce_all(result[3, -4:] == [0, 0, 0, 1])
+
+    def test_season_transition(self):
+        """Test season transitions at boundary months."""
+        layer = SeasonLayer()
+
+        # Test boundary months
+        dates = tf.constant(
+            [
+                [2023, 2, 28, 6],  # End of winter
+                [2023, 3, 1, 6],  # Start of spring
+                [2023, 5, 31, 6],  # End of spring
+                [2023, 6, 1, 6],  # Start of summer
+            ],
+            dtype=tf.int32,
+        )
+
+        result = layer(dates)
+
+        # Check winter to spring transition
+        assert tf.reduce_all(result[0, -4:] == [1, 0, 0, 0])  # Still winter
+        assert tf.reduce_all(result[1, -4:] == [0, 1, 0, 0])  # Now spring
+
+    def test_season_edge_months(self):
+        """Test season assignment for edge case months."""
+        layer = SeasonLayer()
+
+        dates = tf.constant(
+            [
+                [2023, 12, 1, 0],  # December (Winter)
+                [2023, 3, 1, 0],  # March (Spring)
+                [2023, 6, 1, 0],  # June (Summer)
+                [2023, 9, 1, 0],  # September (Fall)
+            ],
+            dtype=tf.int32,
+        )
+
+        result = layer(dates)
+
+        # Check correct season assignments
+        assert tf.reduce_all(result[0, -4:] == [1, 0, 0, 0])  # Winter
+        assert tf.reduce_all(result[1, -4:] == [0, 1, 0, 0])  # Spring
+        assert tf.reduce_all(result[2, -4:] == [0, 0, 1, 0])  # Summer
+        assert tf.reduce_all(result[3, -4:] == [0, 0, 0, 1])  # Fall
+
+    def test_full_year_cycle(self):
+        """Test season transitions through a full year."""
+        layer = SeasonLayer()
+
+        # Test middle month of each season
+        dates = tf.constant(
+            [
+                [2023, 1, 15, 0],  # Mid-Winter
+                [2023, 4, 15, 0],  # Mid-Spring
+                [2023, 7, 15, 0],  # Mid-Summer
+                [2023, 10, 15, 0],  # Mid-Fall
+                [2024, 1, 15, 0],  # Back to Winter
+            ],
+            dtype=tf.int32,
+        )
+
+        result = layer(dates)
+
+        # First winter and next winter should have same encoding
+        assert tf.reduce_all(result[0, -4:] == result[4, -4:])
