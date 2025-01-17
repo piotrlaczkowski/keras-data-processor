@@ -161,3 +161,6 @@ cython_debug/
 .DS_Store
 kdp/data/fake_data.csv
 *.json
+
+# Ignore all contents of my_tests folder
+my_tests/*

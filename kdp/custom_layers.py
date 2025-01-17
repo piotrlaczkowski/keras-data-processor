@@ -90,6 +90,7 @@ class DateParsingLayer(tf.keras.layers.Layer):
 
         Args:
             date_format (str): format of the string encoded date to parse.
+                Supported formats: YYYY-MM-DD, YYYY/MM/DD
             kwargs (dict): other params to pass to the class.
         """
         super().__init__(**kwargs)
@@ -103,31 +104,83 @@ class DateParsingLayer(tf.keras.layers.Layer):
             inputs (tf.Tensor): Tensor with input data.
 
         Returns:
-            tf.Tensor: processed date tensor with all cyclic components.
+            tf.Tensor: processed date tensor with all components
+            [year, month, day_of_month, day_of_week].
         """
 
         def parse_date(date_str: str) -> tf.Tensor:
+            # Handle missing/invalid dates
+            is_valid = tf.strings.regex_full_match(
+                date_str,
+                r"^\d{1,4}[-/]\d{1,2}[-/]\d{1,2}$",
+            )
+            tf.debugging.assert_equal(
+                is_valid,
+                True,
+                message="Invalid date format. Expected YYYY-MM-DD or YYYY/MM/DD",
+            )
+
+            # First, standardize the separator to '-' in case of YYYY/MM/DD format
+            date_str = tf.strings.regex_replace(date_str, "/", "-")
+
             parts = tf.strings.split(date_str, "-")
             year = tf.strings.to_number(parts[0], out_type=tf.int32)
             month = tf.strings.to_number(parts[1], out_type=tf.int32)
-            day = tf.strings.to_number(parts[2], out_type=tf.int32)
+            day_of_month = tf.strings.to_number(parts[2], out_type=tf.int32)
+
+            # Validate date components
+            # Validate year is in reasonable range
+            tf.debugging.assert_greater_equal(
+                year,
+                1000,
+                message="Year must be >= 1000",
+            )
+            tf.debugging.assert_less_equal(
+                year,
+                2200,
+                message="Year must be <= 2200",
+            )
+
+            # Validate month is between 1-12
+            tf.debugging.assert_greater_equal(
+                month,
+                1,
+                message="Month must be >= 1",
+            )
+            tf.debugging.assert_less_equal(
+                month,
+                12,
+                message="Month must be <= 12",
+            )
+
+            # Validate day is between 1-31
+            tf.debugging.assert_greater_equal(
+                day_of_month,
+                1,
+                message="Day must be >= 1",
+            )
+            tf.debugging.assert_less_equal(
+                day_of_month,
+                31,
+                message="Day must be <= 31",
+            )
 
             # Calculate day of week using Zeller's congruence
             y = tf.where(month < 3, year - 1, year)
             m = tf.where(month < 3, month + 12, month)
             k = y % 100
             j = y // 100
-            h = (day + ((13 * (m + 1)) // 5) + k + (k // 4) + (j // 4) - (2 * j)) % 7
-            day_of_week = tf.where(h == 0, 6, h - 1)  # Adjust to 0-6 range where 0 is Monday
+            h = (day_of_month + ((13 * (m + 1)) // 5) + k + (k // 4) + (j // 4) - (2 * j)) % 7
+            day_of_week = tf.where(h == 0, 6, h - 1)  # Adjust to 0-6 range where 0 is Sunday
 
-            return tf.stack([year, month, day_of_week])
+            return tf.stack([year, month, day_of_month, day_of_week])
 
         parsed_dates = tf.map_fn(parse_date, tf.squeeze(inputs), fn_output_signature=tf.int32)
         return parsed_dates
 
     def compute_output_shape(self, input_shape: int) -> int:
         """Getting output shape."""
-        return tf.TensorShape([input_shape[0], 3])
+        return tf.TensorShape([input_shape[0], 4])  # Changed to 4 components
 
     def get_config(self) -> dict:
         """Saving configuration."""
@@ -171,14 +224,14 @@ class DateEncodingLayer(tf.keras.layers.Layer):
 
     @tf.function
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Splits the date into 3 components: year, month and day and
+        """Splits the date into 4 components: year, month, day and day of the week and
         encodes it into sin and cos cyclical projections.
 
         Args:
-            inputs (tf.Tensor): input data.
+            inputs (tf.Tensor): input data [year, month, day_of_month, day_of_week].
 
         Returns:
-            (tf.Tensor): cyclically encoded data (sin and cos).
+            tf.Tensor: cyclically encoded data (sin and cos components).
         """
         # Reshape input if necessary
         input_shape = tf.shape(inputs)
@@ -188,19 +241,22 @@ class DateEncodingLayer(tf.keras.layers.Layer):
         # Extract features
         year = inputs[:, 0]
         month = inputs[:, 1]
-        day_of_week = inputs[:, 2]
+        day_of_month = inputs[:, 2]  # New: day of month
+        day_of_week = inputs[:, 3]  # Now at index 3
 
-        # Cyclical encoding
+        # Convert to float
         year_float = tf.cast(year, tf.float32)
         month_float = tf.cast(month, tf.float32)
+        day_of_month_float = tf.cast(day_of_month, tf.float32)
         day_of_week_float = tf.cast(day_of_week, tf.float32)
 
         # Ensure inputs are in the correct range
         year_float = self.normalize_year(year_float)
 
-        # Encode each feature
+        # Encode each feature in cyclinc projections
         year_sin, year_cos = self.cyclic_encoding(year_float, period=1.0)
         month_sin, month_cos = self.cyclic_encoding(month_float, period=12.0)
+        day_of_month_sin, day_of_month_cos = self.cyclic_encoding(day_of_month_float, period=31.0)
         day_of_week_sin, day_of_week_cos = self.cyclic_encoding(day_of_week_float, period=7.0)
 
         encoded = tf.stack(
@@ -209,6 +265,8 @@ class DateEncodingLayer(tf.keras.layers.Layer):
                 year_cos,
                 month_sin,
                 month_cos,
+                day_of_month_sin,  # New
+                day_of_month_cos,  # New
                 day_of_week_sin,
                 day_of_week_cos,
             ],
@@ -219,7 +277,7 @@ class DateEncodingLayer(tf.keras.layers.Layer):
 
     def compute_output_shape(self, input_shape: int) -> int:
         """Getting output shape."""
-        return tf.TensorShape([input_shape[0], 6])
+        return tf.TensorShape([input_shape[0], 8])  # Changed to 8 for 4 features * 2 components each
 
     def get_config(self) -> dict:
         """Returns the configuration of the layer as a dictionary."""
@@ -238,10 +296,11 @@ class SeasonLayer(tf.keras.layers.Layer):
     Spring, Summer, and Fall. The one-hot encoding is appended to the input tensor.
 
     Required Input Format:
-        - A tensor of shape [batch_size, 3], where each row contains:
+        - A tensor of shape [batch_size, 4], where each row contains:
             - year (int): Year as a numerical value.
             - month (int): Month as an integer from 1 to 12.
-            - day_of_week (int): Day of the week as an integer from 0 to 6 (where 0=Monday).
+            - day_of_month (int): Day of the month as an integer from 1 to 31.
+            - day_of_week (int): Day of the week as an integer from 0 to 6 (where 0=Sunday).
     """
 
     def __init__(self, **kwargs):
@@ -253,14 +312,15 @@ class SeasonLayer(tf.keras.layers.Layer):
         """Adds seasonal one-hot encoding to the input tensor.
 
         Args:
-            inputs (tf.Tensor): A tensor of shape [batch_size, 3] where each row contains [year, month, day_of_week].
+            inputs (tf.Tensor): A tensor of shape [batch_size, 4] where each row contains
+            [year, month, day_of_month, day_of_week].
 
         Returns:
-            tf.Tensor: A tensor of shape [batch_size, 7] with the original features
+            tf.Tensor: A tensor of shape [batch_size, 8] with the original features
             plus the one-hot encoded season information.
 
         Raises:
-            ValueError: If the input tensor does not have shape [batch_size, 3] or contains invalid month values.
+            ValueError: If the input tensor does not have shape [batch_size, 4] or contains invalid month values.
         """
         # Ensure inputs is 2D
         if len(tf.shape(inputs)) == 1:
@@ -282,8 +342,8 @@ class SeasonLayer(tf.keras.layers.Layer):
             + tf.cast(is_fall, tf.int32) * 3
         )
 
-        # Convert season to one-hot encoding
-        season_one_hot = tf.one_hot(season, depth=4)
+        # Convert season to one-hot encoding and cast to int32 to match input type
+        season_one_hot = tf.cast(tf.one_hot(season, depth=4), tf.int32)
 
         return tf.concat([inputs, season_one_hot], axis=-1)
 

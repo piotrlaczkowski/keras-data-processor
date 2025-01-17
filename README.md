@@ -61,7 +61,7 @@ features_specs = {
 # INSTANTIATE THE PREPROCESSING MODEL with your data
 ppr = PreprocessingModel(
     path_data="data/my_data.csv",
-    features_specs=features_spec,
+    features_specs=features_specs,
 )
 # construct the preprocessing pipelines
 ppr.build_preprocessor()
