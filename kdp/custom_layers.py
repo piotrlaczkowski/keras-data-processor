@@ -342,9 +342,13 @@ class SeasonLayer(tf.keras.layers.Layer):
             + tf.cast(is_fall, tf.int32) * 3
         )
 
-        # Convert season to one-hot encoding and cast to int32 to match input type
-        season_one_hot = tf.cast(tf.one_hot(season, depth=4), tf.int32)
+        # Convert season to one-hot encoding and cast to float32 to match input type
+        season_one_hot = tf.cast(tf.one_hot(season, depth=4), tf.float32)
 
+        # Just in case it comes as int32, cast inputs to float32
+        inputs = tf.cast(inputs, tf.float32)
+
+        # Now both tensors are float32, concatenation will work
         return tf.concat([inputs, season_one_hot], axis=-1)
 
     def compute_output_shape(self, input_shape: int) -> int:
