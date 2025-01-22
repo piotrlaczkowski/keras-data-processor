@@ -924,13 +924,36 @@ class PreprocessingModel:
                 if self.tabular_attention_placement == TabularAttentionPlacementOptions.MULTI_RESOLUTION:
                     logger.info("Adding multi-resolution tabular attention")
                     if concat_num is not None and concat_cat is not None:
+                        # Reshape numeric features to 3D tensor
+                        num_features_3d = tf.keras.layers.Reshape(
+                            target_shape=(1, -1),
+                            name="reshape_numeric_3d",
+                        )(concat_num)
+
+                        # Reshape categorical features to 3D tensor
+                        cat_features_3d = tf.keras.layers.Reshape(
+                            target_shape=(1, -1),
+                            name="reshape_categorical_3d",
+                        )(concat_cat)
+
                         num_output, cat_output = PreprocessorLayerFactory.multi_resolution_attention_layer(
                             num_heads=self.tabular_attention_heads,
                             d_model=self.tabular_attention_dim,
                             embedding_dim=self.tabular_attention_embedding_dim,
                             dropout_rate=self.tabular_attention_dropout,
                             name="multi_resolution_attention",
-                        )(concat_num, concat_cat)
+                        )(num_features_3d, cat_features_3d)
+
+                        # Squeeze back to 2D
+                        num_output = tf.keras.layers.Reshape(
+                            target_shape=(-1,),
+                            name="reshape_num_output_2d",
+                        )(num_output)
+
+                        cat_output = tf.keras.layers.Reshape(
+                            target_shape=(-1,),
+                            name="reshape_cat_output_2d",
+                        )(cat_output)
 
                         self.concat_all = tf.keras.layers.Concatenate(
                             name="ConcatenateMultiResolutionAttention",
@@ -943,24 +966,50 @@ class PreprocessingModel:
                         elif concat_cat is not None:
                             self.concat_all = concat_cat
                 else:
-                    # Original tabular attention logic
+                    # Original tabular attention logic with 3D tensor support
                     if self.tabular_attention_placement == TabularAttentionPlacementOptions.ALL_FEATURES:
                         logger.info("Adding tabular attention to all features")
-                        self.concat_all = PreprocessorLayerFactory.tabular_attention_layer(
+                        # Reshape to 3D tensor (batch_size, 1, features)
+                        features_3d = tf.keras.layers.Reshape(
+                            target_shape=(1, -1),
+                            name="reshape_features_3d",
+                        )(self.concat_all)
+
+                        attention_output = PreprocessorLayerFactory.tabular_attention_layer(
                             num_heads=self.tabular_attention_heads,
                             d_model=self.tabular_attention_dim,
                             dropout_rate=self.tabular_attention_dropout,
                             name="tabular_attention",
-                        )(self.concat_all)
+                        )(features_3d)
+
+                        # Reshape back to 2D
+                        self.concat_all = tf.keras.layers.Reshape(
+                            target_shape=(-1,),
+                            name="reshape_attention_2d",
+                        )(attention_output)
+
                     elif self.tabular_attention_placement == TabularAttentionPlacementOptions.NUMERIC:
                         logger.info("Adding tabular attention to numeric features")
                         if concat_num is not None:
-                            concat_num = PreprocessorLayerFactory.tabular_attention_layer(
+                            # Reshape numeric features to 3D
+                            num_features_3d = tf.keras.layers.Reshape(
+                                target_shape=(1, -1),
+                                name="reshape_numeric_3d",
+                            )(concat_num)
+
+                            attention_output = PreprocessorLayerFactory.tabular_attention_layer(
                                 num_heads=self.tabular_attention_heads,
                                 d_model=self.tabular_attention_dim,
                                 dropout_rate=self.tabular_attention_dropout,
                                 name="tabular_attention_numeric",
-                            )(concat_num)
+                            )(num_features_3d)
+
+                            # Reshape back to 2D
+                            concat_num = tf.keras.layers.Reshape(
+                                target_shape=(-1,),
+                                name="reshape_numeric_attention_2d",
+                            )(attention_output)
+
                         if concat_cat is not None:
                             self.concat_all = tf.keras.layers.Concatenate(
                                 name="ConcatenateTabularAttention",
@@ -971,12 +1020,25 @@ class PreprocessingModel:
                     elif self.tabular_attention_placement == TabularAttentionPlacementOptions.CATEGORICAL:
                         logger.info("Adding tabular attention to categorical features")
                         if concat_cat is not None:
-                            concat_cat = PreprocessorLayerFactory.tabular_attention_layer(
+                            # Reshape categorical features to 3D
+                            cat_features_3d = tf.keras.layers.Reshape(
+                                target_shape=(1, -1),
+                                name="reshape_categorical_3d",
+                            )(concat_cat)
+
+                            attention_output = PreprocessorLayerFactory.tabular_attention_layer(
                                 num_heads=self.tabular_attention_heads,
                                 d_model=self.tabular_attention_dim,
                                 dropout_rate=self.tabular_attention_dropout,
                                 name="tabular_attention_categorical",
-                            )(concat_cat)
+                            )(cat_features_3d)
+
+                            # Reshape back to 2D
+                            concat_cat = tf.keras.layers.Reshape(
+                                target_shape=(-1,),
+                                name="reshape_categorical_attention_2d",
+                            )(attention_output)
+
                         if concat_num is not None:
                             self.concat_all = tf.keras.layers.Concatenate(
                                 name="ConcatenateTabularAttention",
