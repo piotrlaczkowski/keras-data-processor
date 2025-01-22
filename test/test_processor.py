@@ -61,7 +61,7 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
             categories = ["cat", "dog", "fish", "bird"]
             data[feature] = np.random.choice(categories, size=num_rows)
         elif feature_type == FeatureType.TEXT:
-            sentences = ["First sentence special x", "Second sentence special y"]
+            sentences = ["I like birds with feathers and tails.", "My dog is white and kind."]
             data[feature] = np.random.choice(sentences, size=num_rows)
         elif feature_type == FeatureType.DATE:
             # Generate dates and convert them to string format
@@ -636,6 +636,125 @@ class TestPreprocessingModel(unittest.TestCase):
                 dataset = tf.data.Dataset.from_tensor_slices(dict(test_data))
                 preprocessed = ppr.batch_predict(dataset)
                 self.assertIsNotNone(preprocessed)
+
+    def test_preprocessor_with_tabular_attention(self):
+        """Test end-to-end preprocessing with TabularAttention."""
+        features_specs = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_RESCALED),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features_specs, num_rows=100)
+        df.to_csv(str(self._path_data), index=False)
+
+        # Create preprocessor with transformer blocks instead of TabularAttention
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features_specs,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            transfo_nr_blocks=2,  # Use transformer blocks
+            transfo_nr_heads=4,
+            transfo_ff_units=32,
+            transfo_dropout_rate=0.1,
+            output_mode=OutputModeOptions.CONCAT,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsInstance(result["model"], tf.keras.Model)
+
+        # Test with a small batch
+        test_data = generate_fake_data(features_specs, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data))
+        preprocessed = ppr.batch_predict(dataset)
+
+        self.assertIsNotNone(preprocessed)
+
+    def test_preprocessor_with_multi_resolution_attention(self):
+        """Test end-to-end preprocessing with transformer blocks on different feature types."""
+        features_specs = {
+            # Numerical features
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_RESCALED),
+            "num3": NumericalFeature(name="num3", feature_type=FeatureType.FLOAT),
+            # Categorical features
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            # Date feature
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, date_format="%Y-%m-%d", add_season=True),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features_specs, num_rows=100)
+        df.to_csv(str(self._path_data), index=False)
+
+        # Create preprocessor with transformer blocks
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features_specs,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            transfo_nr_blocks=2,
+            transfo_nr_heads=4,
+            transfo_ff_units=32,
+            transfo_dropout_rate=0.1,
+            transfo_placement="all_features",  # Apply transformer to all features
+            output_mode=OutputModeOptions.DICT,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsInstance(result["model"], tf.keras.Model)
+
+        # Test with different batch sizes
+        for batch_size in [5, 10]:
+            test_data = generate_fake_data(features_specs, num_rows=batch_size)
+            dataset = tf.data.Dataset.from_tensor_slices(dict(test_data))
+            preprocessed = ppr.batch_predict(dataset)
+
+            self.assertIsNotNone(preprocessed)
+
+    def test_preprocessor_attention_with_feature_crosses(self):
+        """Test transformer blocks with feature crossing enabled."""
+        features_specs = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.STRING_CATEGORICAL),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features_specs, num_rows=100)
+        df.to_csv(str(self._path_data), index=False)
+
+        # Test with transformer blocks and feature crosses
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features_specs,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            transfo_nr_blocks=2,
+            transfo_nr_heads=4,
+            transfo_ff_units=32,
+            transfo_dropout_rate=0.1,
+            feature_crosses=[("num1", "num2", 5), ("cat1", "cat2", 5)],
+            output_mode=OutputModeOptions.DICT,
+        )
+
+        # Build and test
+        result = ppr.build_preprocessor()
+        self.assertIsInstance(result["model"], tf.keras.Model)
+
+        # Verify with test data
+        test_data = generate_fake_data(features_specs, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data))
+        preprocessed = ppr.batch_predict(dataset)
+
+        self.assertIsNotNone(preprocessed)
 
 
 if __name__ == "__main__":
