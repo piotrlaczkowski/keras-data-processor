@@ -615,6 +615,10 @@ class MultiResolutionTabularAttention(tf.keras.layers.Layer):
         self.embedding_dim = embedding_dim
         self.dropout_rate = dropout_rate
 
+        # Create projection layers during initialization
+        self.numerical_projection = tf.keras.layers.Dense(d_model)
+        self.categorical_projection = tf.keras.layers.Dense(embedding_dim)
+
         # Numerical attention
         self.numerical_attention = tf.keras.layers.MultiHeadAttention(
             num_heads=num_heads,
@@ -633,7 +637,6 @@ class MultiResolutionTabularAttention(tf.keras.layers.Layer):
         self.numerical_dropout2 = tf.keras.layers.Dropout(dropout_rate)
 
         # Categorical attention
-        self.categorical_projection = tf.keras.layers.Dense(embedding_dim)
         self.categorical_attention = tf.keras.layers.MultiHeadAttention(
             num_heads=num_heads,
             key_dim=embedding_dim // num_heads,
@@ -680,15 +683,17 @@ class MultiResolutionTabularAttention(tf.keras.layers.Layer):
                 - numerical_output: Tensor of shape (batch_size, num_numerical, d_model)
                 - categorical_output: Tensor of shape (batch_size, num_categorical, d_model)
         """
-        # Process numerical features
+        # Use the pre-initialized projection layer
+        numerical_projected = self.numerical_projection(numerical_features)
+        # Now process with attention
         numerical_attn = self.numerical_attention(
-            numerical_features,
-            numerical_features,
-            numerical_features,
+            numerical_projected,
+            numerical_projected,
+            numerical_projected,
             training=training,
         )
         numerical_1 = self.numerical_layernorm1(
-            numerical_features + self.numerical_dropout1(numerical_attn, training=training),
+            numerical_projected + self.numerical_dropout1(numerical_attn, training=training),
         )
         numerical_ffn = self.numerical_ffn(numerical_1)
         numerical_2 = self.numerical_layernorm2(

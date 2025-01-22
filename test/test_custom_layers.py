@@ -1,5 +1,6 @@
 """Tests for custom layers in the KDP package."""
 
+import logging
 import math
 from datetime import datetime
 
@@ -528,3 +529,323 @@ class TestSeasonLayer:
 
         # First winter and next winter should have same encoding
         assert tf.reduce_all(result[0, -4:] == result[4, -4:])
+
+
+def test_tabular_attention_shapes():
+    """Test that TabularAttention produces correct output shapes."""
+    # Setup
+    batch_size = 32
+    num_samples = 10
+    num_features = 8
+    d_model = 16
+    num_heads = 4
+
+    layer = TabularAttention(num_heads=num_heads, d_model=d_model)
+
+    # Create sample inputs
+    inputs = tf.random.normal((batch_size, num_samples, num_features))
+
+    # Process features
+    outputs = layer(inputs, training=True)
+
+    # Check shapes
+    assert outputs.shape == (batch_size, num_samples, d_model)
+
+    # Test with different input shapes
+    inputs_2d = tf.random.normal((batch_size, num_features))
+    with pytest.raises(ValueError):
+        layer(inputs_2d)  # Should raise error for 2D input
+
+
+def test_tabular_attention_training_modes():
+    """Test TabularAttention behavior in training vs inference modes."""
+    batch_size = 16
+    num_samples = 8
+    num_features = 12
+    d_model = 24
+    num_heads = 3
+    dropout_rate = 0.5  # High dropout for visible effect
+
+    layer = TabularAttention(num_heads=num_heads, d_model=d_model, dropout_rate=dropout_rate)
+
+    # Create inputs
+    inputs = tf.random.normal((batch_size, num_samples, num_features))
+
+    # Get outputs in training mode
+    train_output = layer(inputs, training=True)
+
+    # Get outputs in inference mode
+    infer_output = layer(inputs, training=False)
+
+    # Check that outputs are different due to dropout
+    assert not np.allclose(train_output.numpy(), infer_output.numpy())
+
+
+def test_tabular_attention_feature_interactions():
+    """Test that TabularAttention captures feature interactions."""
+    batch_size = 8
+    num_samples = 4
+    num_features = 6
+    d_model = 12
+    num_heads = 2
+
+    layer = TabularAttention(num_heads=num_heads, d_model=d_model)
+
+    # Create correlated features
+    base_feature = tf.random.normal((batch_size, num_samples, 1))
+    correlated_features = tf.concat(
+        [
+            base_feature,
+            base_feature * 2 + tf.random.normal((batch_size, num_samples, 1), stddev=0.1),
+            tf.random.normal((batch_size, num_samples, num_features - 2)),
+        ],
+        axis=-1,
+    )
+
+    # Process features
+    output_correlated = layer(correlated_features)
+
+    # Create uncorrelated features
+    uncorrelated_features = tf.random.normal((batch_size, num_samples, num_features))
+    output_uncorrelated = layer(uncorrelated_features)
+
+    # The attention patterns should be different
+    assert not np.allclose(output_correlated.numpy(), output_uncorrelated.numpy(), rtol=1e-3)
+
+
+def test_tabular_attention_config():
+    """Test configuration saving and loading."""
+    original_layer = TabularAttention(num_heads=4, d_model=32, dropout_rate=0.2)
+
+    config = original_layer.get_config()
+    restored_layer = TabularAttention.from_config(config)
+
+    assert restored_layer.num_heads == original_layer.num_heads
+    assert restored_layer.d_model == original_layer.d_model
+    assert restored_layer.dropout_rate == original_layer.dropout_rate
+
+
+def test_tabular_attention_end_to_end():
+    """Test TabularAttention in a simple end-to-end model."""
+    batch_size = 16
+    num_samples = 6
+    num_features = 8
+    d_model = 16
+    num_heads = 2
+
+    # Create a simple model
+    inputs = tf.keras.Input(shape=(num_samples, num_features))
+    attention_layer = TabularAttention(num_heads=num_heads, d_model=d_model)
+
+    x = attention_layer(inputs)
+    x = tf.keras.layers.GlobalAveragePooling1D()(x)
+    outputs = tf.keras.layers.Dense(1)(x)
+
+    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+
+    # Compile model
+    model.compile(optimizer="adam", loss="mse")
+
+    # Create dummy data
+    X = tf.random.normal((batch_size, num_samples, num_features))
+    y = tf.random.normal((batch_size, 1))
+
+    # Train for one epoch
+    history = model.fit(X, y, epochs=1, verbose=0)
+
+    # Check if loss was computed
+    assert "loss" in history.history
+    assert len(history.history["loss"]) == 1
+
+
+def test_tabular_attention_masking():
+    """Test TabularAttention with masked inputs."""
+    batch_size = 8
+    num_samples = 5
+    num_features = 4
+    d_model = 8
+    num_heads = 2
+
+    layer = TabularAttention(num_heads=num_heads, d_model=d_model)
+
+    # Create inputs with masked values
+    inputs = tf.random.normal((batch_size, num_samples, num_features))
+    mask = tf.random.uniform((batch_size, num_samples)) > 0.3
+    masked_inputs = tf.where(tf.expand_dims(mask, -1), inputs, tf.zeros_like(inputs))
+
+    # Process both masked and unmasked inputs
+    output_masked = layer(masked_inputs)
+    output_unmasked = layer(inputs)
+
+    # Outputs should be different
+    assert not np.allclose(output_masked.numpy(), output_unmasked.numpy())
+
+
+def test_multi_resolution_attention_shapes():
+    """Test that MultiResolutionTabularAttention produces correct output shapes."""
+    # Setup
+    batch_size = 32
+    num_numerical = 10
+    num_categorical = 5
+    numerical_features_num = 8
+    categorical_features_num = 7
+    d_model = 16
+    embedding_dim = 16
+    num_heads = 4
+
+    layer = MultiResolutionTabularAttention(num_heads=num_heads, d_model=d_model, embedding_dim=embedding_dim)
+
+    # Create sample inputs
+    numerical_features = tf.random.normal((batch_size, num_numerical, numerical_features_num))
+    categorical_features = tf.random.normal((batch_size, num_categorical, categorical_features_num))
+
+    # Process features
+    numerical_output, categorical_output = layer(numerical_features, categorical_features, training=True)
+
+    # Check shapes
+    assert numerical_output.shape == (batch_size, num_numerical, d_model)
+    assert categorical_output.shape == (batch_size, num_categorical, d_model)
+
+
+def test_multi_resolution_attention_training():
+    """Test MultiResolutionTabularAttention behavior in training vs inference modes."""
+    # Setup
+    batch_size = 16
+    num_numerical = 8
+    num_categorical = 4
+    numerical_dim = 24
+    categorical_dim = 6
+    d_model = 24
+    embedding_dim = 12
+    num_heads = 3
+    dropout_rate = 0.5  # High dropout for visible effect
+
+    layer = MultiResolutionTabularAttention(
+        num_heads=num_heads, d_model=d_model, embedding_dim=embedding_dim, dropout_rate=dropout_rate
+    )
+
+    # Create inputs
+    numerical_features = tf.random.normal((batch_size, num_numerical, numerical_dim))
+    categorical_features = tf.random.normal((batch_size, num_categorical, categorical_dim))
+
+    # Get outputs in training mode
+    num_train, cat_train = layer(numerical_features, categorical_features, training=True)
+
+    # Get outputs in inference mode
+    num_infer, cat_infer = layer(numerical_features, categorical_features, training=False)
+
+    # Check that outputs are different due to dropout
+    assert not np.allclose(num_train.numpy(), num_infer.numpy())
+    assert not np.allclose(cat_train.numpy(), cat_infer.numpy())
+
+
+def test_multi_resolution_attention_cross_attention():
+    """Test that cross-attention is working between numerical and categorical features."""
+
+    # Setup
+    batch_size = 8
+    num_numerical = 4
+    num_categorical = 2
+    numerical_dim = 8
+    categorical_dim = 4
+    d_model = 8
+    embedding_dim = 8
+    num_heads = 2
+
+    layer = MultiResolutionTabularAttention(
+        num_heads=num_heads,
+        d_model=d_model,
+        embedding_dim=embedding_dim,
+        dropout_rate=0.0,  # Disable dropout for deterministic testing
+    )
+
+    # Create numerical features
+    numerical_features = tf.random.normal((batch_size, num_numerical, numerical_dim))
+
+    # Create contrasting categorical patterns using string colors
+    colors1 = tf.constant([["blue", "green"] for _ in range(batch_size)])  # Warm colors
+    colors2 = tf.constant([["red", "yellow"] for _ in range(batch_size)])  # Cool colors
+
+    # Convert strings to one-hot encodings
+    all_colors = ["red", "blue", "green", "yellow"]
+    table = tf.lookup.StaticHashTable(
+        tf.lookup.KeyValueTensorInitializer(all_colors, tf.range(len(all_colors), dtype=tf.int64)), default_value=-1
+    )
+
+    categorical_pattern1 = tf.one_hot(table.lookup(colors1), categorical_dim)
+    categorical_pattern2 = tf.one_hot(table.lookup(colors2), categorical_dim)
+
+    # Process with contrasting categorical patterns
+    num_output1, cat_output1 = layer(numerical_features, categorical_pattern1, training=False)
+    num_output2, cat_output2 = layer(numerical_features, categorical_pattern2, training=False)
+
+    # Check numerical outputs are different due to contrasting categorical patterns
+    num_mean_diff = tf.reduce_mean(tf.abs(num_output1 - num_output2))
+    assert num_mean_diff > 1e-3, "Numerical outputs are too similar - cross attention may not be working"
+
+    # Check categorical outputs are different
+    cat_mean_diff = tf.reduce_mean(tf.abs(cat_output1 - cat_output2))
+    assert cat_mean_diff > 1e-3, "Categorical outputs are too similar - cross attention may not be working"
+
+    # Check shapes are correct
+    assert cat_output1.shape == cat_output2.shape
+    assert cat_output1.shape[0] == batch_size
+    assert cat_output1.shape[1] == num_categorical
+    assert cat_output1.shape[2] == d_model
+
+    # Check outputs are in reasonable range
+    assert tf.reduce_all(tf.abs(cat_output1) < 10), "Categorical outputs 1 have unexpectedly large values"
+    assert tf.reduce_all(tf.abs(cat_output2) < 10), "Categorical outputs 2 have unexpectedly large values"
+
+
+def test_multi_resolution_attention_config():
+    """Test configuration saving and loading."""
+    original_layer = MultiResolutionTabularAttention(num_heads=4, d_model=32, embedding_dim=16, dropout_rate=0.2)
+
+    config = original_layer.get_config()
+    restored_layer = MultiResolutionTabularAttention.from_config(config)
+
+    assert restored_layer.num_heads == original_layer.num_heads
+    assert restored_layer.d_model == original_layer.d_model
+    assert restored_layer.embedding_dim == original_layer.embedding_dim
+    assert restored_layer.dropout_rate == original_layer.dropout_rate
+
+
+def test_multi_resolution_attention_end_to_end():
+    """Test MultiResolutionTabularAttention in a simple end-to-end model."""
+    # Setup
+    batch_size = 16
+    num_numerical = 100
+    num_categorical = 10
+    numerical_dim = 16
+    categorical_dim = 4
+    d_model = 8
+    embedding_dim = 8
+    num_heads = 2
+
+    # Create a simple model
+    numerical_inputs = tf.keras.Input(shape=(num_numerical, numerical_dim))
+    categorical_inputs = tf.keras.Input(shape=(num_categorical, categorical_dim))
+
+    attention_layer = MultiResolutionTabularAttention(num_heads=num_heads, d_model=d_model, embedding_dim=embedding_dim)
+
+    num_output, cat_output = attention_layer(numerical_inputs, categorical_inputs)
+    combined = tf.keras.layers.Concatenate(axis=1)([num_output, cat_output])
+    outputs = tf.keras.layers.Dense(1)(combined)
+
+    model = tf.keras.Model(inputs=[numerical_inputs, categorical_inputs], outputs=outputs)
+
+    # Compile model
+    model.compile(optimizer="adam", loss="mse")
+
+    # Create some data
+    X_num = tf.random.normal((batch_size, num_numerical, numerical_dim))
+    X_cat = tf.random.normal((batch_size, num_categorical, categorical_dim))
+    y = tf.random.normal((batch_size, num_numerical + num_categorical, 1))
+
+    # Train for one epoch
+    history = model.fit([X_num, X_cat], y, epochs=1, verbose=0)
+
+    # Check if loss was computed
+    assert "loss" in history.history
+    assert len(history.history["loss"]) == 1

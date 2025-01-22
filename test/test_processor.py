@@ -7,8 +7,15 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
+from kdp.custom_layers import MultiResolutionTabularAttention, TabularAttention
 from kdp.features import CategoricalFeature, DateFeature, Feature, FeatureType, NumericalFeature, TextFeature
-from kdp.processor import FeatureSpaceConverter, OutputModeOptions, PreprocessingModel, PreprocessorLayerFactory
+from kdp.processor import (
+    FeatureSpaceConverter,
+    OutputModeOptions,
+    PreprocessingModel,
+    PreprocessorLayerFactory,
+    TabularAttentionPlacementOptions,
+)
 
 
 def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame:
@@ -61,7 +68,7 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
             categories = ["cat", "dog", "fish", "bird"]
             data[feature] = np.random.choice(categories, size=num_rows)
         elif feature_type == FeatureType.TEXT:
-            sentences = ["First sentence special x", "Second sentence special y"]
+            sentences = ["I like birds with feathers and tails.", "My dog is white and kind."]
             data[feature] = np.random.choice(sentences, size=num_rows)
         elif feature_type == FeatureType.DATE:
             # Generate dates and convert them to string format
@@ -636,6 +643,144 @@ class TestPreprocessingModel(unittest.TestCase):
                 dataset = tf.data.Dataset.from_tensor_slices(dict(test_data))
                 preprocessed = ppr.batch_predict(dataset)
                 self.assertIsNotNone(preprocessed)
+
+    def test_preprocessor_with_tabular_attention(self):
+        """Test end-to-end preprocessing with TabularAttention."""
+        features_specs = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_RESCALED),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features_specs, num_rows=100)
+        df.to_csv(str(self._path_data), index=False)
+
+        # Create preprocessor with TabularAttention
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features_specs,
+            features_stats_path=self.features_stats_path,
+            output_mode=OutputModeOptions.CONCAT,
+            overwrite_stats=True,
+            tabular_attention=True,
+            tabular_attention_heads=4,
+            tabular_attention_dim=64,
+            tabular_attention_dropout=0.1,
+            tabular_attention_placement="all_features",
+            tabular_attention_embedding_dim=32,
+            use_caching=True,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsInstance(result["model"], tf.keras.Model)
+
+        # Verify TabularAttention layer is present
+        self.assertTrue(any(isinstance(layer, TabularAttention) for layer in result["model"].layers))
+
+        # Test with a small batch
+        test_data = generate_fake_data(features_specs, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Use the model's predict method
+        preprocessed = result["model"].predict(dataset)
+
+        self.assertIsNotNone(preprocessed)
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 64)  # d_model dimension
+
+    def test_preprocessor_with_multi_resolution_attention(self):
+        """Test end-to-end preprocessing with MultiResolutionTabularAttention."""
+        features_specs = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_RESCALED),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features_specs, num_rows=100)
+        df.to_csv(str(self._path_data), index=False)
+
+        # Create preprocessor with MultiResolutionTabularAttention
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features_specs,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            tabular_attention=True,
+            tabular_attention_placement="multi_resolution",
+            tabular_attention_heads=4,
+            tabular_attention_dim=64,
+            tabular_attention_dropout=0.1,
+            tabular_attention_embedding_dim=32,
+            output_mode=OutputModeOptions.CONCAT,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsInstance(result["model"], tf.keras.Model)
+
+        # Verify MultiResolutionTabularAttention layer is present
+        self.assertTrue(any(isinstance(layer, MultiResolutionTabularAttention) for layer in result["model"].layers))
+
+        # Test with a small batch
+        test_data = generate_fake_data(features_specs, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Use the model's predict method
+        preprocessed = result["model"].predict(dataset)
+
+        self.assertIsNotNone(preprocessed)
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        # Adjust the expected dimension based on your model's output
+        self.assertEqual(preprocessed.shape[-1], 2 * 64)
+
+    def test_preprocessor_attention_with_feature_crosses(self):
+        """Test transformer blocks with feature crossing enabled."""
+        features_specs = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.STRING_CATEGORICAL),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features_specs, num_rows=100)
+        df.to_csv(str(self._path_data), index=False)
+
+        # Test with transformer blocks and feature crosses
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features_specs,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            tabular_attention=True,
+            tabular_attention_heads=4,
+            tabular_attention_dim=64,
+            tabular_attention_dropout=0.1,
+            feature_crosses=[("num1", "num2", 5), ("cat1", "cat2", 5)],
+            output_mode=OutputModeOptions.CONCAT,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsInstance(result["model"], tf.keras.Model)
+
+        # Test with a small batch
+        test_data = generate_fake_data(features_specs, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Use the model's predict method
+        preprocessed = result["model"].predict(dataset)
+
+        self.assertIsNotNone(preprocessed)
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        # Adjust the expected dimension based on your model's output
+        self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
 
 
 if __name__ == "__main__":
