@@ -838,7 +838,7 @@ def test_multi_resolution_attention_end_to_end():
     # Compile model
     model.compile(optimizer="adam", loss="mse")
 
-    # Create some dummy data
+    # Create some data
     X_num = tf.random.normal((batch_size, num_numerical, numerical_dim))
     X_cat = tf.random.normal((batch_size, num_categorical, categorical_dim))
     y = tf.random.normal((batch_size, num_numerical + num_categorical, 1))
