@@ -782,6 +782,650 @@ class TestPreprocessingModel(unittest.TestCase):
         # Adjust the expected dimension based on your model's output
         self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
 
+    def test_preprocessor_numeric_with_attention(self):
+        """Test numeric features with attention."""
+        features = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_RESCALED),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.CONCAT,
+            tabular_attention=True,
+            tabular_attention_heads=4,
+            tabular_attention_dim=64,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
+
+    def test_preprocessor_categorical_with_transformer(self):
+        """Test categorical features with transformer."""
+        features = {
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.CONCAT,
+            transfo_nr_blocks=2,
+            transfo_nr_heads=4,
+            transfo_ff_units=32,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 8)  # Example dimension
+
+    def test_preprocessor_dates_with_attention_and_transformer(self):
+        """Test date features with both attention and transformer."""
+        features = {
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, output_format="year"),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.CONCAT,
+            tabular_attention=True,
+            tabular_attention_heads=4,
+            tabular_attention_dim=64,
+            transfo_nr_blocks=2,
+            transfo_nr_heads=4,
+            transfo_ff_units=32,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
+
+    def test_preprocessor_dates_with_attention_and_transformer_test_for_false_tabular_attention(self):
+        """Test date features with both attention and transformer."""
+        features = {
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, output_format="year"),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.CONCAT,
+            tabular_attention=False,
+            tabular_attention_heads=4,
+            tabular_attention_dim=64,
+            transfo_nr_blocks=2,
+            transfo_nr_heads=4,
+            transfo_ff_units=32,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 20)  # 12 + 8 dimensions for the dates
+
+    def test_preprocessor_mixed_features_with_attention(self):
+        """Test mixed feature types with attention."""
+        features = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.CONCAT,
+            tabular_attention=True,
+            tabular_attention_heads=4,
+            tabular_attention_dim=64,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
+
+    def test_preprocessor_all_features_with_transformer_and_attention(self):
+        """Test all feature types with both transformer and attention."""
+        features = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.CONCAT,
+            tabular_attention=True,
+            tabular_attention_heads=4,
+            tabular_attention_dim=64,
+            transfo_nr_blocks=2,
+            transfo_nr_heads=4,
+            transfo_ff_units=32,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
+
+    def test_preprocessor_all_features_with_transformer_and_attention_v2(self):
+        """Test all feature types with both transformer and attention."""
+        features = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_RESCALED),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "text1": TextFeature(name="text1", feature_type=FeatureType.TEXT),
+            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, add_season=False),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.CONCAT,
+            tabular_attention=True,
+            tabular_attention_heads=4,
+            tabular_attention_dim=64,
+            transfo_nr_blocks=2,
+            transfo_nr_heads=4,
+            transfo_ff_units=32,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
+
+    def test_preprocessor_all_features_with_transformer_and_attention_v3(self):
+        """Test all feature types with both transformer and attention."""
+        features = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_RESCALED),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "text1": TextFeature(name="text1", feature_type=FeatureType.TEXT),
+            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, add_season=False),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.CONCAT,
+            tabular_attention=True,
+            tabular_attention_placement="all_features",
+            tabular_attention_heads=1,
+            tabular_attention_dim=23,
+            tabular_attention_dropout=0.15,
+            transfo_dropout_rate=0.15,
+            transfo_nr_blocks=3,
+            transfo_nr_heads=2,
+            transfo_ff_units=19,
+            transfo_placement="all_features",
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 23)  # Example dimension
+
+    def test_preprocessor_all_features_with_transformer_and_attention_v4(self):
+        """Test all feature types with both transformer and attention."""
+        features = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_RESCALED),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "text1": TextFeature(name="text1", feature_type=FeatureType.TEXT),
+            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, add_season=False),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.CONCAT,
+            tabular_attention=False,
+            transfo_dropout_rate=0.15,
+            transfo_nr_blocks=2,
+            transfo_nr_heads=2,
+            transfo_ff_units=16,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=10)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(10)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 65)  # Example dimension
+
+    def test_preprocessor_all_features_minimal_params(self):
+        """Test all feature types with minimal parameters (False/0 where possible)."""
+        features = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_RESCALED),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=False),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "text1": TextFeature(name="text1", feature_type=FeatureType.TEXT),
+            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, add_season=False),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor with minimal parameters
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.CONCAT,
+            tabular_attention=False,
+            tabular_attention_placement="none",
+            tabular_attention_heads=0,
+            tabular_attention_dim=0,
+            tabular_attention_dropout=0.0,
+            tabular_attention_embedding_dim=0,
+            transfo_dropout_rate=0.0,
+            transfo_nr_blocks=0,
+            transfo_nr_heads=0,
+            transfo_ff_units=0,
+            transfo_placement="none",
+            use_caching=False,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        # Note: The output dimension will depend on the base feature dimensions
+        # since we're not using any attention or transformer layers
+        self.assertGreater(preprocessed.shape[-1], 0)  # Should have at least some features
+
+    def test_text_feature_missing_vocab_stats(self):
+        """Test that appropriate error is raised when text feature stats are missing vocab."""
+        features = {
+            "text1": TextFeature(
+                name="text1",
+                feature_type=FeatureType.TEXT,
+                max_tokens=100,
+            ),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=50)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor with incomplete stats
+        incomplete_stats = {
+            "text": {
+                "text1": {
+                    "dtype": tf.string,
+                    "sequence_length": 100,
+                    "vocab_size": 10000,
+                    # vocab is intentionally missing
+                }
+            }
+        }
+
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats=incomplete_stats,  # Use incomplete stats
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=False,  # Don't regenerate stats
+            output_mode=OutputModeOptions.CONCAT,
+        )
+
+        # Assert that the appropriate error is raised
+        with self.assertRaises(ValueError) as context:
+            ppr.build_preprocessor()
+
+        # Verify the error message contains helpful information
+        error_message = str(context.exception)
+        self.assertIn("Missing required statistics", error_message)
+        self.assertIn("vocab", error_message)
+        self.assertIn("text1", error_message)
+        self.assertIn("overwrite_stats=True", error_message)
+
+
+class TestPreprocessingModelCombinations(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.temp_file = Path(cls.temp_dir.name)
+        cls._path_data = cls.temp_file / "data.csv"
+        cls.features_stats_path = cls.temp_file / "features_stats.json"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.temp_dir.cleanup()
+
+    def setUp(self):
+        if self.features_stats_path.exists():
+            self.features_stats_path.unlink()
+
+    def test_preprocessor_parameter_combinations(self):
+        features = {
+            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_RESCALED),
+            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
+            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "text1": TextFeature(name="text1", feature_type=FeatureType.TEXT),
+            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, add_season=False),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Define permutations of parameters
+        test_cases = [
+            {
+                "tabular_attention": True,
+                "tabular_attention_placement": "all_features",
+                "tabular_attention_heads": 1,
+                "tabular_attention_dim": 23,
+                "tabular_attention_dropout": 0.15,
+                "transfo_dropout_rate": 0.15,
+                "transfo_nr_blocks": 3,
+                "transfo_nr_heads": 2,
+                "transfo_ff_units": 19,
+                "transfo_placement": "all_features",
+                "output_mode": OutputModeOptions.CONCAT,
+            },
+            {
+                "tabular_attention": False,
+                "tabular_attention_placement": "categorical",
+                "tabular_attention_heads": 2,
+                "tabular_attention_dim": 32,
+                "tabular_attention_dropout": 0.1,
+                "transfo_dropout_rate": 0.1,
+                "transfo_nr_blocks": 2,
+                "transfo_nr_heads": 4,
+                "transfo_ff_units": 32,
+                "transfo_placement": "categorical",
+                "output_mode": OutputModeOptions.DICT,
+            },
+            {
+                "tabular_attention": True,
+                "tabular_attention_placement": "categorical",
+                "tabular_attention_heads": 2,
+                "tabular_attention_dim": 32,
+                "tabular_attention_dropout": 0.1,
+                "transfo_dropout_rate": 0.1,
+                "transfo_nr_blocks": 2,
+                "transfo_nr_heads": 4,
+                "transfo_ff_units": 32,
+                "transfo_placement": "categorical",
+                "output_mode": OutputModeOptions.DICT,
+            },
+            {
+                "tabular_attention": False,
+                "tabular_attention_placement": "categorical",
+                "tabular_attention_heads": 2,
+                "tabular_attention_dim": 16,
+                "tabular_attention_dropout": 0.1,
+                "transfo_dropout_rate": 0.1,
+                "transfo_nr_blocks": 1,
+                "transfo_nr_heads": 1,
+                "transfo_ff_units": 10,
+                "transfo_placement": "categorical",
+                "output_mode": OutputModeOptions.CONCAT,
+            },
+            {
+                "tabular_attention": False,
+                "tabular_attention_placement": "categorical",
+                "tabular_attention_heads": 0,
+                "tabular_attention_dim": 0,
+                "tabular_attention_dropout": 0,
+                "transfo_dropout_rate": 0,
+                "transfo_nr_blocks": 0,
+                "transfo_nr_heads": 0,
+                "transfo_ff_units": 10,
+                "transfo_placement": "categorical",
+                "output_mode": OutputModeOptions.CONCAT,
+            },
+        ]
+
+        for test_case in test_cases:
+            with self.subTest(test_case=test_case):
+                ppr = PreprocessingModel(
+                    path_data=str(self._path_data),
+                    features_specs=features,
+                    features_stats_path=self.features_stats_path,
+                    overwrite_stats=True,
+                    output_mode=test_case["output_mode"],
+                    tabular_attention=test_case["tabular_attention"],
+                    tabular_attention_placement=test_case["tabular_attention_placement"],
+                    tabular_attention_heads=test_case["tabular_attention_heads"],
+                    tabular_attention_dim=test_case["tabular_attention_dim"],
+                    tabular_attention_dropout=test_case["tabular_attention_dropout"],
+                    transfo_dropout_rate=test_case["transfo_dropout_rate"],
+                    transfo_nr_blocks=test_case["transfo_nr_blocks"],
+                    transfo_nr_heads=test_case["transfo_nr_heads"],
+                    transfo_ff_units=test_case["transfo_ff_units"],
+                    transfo_placement=test_case["transfo_placement"],
+                )
+
+                # Build and verify preprocessor
+                result = ppr.build_preprocessor()
+                self.assertIsNotNone(result["model"])
+
+                # Create a small batch of test data
+                test_data = generate_fake_data(features, num_rows=5)
+                dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+                # Test preprocessing
+                preprocessed = result["model"].predict(dataset)
+                self.assertIsNotNone(preprocessed)
+
+                print("TEST_FOR_LEN:", test_case["transfo_ff_units"])
+
+                if test_case["output_mode"] == OutputModeOptions.CONCAT:
+                    if test_case["tabular_attention"] == True:
+                        # Check output dimensions for concatenated output
+                        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+                        self.assertEqual(
+                            preprocessed.shape[-1], test_case["tabular_attention_dim"]
+                        )  # Example dimension
+                    else:
+                        # Check output dimensions for concatenated output
+                        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+                        self.assertEqual(
+                            preprocessed.shape[-1], 65
+                        )  # The dimension of these features at the end should be 65
+                else:
+                    # Check output dimensions for dictionary output
+                    for key, tensor in preprocessed.items():
+                        self.assertEqual(len(tensor.shape), 2)  # (batch_size, feature_dim)
+                        # You can add more specific checks for each feature if needed
+
 
 if __name__ == "__main__":
     unittest.main()
