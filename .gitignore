@@ -164,3 +164,6 @@ kdp/data/fake_data.csv
 
 # Ignore all contents of my_tests folder
 my_tests/*
+
+# derivative files
+data.csv
