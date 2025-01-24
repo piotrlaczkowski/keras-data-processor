@@ -671,20 +671,7 @@ class PreprocessingModel:
             feature_name (str): The name of the feature to be preprocessed.
             input_layer: The input layer for the feature.
             stats (dict): A dictionary containing the metadata of the feature.
-
-        Raises:
-            ValueError: If required stats are missing or invalid.
         """
-        # Validate required stats for text features
-        required_stats = ["vocab"]
-        missing_stats = [stat for stat in required_stats if stat not in stats]
-        if missing_stats:
-            raise ValueError(
-                f"Missing required statistics for text feature '{feature_name}': {missing_stats}. "
-                f"Available stats: {list(stats.keys())}. "
-                "Try setting overwrite_stats=True to regenerate feature statistics.",
-            )
-
         # getting feature object
         _feature = self.features_specs[feature_name]
 

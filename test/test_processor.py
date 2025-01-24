@@ -1226,52 +1226,6 @@ class TestPreprocessingModel(unittest.TestCase):
         # since we're not using any attention or transformer layers
         self.assertGreater(preprocessed.shape[-1], 0)  # Should have at least some features
 
-    def test_text_feature_missing_vocab_stats(self):
-        """Test that appropriate error is raised when text feature stats are missing vocab."""
-        features = {
-            "text1": TextFeature(
-                name="text1",
-                feature_type=FeatureType.TEXT,
-                max_tokens=100,
-            ),
-        }
-
-        # Generate fake data
-        df = generate_fake_data(features, num_rows=50)
-        df.to_csv(self._path_data, index=False)
-
-        # Create preprocessor with incomplete stats
-        incomplete_stats = {
-            "text": {
-                "text1": {
-                    "dtype": tf.string,
-                    "sequence_length": 100,
-                    "vocab_size": 10000,
-                    # vocab is intentionally missing
-                }
-            }
-        }
-
-        ppr = PreprocessingModel(
-            path_data=str(self._path_data),
-            features_specs=features,
-            features_stats=incomplete_stats,  # Use incomplete stats
-            features_stats_path=self.features_stats_path,
-            overwrite_stats=False,  # Don't regenerate stats
-            output_mode=OutputModeOptions.CONCAT,
-        )
-
-        # Assert that the appropriate error is raised
-        with self.assertRaises(ValueError) as context:
-            ppr.build_preprocessor()
-
-        # Verify the error message contains helpful information
-        error_message = str(context.exception)
-        self.assertIn("Missing required statistics", error_message)
-        self.assertIn("vocab", error_message)
-        self.assertIn("text1", error_message)
-        self.assertIn("overwrite_stats=True", error_message)
-
 
 class TestPreprocessingModelCombinations(unittest.TestCase):
     @classmethod
