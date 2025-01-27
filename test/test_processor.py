@@ -1004,6 +1004,7 @@ class TestPreprocessingModel(unittest.TestCase):
             overwrite_stats=True,
             output_mode=OutputModeOptions.CONCAT,
             tabular_attention=True,
+            tabular_attention_placement="all_features",
             tabular_attention_heads=4,
             tabular_attention_dim=64,
             transfo_nr_blocks=2,
@@ -1025,7 +1026,7 @@ class TestPreprocessingModel(unittest.TestCase):
 
         # Check output dimensions
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
-        self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
+        self.assertEqual(preprocessed.shape[-1], 1 + 4 + 12)  # The dimensions for num1, cat1, date1
 
     def test_preprocessor_all_features_with_transformer_and_attention_v2(self):
         """Test all feature types with both transformer and attention."""
@@ -1050,6 +1051,7 @@ class TestPreprocessingModel(unittest.TestCase):
             features_stats_path=self.features_stats_path,
             overwrite_stats=True,
             output_mode=OutputModeOptions.CONCAT,
+            tabular_attention_placement="all_features",
             tabular_attention=True,
             tabular_attention_heads=4,
             tabular_attention_dim=64,
@@ -1072,7 +1074,7 @@ class TestPreprocessingModel(unittest.TestCase):
 
         # Check output dimensions
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
-        self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
+        self.assertEqual(preprocessed.shape[-1], 65)  # Example dimension
 
     def test_preprocessor_all_features_with_transformer_and_attention_v3(self):
         """Test all feature types with both transformer and attention."""
@@ -1122,7 +1124,7 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertIsNotNone(preprocessed)
 
         # Check output dimensions
-        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(len(preprocessed.shape), 3)  # (batch_size, d_model)
         self.assertEqual(preprocessed.shape[-1], 23)  # Example dimension
 
     def test_preprocessor_all_features_with_transformer_and_attention_v4(self):
@@ -1288,7 +1290,7 @@ class TestPreprocessingModelCombinations(unittest.TestCase):
             },
             {
                 "tabular_attention": True,
-                "tabular_attention_placement": "categorical",
+                "tabular_attention_placement": "all_features",
                 "tabular_attention_heads": 2,
                 "tabular_attention_dim": 32,
                 "tabular_attention_dropout": 0.1,
@@ -1363,17 +1365,13 @@ class TestPreprocessingModelCombinations(unittest.TestCase):
 
                 if test_case["output_mode"] == OutputModeOptions.CONCAT:
                     if test_case["tabular_attention"] == True:
-                        # Check output dimensions for concatenated output
-                        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
-                        self.assertEqual(
-                            preprocessed.shape[-1], test_case["tabular_attention_dim"]
-                        )  # Example dimension
+                        # Check output dimensions for concatenated output with attention
+                        self.assertEqual(len(preprocessed.shape), 3)  # (batch_size, d_model)
+                        self.assertEqual(preprocessed.shape[-1], test_case["tabular_attention_dim"])
                     else:
-                        # Check output dimensions for concatenated output
+                        # Check output dimensions for concatenated output without attention
                         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
-                        self.assertEqual(
-                            preprocessed.shape[-1], 65
-                        )  # The dimension of these features at the end should be 65
+                        self.assertEqual(preprocessed.shape[-1], 65)  # Base feature dimension
                 else:
                     # Check output dimensions for dictionary output
                     for key, tensor in preprocessed.items():
