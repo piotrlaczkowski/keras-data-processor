@@ -232,14 +232,16 @@ You can even process string encoded date features (format: 'YYYY-MM-DD' or 'YYYY
 
     features_specs = {
         "feat1": DateFeature(
-            name="feat2",
-            feature_type=FeatureType.FLOAT,
+            name="feat1",
+            feature_type=FeatureType.DATE,
         ),
-        "feat2": TextFeature(
+        "feat2": DateFeature(
             name="feat2",
             feature_type=FeatureType.DATE,
+            date_format="%Y-%m-%d", # date format of the input data
+            output_format="year", # output format of the feature
             # additional option to add season layer:
-            add_season=True,  # adds one-hot season indicator (summer, winter, etc) defaults to False
+            add_season=True,  # adds one-hot season indicator (summer, winter, autumn or spring) defaults to False
         ),
         ...
     }
