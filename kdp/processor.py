@@ -670,7 +670,7 @@ class PreprocessingModel:
         Args:
             feature_name (str): The name of the feature to be preprocessed.
             input_layer: The input layer for the feature.
-            stats (dict): A dictionary containing the metadata of the feature, including
+            stats (dict): A dictionary containing the metadata of the feature.
         """
         # getting feature object
         _feature = self.features_specs[feature_name]
