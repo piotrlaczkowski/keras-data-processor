@@ -34,6 +34,26 @@ model = PreprocessingModel(
 )
 ```
 
+![Standard TabularAttention](imgs/attention_example_standard.png)
+
+### Categorical Tabular Attention
+
+```python
+from kdp.processor import PreprocessingModel, TabularAttentionPlacementOptions
+
+model = PreprocessingModel(
+    # ... other parameters ...
+    tabular_attention=True,
+    tabular_attention_heads=4,
+    tabular_attention_dim=64,
+    tabular_attention_dropout=0.1,
+    tabular_attention_embedding_dim=32,  # Dimension for categorical embeddings
+    tabular_attention_placement=TabularAttentionPlacementOptions.CATEGORICAL.value,
+)
+```
+
+![Categorical TabularAttention](imgs/attention_example_categorical.png)
+
 ### Multi-Resolution TabularAttention
 
 ```python
@@ -49,6 +69,8 @@ model = PreprocessingModel(
     tabular_attention_placement=TabularAttentionPlacementOptions.MULTI_RESOLUTION.value,
 )
 ```
+
+![Multi-Resolution TabularAttention](imgs/attention_example_multi_resolution.png)
 
 ## Configuration Options
 
