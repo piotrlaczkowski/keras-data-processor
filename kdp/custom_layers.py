@@ -870,6 +870,9 @@ class GatedResidualNetwork(tf.keras.layers.Layer):
         Returns:
             tf.Tensor: Output tensor after applying gated residual transformations.
         """
+        # Cast inputs to float32 at the start
+        inputs = tf.cast(inputs, tf.float32)
+
         x = self.elu_dense(inputs)
         x = self.linear_dense(x)
         x = self.dropout(x, training=training)
