@@ -9,10 +9,6 @@
       
       
       
-        <link rel="prev" href="..">
-      
-      
-        <link rel="next" href="../layers_factory/">
       
       
       <link rel="icon" href="../assets/images/favicon.png">
@@ -20,7 +16,7 @@
     
     
       
-        <title>🛠️ Defining Features - KDP - Keras Data Preprocessor</title>
+        <title>📚 Complex Example 🌟 - KDP - Keras Data Preprocessor</title>
       
     
     
@@ -115,7 +111,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#defining-features-for-preprocessing" class="md-skip">
+        <a href="#complex-example" class="md-skip">
           Skip to content
         </a>
       
@@ -155,7 +151,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              🛠️ Defining Features
+              📚 Complex Example 🌟
             
           </span>
         </div>
@@ -315,30 +311,10 @@
       
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    🛠️ Defining Features
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../features/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -347,80 +323,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#numeric-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      💯 Numeric Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#categorical-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      🐈‍⬛ Categorical Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#text-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      📝 Text Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cross-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      ❌ Cross Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#date-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      📆 Date Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#custom-preprocessing-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      🚀 Custom Preprocessing Steps
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -565,68 +467,6 @@
     
   
   
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#numeric-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      💯 Numeric Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#categorical-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      🐈‍⬛ Categorical Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#text-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      📝 Text Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cross-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      ❌ Cross Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#date-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      📆 Date Features
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#custom-preprocessing-steps" class="md-nav__link">
-    <span class="md-ellipsis">
-      🚀 Custom Preprocessing Steps
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
 </nav>
                   </div>
                 </div>
@@ -643,244 +483,142 @@
   
 
 
-<h1 id="defining-features-for-preprocessing">Defining Features for Preprocessing 🌟</h1>
-<p>Customize the preprocessing pipeline by setting up a dictionary that maps feature names to their respective types, tailored to your specific requirements.</p>
-<h2 id="numeric-features">💯 Numeric Features</h2>
-<p>Explore various methods to define numerical features tailored to your needs:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">ℹ️ Simple Declaration</label><label for="__tabbed_1_2">🔧 Using FeatureType</label><label for="__tabbed_1_3">💪 Custom NumericalFeature</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="s2">&quot;float&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="s2">&quot;FLOAT&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;feat3&quot;</span><span class="p">:</span> <span class="s2">&quot;FLOAT_NORMALIZED&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;feat3&quot;</span><span class="p">:</span> <span class="s2">&quot;FLOAT_RESCALED&quot;</span><span class="p">,</span>
-    <span class="o">...</span>
-<span class="p">}</span>
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<p>Utilize predefined preprocessing configurations with <code>FeatureType</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureType</span>
+<h1 id="complex-example">📚 Complex Example 🌟</h1>
+<p>This example shows how to create a compound model with both transformer blocks and attention mechanisms.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tensorflow</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tf</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NumericalFeature</span><span class="p">,</span>
+    <span class="n">CategoricalFeature</span><span class="p">,</span>
+    <span class="n">TextFeature</span><span class="p">,</span>
+    <span class="n">DateFeature</span><span class="p">,</span>
+    <span class="n">FeatureType</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kdp.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreprocessingModel</span><span class="p">,</span> <span class="n">OutputModeOptions</span>
 
-<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_NORMALIZED</span><span class="p">,</span>
-    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_RESCALED</span><span class="p">,</span>
-    <span class="o">...</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>Available <code>FeatureType</code> options:</p>
-<ul>
-<li>FLOAT</li>
-<li>FLOAT_NORMALIZED</li>
-<li>FLOAT_RESCALED</li>
-<li>FLOAT_DISCRETIZED</li>
-</ul>
-</div>
-<div class="tabbed-block">
-<p>Customize preprocessing by passing specific parameters to <code>NumericalFeature</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">NumericalFeature</span>
-
-<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat3&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
-        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat3&quot;</span><span class="p">,</span>
-        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_DISCRETIZED</span><span class="p">,</span>
-        <span class="n">bin_boundaries</span><span class="o">=</span><span class="p">[(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">)],</span>
+<span class="c1"># Define features</span>
+<span class="n">features</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># Numerical features</span>
+    <span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;price&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_NORMALIZED</span>
     <span class="p">),</span>
-    <span class="s2">&quot;feat4&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
-        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat4&quot;</span><span class="p">,</span>
-        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+    <span class="s2">&quot;quantity&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;quantity&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_RESCALED</span>
     <span class="p">),</span>
-    <span class="o">...</span>
-<span class="p">}</span>
-</code></pre></div>
-</div>
-</div>
-</div>
-<p>Here's how the numeric preprocessing pipeline looks:</p>
-<p><img alt="Numeric Feature Pipeline" src="../imgs/num_feature_pipeline.png" /></p>
-<h2 id="categorical-features">🐈‍⬛ Categorical Features</h2>
-<p>Define categorical features flexibly:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:3"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><input id="__tabbed_2_3" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">ℹ️ Simple Declaration</label><label for="__tabbed_2_2">🔧 Using FeatureType</label><label for="__tabbed_2_3">💪 Custom CategoricalFeature</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="s2">&quot;INTEGER_CATEGORICAL&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="s2">&quot;STRING_CATEGORICAL&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;feat3&quot;</span><span class="p">:</span> <span class="s2">&quot;string_categorical&quot;</span><span class="p">,</span>
-    <span class="o">...</span>
-<span class="p">}</span>
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<p>Leverage default configurations with <code>FeatureType</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureType</span>
 
-<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">INTEGER_CATEGORICAL</span><span class="p">,</span>
-    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">STRING_CATEGORICAL</span><span class="p">,</span>
-    <span class="o">...</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>Available <code>FeatureType</code> options:</p>
-<ul>
-<li>STRING_CATEGORICAL</li>
-<li>INTEGER_CATEGORICAL</li>
-</ul>
-</div>
-<div class="tabbed-block">
-<p>Tailor feature processing by specifying properties in <code>CategoricalFeature</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">CategoricalFeature</span>
-
-<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">CategoricalFeature</span><span class="p">(</span>
-        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat7&quot;</span><span class="p">,</span>
-        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">INTEGER_CATEGORICAL</span><span class="p">,</span>
-        <span class="n">embedding_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-    <span class="p">),</span>
-    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">CategoricalFeature</span><span class="p">(</span>
-        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat2&quot;</span><span class="p">,</span>
+    <span class="c1"># Categorical features</span>
+    <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="n">CategoricalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;category&quot;</span><span class="p">,</span>
         <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">STRING_CATEGORICAL</span><span class="p">,</span>
+        <span class="n">embedding_size</span><span class="o">=</span><span class="mi">32</span>
     <span class="p">),</span>
-    <span class="o">...</span>
-<span class="p">}</span>
-</code></pre></div>
-</div>
-</div>
-</div>
-<p>See how the categorical preprocessing pipeline appears:</p>
-<p><img alt="Categorical Feature Pipeline" src="../imgs/cat_feature_pipeline.png" /></p>
-<h2 id="text-features">📝 Text Features</h2>
-<p>Customize text features in multiple ways to fit your project's demands:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:3"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio" /><input id="__tabbed_3_2" name="__tabbed_3" type="radio" /><input id="__tabbed_3_3" name="__tabbed_3" type="radio" /><div class="tabbed-labels"><label for="__tabbed_3_1">ℹ️ Simple Declaration</label><label for="__tabbed_3_2">🔧 Using FeatureType</label><label for="__tabbed_3_3">💪 Custom TextFeature</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="highlight"><pre><span></span><code><span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="s2">&quot;text&quot;</span><span class="p">,</span>
-    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="s2">&quot;TEXT&quot;</span><span class="p">,</span>
-    <span class="o">...</span>
-<span class="p">}</span>
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<p>Use <code>FeatureType</code> for automatic default preprocessing setups.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">FeatureType</span>
+    <span class="s2">&quot;brand&quot;</span><span class="p">:</span> <span class="n">CategoricalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;brand&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">STRING_CATEGORICAL</span><span class="p">,</span>
+        <span class="n">embedding_size</span><span class="o">=</span><span class="mi">16</span>
+    <span class="p">),</span>
 
-<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
-    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
-    <span class="o">...</span>
-<span class="p">}</span>
-</code></pre></div>
-<p>Available <code>FeatureType</code> options:</p>
-<ul>
-<li>TEXT</li>
-</ul>
-</div>
-<div class="tabbed-block">
-<p>Customize text preprocessing by passing specific arguments to <code>TextFeature</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">TextFeature</span>
-
-<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">TextFeature</span><span class="p">(</span>
-        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat2&quot;</span><span class="p">,</span>
+    <span class="c1"># Text features</span>
+    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="n">TextFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;description&quot;</span><span class="p">,</span>
         <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
-        <span class="n">max_tokens</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-        <span class="n">stop_words</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;stop&quot;</span><span class="p">,</span> <span class="s2">&quot;next&quot;</span><span class="p">],</span>
+        <span class="n">max_tokens</span><span class="o">=</span><span class="mi">100</span>
     <span class="p">),</span>
-    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">TextFeature</span><span class="p">(</span>
-        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat2&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="n">TextFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;title&quot;</span><span class="p">,</span>
         <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">TEXT</span><span class="p">,</span>
+        <span class="n">max_tokens</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="c1"># max number of tokens to keep</span>
     <span class="p">),</span>
-    <span class="o">...</span>
-<span class="p">}</span>
-</code></pre></div>
-</div>
-</div>
-</div>
-<p>Here's how the text feature preprocessing pipeline looks:</p>
-<p><img alt="Text Feature Pipeline" src="../imgs/text_feature_pipeline.png" /></p>
-<h2 id="cross-features">❌ Cross Features</h2>
-<p>To implement cross features, specify a list of feature tuples in the <code>PreprocessingModel</code> like so:</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreprocessingModel</span>
 
-<span class="n">ppr</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span>
-    <span class="n">path_data</span><span class="o">=</span><span class="s2">&quot;data/data.csv&quot;</span><span class="p">,</span>
-    <span class="n">features_specs</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;feat6&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">STRING_CATEGORICAL</span><span class="p">,</span>
-        <span class="s2">&quot;feat7&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">INTEGER_CATEGORICAL</span><span class="p">,</span>
-    <span class="p">},</span>
-    <span class="n">feature_crosses</span><span class="o">=</span><span class="p">[(</span><span class="s2">&quot;feat6&quot;</span><span class="p">,</span> <span class="s2">&quot;feat7&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)],</span>
-<span class="p">)</span>
-</code></pre></div>
-<p>Example cross feature between INTEGER_CATEGORICAL and STRING_CATEGORICAL:</p>
-<p><img alt="Cross Features Pipeline" src="../imgs/cross_features.png" /></p>
-<h2 id="date-features">📆 Date Features</h2>
-<p>You can even process string encoded date features (format: 'YYYY-MM-DD' or 'YYYY/MM/DD'):</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio" /><input id="__tabbed_4_2" name="__tabbed_4" type="radio" /><div class="tabbed-labels"><label for="__tabbed_4_1">🔧 Using FeatureType</label><label for="__tabbed_4_2">💪 Custom DateFeature</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<p>Use <code>FeatureType</code> for automatic default preprocessing setups.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreprocessingModel</span>
-
-<span class="n">ppr</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span>
-    <span class="n">path_data</span><span class="o">=</span><span class="s2">&quot;data/data.csv&quot;</span><span class="p">,</span>
-    <span class="n">features_specs</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
-        <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">DATE</span><span class="p">,</span>
-    <span class="p">},</span>
-<span class="p">)</span>
-</code></pre></div>
-</div>
-<div class="tabbed-block">
-<p>Customize text preprocessing by passing specific arguments to <code>TextFeature</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">DateFeature</span>
-
-<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">DateFeature</span><span class="p">(</span>
-        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat1&quot;</span><span class="p">,</span>
+    <span class="c1"># Date features</span>
+    <span class="s2">&quot;sale_date&quot;</span><span class="p">:</span> <span class="n">DateFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;sale_date&quot;</span><span class="p">,</span>
         <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">DATE</span><span class="p">,</span>
-    <span class="p">),</span>
-    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">DateFeature</span><span class="p">(</span>
-        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feat2&quot;</span><span class="p">,</span>
-        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">DATE</span><span class="p">,</span>
-        <span class="n">date_format</span><span class="o">=</span><span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">,</span> <span class="c1"># date format of the input data</span>
-        <span class="n">output_format</span><span class="o">=</span><span class="s2">&quot;year&quot;</span><span class="p">,</span> <span class="c1"># output format of the feature</span>
-        <span class="c1"># additional option to add season layer:</span>
-        <span class="n">add_season</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># adds one-hot season indicator (summer, winter, autumn or spring) defaults to False</span>
-    <span class="p">),</span>
-    <span class="o">...</span>
-<span class="p">}</span>
-</code></pre></div>
-</div>
-</div>
-</div>
-<p>Example date and numeric processing pipeline:</p>
-<p><img alt="Date Features Pipeline" src="../imgs/date_features.png" /></p>
-<h2 id="custom-preprocessing-steps">🚀 Custom Preprocessing Steps</h2>
-<p>If you require even more customization, you can define custom preprocessing steps using the <code>Feature</code> class, using <code>preprocessors</code> attribute.</p>
-<p>The <code>preprocessors</code> attribute accepts a list of methods defined in <code>PreprocessorLayerFactory</code>.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">Feature</span>
-
-<span class="n">features_specs</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">&quot;feat1&quot;</span><span class="p">:</span> <span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_NORMALIZED</span><span class="p">,</span>
-    <span class="s2">&quot;feat2&quot;</span><span class="p">:</span> <span class="n">Feature</span><span class="p">(</span>
-        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;custom_feature_pipeline&quot;</span><span class="p">,</span>
-        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_NORMALIZED</span><span class="p">,</span>
-        <span class="n">preprocessors</span><span class="o">=</span><span class="p">[</span>
-            <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Rescaling</span><span class="p">,</span>
-            <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Normalization</span><span class="p">,</span>
-
-        <span class="p">],</span>
-        <span class="c1"># leyers required kwargs</span>
-        <span class="n">scale</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">add_season</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># adds one-hot season indicator (summer, winter, etc) defaults to False</span>
     <span class="p">)</span>
 <span class="p">}</span>
+
+<span class="c1"># Create sample data</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">10.5</span><span class="p">,</span> <span class="mf">20.0</span><span class="p">,</span> <span class="mf">15.75</span><span class="p">,</span> <span class="mf">30.25</span><span class="p">,</span> <span class="mf">25.50</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="s2">&quot;quantity&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">12</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="s2">&quot;category&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;electronics&quot;</span><span class="p">,</span> <span class="s2">&quot;books&quot;</span><span class="p">,</span> <span class="s2">&quot;clothing&quot;</span><span class="p">,</span> <span class="s2">&quot;food&quot;</span><span class="p">,</span> <span class="s2">&quot;toys&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="s2">&quot;brand&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;brandA&quot;</span><span class="p">,</span> <span class="s2">&quot;brandB&quot;</span><span class="p">,</span> <span class="s2">&quot;brandC&quot;</span><span class="p">,</span> <span class="s2">&quot;brandD&quot;</span><span class="p">,</span> <span class="s2">&quot;brandE&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;High quality product with great features&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Must-read book for enthusiasts&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Comfortable and stylish clothing&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Fresh and organic produce&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Educational toy for children&quot;</span>
+    <span class="p">]</span> <span class="o">*</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="s2">&quot;title&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;Premium Device&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Best Seller Book&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Fashion Item&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Organic Food&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;Kids Toy&quot;</span>
+    <span class="p">]</span> <span class="o">*</span> <span class="mi">20</span><span class="p">,</span>
+    <span class="s2">&quot;sale_date&quot;</span><span class="p">:</span> <span class="p">[</span>
+        <span class="s2">&quot;2023-01-15&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;2023-02-20&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;2023-03-25&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;2023-04-30&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;2023-05-05&quot;</span>
+    <span class="p">]</span> <span class="o">*</span> <span class="mi">20</span>
+<span class="p">})</span>
+
+<span class="c1"># Save to CSV</span>
+<span class="n">df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;sample_data.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+<span class="c1"># Create preprocessor with both transformer blocks and attention</span>
+<span class="n">ppr</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span>
+    <span class="n">path_data</span><span class="o">=</span><span class="s2">&quot;sample_data.csv&quot;</span><span class="p">,</span>
+    <span class="n">features_specs</span><span class="o">=</span><span class="n">features</span><span class="p">,</span>
+    <span class="n">output_mode</span><span class="o">=</span><span class="n">OutputModeOptions</span><span class="o">.</span><span class="n">CONCAT</span><span class="p">,</span>
+
+    <span class="c1"># Transformer block configuration</span>
+    <span class="n">transfo_placement</span><span class="o">=</span><span class="s2">&quot;all_features&quot;</span><span class="p">,</span>  <span class="c1"># Choose between (categorical|all_features)</span>
+    <span class="n">transfo_nr_blocks</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>              <span class="c1"># Number of transformer blocks</span>
+    <span class="n">transfo_nr_heads</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>               <span class="c1"># Number of attention heads in transformer</span>
+    <span class="n">transfo_ff_units</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>              <span class="c1"># Feed-forward units in transformer</span>
+    <span class="n">transfo_dropout_rate</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>         <span class="c1"># Dropout rate for transformer</span>
+
+    <span class="c1"># Tabular attention configuration</span>
+    <span class="n">tabular_attention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">tabular_attention_placement</span><span class="o">=</span><span class="s2">&quot;all_features&quot;</span><span class="p">,</span>  <span class="c1"># Choose between (none|numeric|categorical|all_features| multi_resolution)</span>
+    <span class="n">tabular_attention_heads</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>                   <span class="c1"># Number of attention heads</span>
+    <span class="n">tabular_attention_dim</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>                    <span class="c1"># Attention dimension</span>
+    <span class="n">tabular_attention_dropout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>               <span class="c1"># Attention dropout rate</span>
+    <span class="n">tabular_attention_embedding_dim</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>          <span class="c1"># Embedding dimension</span>
+
+    <span class="c1"># Other parameters</span>
+    <span class="n">overwrite_stats</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>             <span class="c1"># Force stats generation, recommended to be set to True</span>
+<span class="p">)</span>
+
+<span class="c1"># Build the preprocessor</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">ppr</span><span class="o">.</span><span class="n">build_preprocessor</span><span class="p">()</span>
 </code></pre></div>
-<p>Here's how the text feature preprocessing pipeline looks:</p>
-<p><img alt="Text Feature Pipeline" src="../imgs/custom_feature_pipeline.png" /></p>
-<p>The full list of available layers can be found: <a href="../layers_factory/">Preprocessing Layers Factory</a></p>
+<p>Now if one wants to plot, use the Neural Network for predictions or just get the statistics, use the following:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Plot the model architecture</span>
+<span class="n">ppr</span><span class="o">.</span><span class="n">plot_model</span><span class="p">(</span><span class="s2">&quot;complex_model.png&quot;</span><span class="p">)</span>
+
+<span class="c1"># Get predictions with an example test batch from the example data</span>
+<span class="n">test_batch</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">Dataset</span><span class="o">.</span><span class="n">from_tensor_slices</span><span class="p">(</span><span class="nb">dict</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">)))</span><span class="o">.</span><span class="n">batch</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">predictions</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;model&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">test_batch</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Output shape:&quot;</span><span class="p">,</span> <span class="n">predictions</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+
+<span class="c1"># Print feature statistics</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">Feature Statistics:&quot;</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">feature_type</span><span class="p">,</span> <span class="n">features</span> <span class="ow">in</span> <span class="n">ppr</span><span class="o">.</span><span class="n">get_feature_statistics</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">features</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="si">{</span><span class="n">feature_type</span><span class="si">}</span><span class="s2">:&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">feature_name</span><span class="p">,</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">features</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">feature_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">stats</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>Here is the plot of the model:
+<img alt="Complex Model" src="../imgs/complex_model.png" /></p>
 
 
 

@@ -496,6 +496,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#categorical-tabular-attention" class="md-nav__link">
+    <span class="md-ellipsis">
+      Categorical Tabular Attention
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#multi-resolution-tabularattention" class="md-nav__link">
     <span class="md-ellipsis">
       Multi-Resolution TabularAttention
@@ -804,6 +813,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#categorical-tabular-attention" class="md-nav__link">
+    <span class="md-ellipsis">
+      Categorical Tabular Attention
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#multi-resolution-tabularattention" class="md-nav__link">
     <span class="md-ellipsis">
       Multi-Resolution TabularAttention
@@ -1030,6 +1048,21 @@
     <span class="n">tabular_attention_placement</span><span class="o">=</span><span class="n">TabularAttentionPlacementOptions</span><span class="o">.</span><span class="n">ALL_FEATURES</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
 <span class="p">)</span>
 </code></pre></div>
+<p><img alt="Standard TabularAttention" src="../imgs/attention_example_standard.png" /></p>
+<h3 id="categorical-tabular-attention">Categorical Tabular Attention</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreprocessingModel</span><span class="p">,</span> <span class="n">TabularAttentionPlacementOptions</span>
+
+<span class="n">model</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span>
+    <span class="c1"># ... other parameters ...</span>
+    <span class="n">tabular_attention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">tabular_attention_heads</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">tabular_attention_dim</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+    <span class="n">tabular_attention_dropout</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>
+    <span class="n">tabular_attention_embedding_dim</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span>  <span class="c1"># Dimension for categorical embeddings</span>
+    <span class="n">tabular_attention_placement</span><span class="o">=</span><span class="n">TabularAttentionPlacementOptions</span><span class="o">.</span><span class="n">CATEGORICAL</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<p><img alt="Categorical TabularAttention" src="../imgs/attention_example_categorical.png" /></p>
 <h3 id="multi-resolution-tabularattention">Multi-Resolution TabularAttention</h3>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreprocessingModel</span><span class="p">,</span> <span class="n">TabularAttentionPlacementOptions</span>
 
@@ -1043,6 +1076,7 @@
     <span class="n">tabular_attention_placement</span><span class="o">=</span><span class="n">TabularAttentionPlacementOptions</span><span class="o">.</span><span class="n">MULTI_RESOLUTION</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
 <span class="p">)</span>
 </code></pre></div>
+<p><img alt="Multi-Resolution TabularAttention" src="../imgs/attention_example_multi_resolution.png" /></p>
 <h2 id="configuration-options">Configuration Options</h2>
 <h3 id="common-options">Common Options</h3>
 <ul>
