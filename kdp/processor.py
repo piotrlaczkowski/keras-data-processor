@@ -718,7 +718,7 @@ class PreprocessingModel:
         Args:
             feature_name (str): The name of the feature to be preprocessed.
             input_layer: The input layer for the feature.
-            stats (dict): A dictionary containing the metadata of the feature, including
+            stats (dict): A dictionary containing the metadata of the feature.
         """
         # getting feature object
         _feature = self.features_specs[feature_name]
@@ -928,45 +928,6 @@ class PreprocessingModel:
             else:
                 raise ValueError("No features available for concatenation")
 
-            # Add transformer blocks if specified
-            if self.transfo_nr_blocks:
-                if self.transfo_placement == TransformerBlockPlacementOptions.CATEGORICAL and concat_cat is not None:
-                    logger.info(f"Adding transformer blocks to categorical features: #{self.transfo_nr_blocks}")
-                    transformed = concat_cat
-                    for block_idx in range(self.transfo_nr_blocks):
-                        transformed = PreprocessorLayerFactory.transformer_block_layer(
-                            dim_model=transformed.shape[-1],
-                            num_heads=self.transfo_nr_heads,
-                            ff_units=self.transfo_ff_units,
-                            dropout_rate=self.transfo_dropout_rate,
-                            name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
-                        )(transformed)
-                    # Reshape transformer output to remove the extra dimension
-                    transformed = tf.keras.layers.Reshape(
-                        target_shape=(-1,),  # Flatten to match numeric shape
-                        name="reshape_transformer_output",
-                    )(transformed)
-
-                    # Recombine with numeric features if they exist
-                    if concat_num is not None:
-                        self.concat_all = tf.keras.layers.Concatenate(
-                            name="ConcatenateTransformed",
-                            axis=-1,
-                        )([concat_num, transformed])
-                    else:
-                        self.concat_all = transformed
-
-                elif self.transfo_placement == TransformerBlockPlacementOptions.ALL_FEATURES:
-                    logger.info(f"Adding transformer blocks to all features: #{self.transfo_nr_blocks}")
-                    for block_idx in range(self.transfo_nr_blocks):
-                        self.concat_all = PreprocessorLayerFactory.transformer_block_layer(
-                            dim_model=self.concat_all.shape[-1],
-                            num_heads=self.transfo_nr_heads,
-                            ff_units=self.transfo_ff_units,
-                            dropout_rate=self.transfo_dropout_rate,
-                            name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
-                        )(self.concat_all)
-
             # Add tabular attention if specified
             if self.tabular_attention:
                 if self.tabular_attention_placement == TabularAttentionPlacementOptions.MULTI_RESOLUTION:
@@ -1094,6 +1055,45 @@ class PreprocessingModel:
                             )([concat_num, concat_cat])
                         else:
                             self.concat_all = concat_cat
+
+            # Add transformer blocks if specified
+            if self.transfo_nr_blocks:
+                if self.transfo_placement == TransformerBlockPlacementOptions.CATEGORICAL and concat_cat is not None:
+                    logger.info(f"Adding transformer blocks to categorical features: #{self.transfo_nr_blocks}")
+                    transformed = concat_cat
+                    for block_idx in range(self.transfo_nr_blocks):
+                        transformed = PreprocessorLayerFactory.transformer_block_layer(
+                            dim_model=transformed.shape[-1],
+                            num_heads=self.transfo_nr_heads,
+                            ff_units=self.transfo_ff_units,
+                            dropout_rate=self.transfo_dropout_rate,
+                            name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
+                        )(transformed)
+                    # Reshape transformer output to remove the extra dimension
+                    transformed = tf.keras.layers.Reshape(
+                        target_shape=(-1,),  # Flatten to match numeric shape
+                        name="reshape_transformer_output",
+                    )(transformed)
+
+                    # Recombine with numeric features if they exist
+                    if concat_num is not None:
+                        self.concat_all = tf.keras.layers.Concatenate(
+                            name="ConcatenateTransformed",
+                            axis=-1,
+                        )([concat_num, transformed])
+                    else:
+                        self.concat_all = transformed
+
+                elif self.transfo_placement == TransformerBlockPlacementOptions.ALL_FEATURES:
+                    logger.info(f"Adding transformer blocks to all features: #{self.transfo_nr_blocks}")
+                    for block_idx in range(self.transfo_nr_blocks):
+                        self.concat_all = PreprocessorLayerFactory.transformer_block_layer(
+                            dim_model=self.concat_all.shape[-1],
+                            num_heads=self.transfo_nr_heads,
+                            ff_units=self.transfo_ff_units,
+                            dropout_rate=self.transfo_dropout_rate,
+                            name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
+                        )(self.concat_all)
 
             logger.info("Concatenating outputs mode enabled")
         else:
