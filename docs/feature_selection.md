@@ -120,22 +120,32 @@ from kdp.features import NumericalFeature, CategoricalFeature
 
 # Define features
 features = {
-    "numeric_1": NumericalFeature("numeric_1"),
-    "numeric_2": NumericalFeature("numeric_2"),
-    "category_1": CategoricalFeature("category_1"),
+    "numeric_1": NumericalFeature(
+        name="numeric_1",
+        feature_type=FeatureType.FLOAT_NORMALIZED
+    ),
+    "numeric_2": NumericalFeature(
+        name="numeric_2",
+        feature_type=FeatureType.FLOAT_NORMALIZED
+    ),
+    "category_1": CategoricalFeature(
+        name="category_1",
+        feature_type=FeatureType.STRING_CATEGORICAL
+    )
 }
 
 # Create model with feature selection
 model = PreprocessingModel(
+    # ... other parameters ...
     features_specs=features,
-    feature_selection_placement="all_features",
+    feature_selection_placement="all_features", # or "numeric" or "categorical"
     feature_selection_units=64,
     feature_selection_dropout=0.2
 )
 
 # Build and use the model
 preprocessor = model.build_preprocessor()
-processed_data = model.transform(data)
+processed_data = model.transform(data) # data can be pd.DataFrame, python Dict, or tf.data.Dataset
 
 # Analyze feature importance
 for feature_name in features:

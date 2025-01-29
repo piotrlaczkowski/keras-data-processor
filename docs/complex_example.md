@@ -87,12 +87,15 @@ df = pd.DataFrame({
     ] * 20
 })
 
-# Save to CSV
+# Format data
 df.to_csv("sample_data.csv", index=False)
+test_batch = tf.data.Dataset.from_tensor_slices(dict(df.head(3))).batch(3)
 
 # Create preprocessor with both transformer blocks and attention
 ppr = PreprocessingModel(
     path_data="sample_data.csv",
+    features_stats_path="features_stats.json",
+    overwrite_stats=True,             # Force stats generation, recommended to be set to True
     features_specs=features,
     output_mode=OutputModeOptions.CONCAT,
 
@@ -111,32 +114,31 @@ ppr = PreprocessingModel(
     tabular_attention_dropout=0.1,               # Attention dropout rate
     tabular_attention_embedding_dim=16,          # Embedding dimension
 
-    # Other parameters
-    overwrite_stats=True,             # Force stats generation, recommended to be set to True
+    # Feature selection configuration
+    feature_selection_placement="all_features", # Choose between (all_features|numeric|categorical)
+    feature_selection_units=32,
+    feature_selection_dropout=0.15,
 )
 
 # Build the preprocessor
 result = ppr.build_preprocessor()
 ```
 
-Now if one wants to plot, use the Neural Network for predictions or just get the statistics, use the following:
+Now if one wants to plot the a block diagram of the model or get the outout of the NN or get the importance weights of the features, use the following:
 
 ```python
 # Plot the model architecture
 ppr.plot_model("complex_model.png")
 
 # Get predictions with an example test batch from the example data
-test_batch = tf.data.Dataset.from_tensor_slices(dict(df.head(3))).batch(3)
-predictions = result["model"].predict(test_batch)
-print("Output shape:", predictions.shape)
+processed_data = ppr.transform(test_batch)  # this returns a dict with "transformed_data" and "feature_weights"
+print("Output shape:", processed_data["transformed_data"].shape)
 
-# Print feature statistics
-print("\nFeature Statistics:")
-for feature_type, features in ppr.get_feature_statistics().items():
-    if isinstance(features, dict):
-        print(f"\n{feature_type}:")
-        for feature_name, stats in features.items():
-            print(f"  {feature_name}: {list(stats.keys())}")
+# Analyze feature importance if feature selection is enabled
+if "feature_weights" in processed_data:
+    for feature_name in features:
+        weights = processed_data[f"{feature_name}_weights"]
+        print(f"Feature {feature_name} importance: {weights.mean()}")
 ```
 
 
