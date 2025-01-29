@@ -8,6 +8,7 @@ from enum import Enum
 from functools import wraps
 from typing import Any
 
+import numpy as np
 import pandas as pd
 import tensorflow as tf
 from loguru import logger
@@ -1437,42 +1438,37 @@ class PreprocessingModel:
             "output_mode": self.output_mode,
         }
 
-    def transform(self, data: tf.data.Dataset | pd.DataFrame | dict) -> dict[str, Any]:
-        """Transform input data using the built preprocessor model.
+    def _convert_to_dataset(self, data: tf.data.Dataset | pd.DataFrame | dict) -> tf.data.Dataset:
+        """Convert input data to TensorFlow dataset.
 
         Args:
-            data: Input data to transform. Can be a DataFrame, Dataset, or dict.
+            data: Input data to convert. Can be a DataFrame, Dataset, or dict.
 
         Returns:
-            dict[str, Any]: Dictionary containing:
-                - transformed_data: The transformed data output
-                - {feature_name}_weights: Weight for each feature from feature selection
+            tf.data.Dataset: The converted dataset.
 
         Raises:
-            ValueError: If preprocessor hasn't been built yet.
+            ValueError: If input data is not a supported type.
         """
-        # Convert input data to TensorFlow dataset if needed
         if isinstance(data, pd.DataFrame):
-            dataset = tf.data.Dataset.from_tensor_slices(dict(data)).batch(32)
+            return tf.data.Dataset.from_tensor_slices(dict(data)).batch(32)
         elif isinstance(data, dict):
-            dataset = tf.data.Dataset.from_tensor_slices(data).batch(32)
+            return tf.data.Dataset.from_tensor_slices(data).batch(32)
         elif isinstance(data, tf.data.Dataset):
-            dataset = data
+            return data
         else:
             raise ValueError("Input data must be a DataFrame, dict, or TensorFlow Dataset")
 
-        # Transform the data using the model
-        transformed = self.model.predict(dataset)
+    def _extract_feature_weights(self) -> dict[str, np.ndarray]:
+        """Extract feature importance weights from feature selection layers.
 
-        # Initialize return dictionary with transformed data
-        result = {"transformed_data": transformed}
-
-        # Get feature importance from the feature selection layer if it exists
+        Returns:
+            dict[str, np.ndarray]: Dictionary mapping feature names to their importance weights.
+        """
+        weights = {}
         for layer in self.model.layers:
             if "feature_selection" in layer.name:
-                weights = layer.get_weights()
+                layer_weights = layer.get_weights()
                 for i, feature_name in enumerate(self.features_specs.keys()):
-                    # Add weights for each feature with the expected key format
-                    result[f"{feature_name}_weights"] = weights[0][:, i]
-
-        return result
+                    weights[f"{feature_name}_weights"] = layer_weights[0][:, i]
+        return weights
