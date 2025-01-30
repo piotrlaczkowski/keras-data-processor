@@ -1459,16 +1459,23 @@ class PreprocessingModel:
         else:
             raise ValueError("Input data must be a DataFrame, dict, or TensorFlow Dataset")
 
-    def _extract_feature_weights(self) -> dict[str, np.ndarray]:
-        """Extract feature importance weights from feature selection layers.
+    def get_feature_importances(self) -> dict[str, float]:
+        """Get feature importance scores from feature selection layers.
 
         Returns:
-            dict[str, np.ndarray]: Dictionary mapping feature names to their importance weights.
+            dict[str, float]: Dictionary mapping feature names to their importance scores,
+                             where scores are averaged across all dimensions.
         """
-        weights = {}
+        feature_importances = {}
+
         for layer in self.model.layers:
             if "feature_selection" in layer.name:
                 layer_weights = layer.get_weights()
                 for i, feature_name in enumerate(self.features_specs.keys()):
-                    weights[f"{feature_name}_weights"] = layer_weights[0][:, i]
-        return weights
+                    weights = layer_weights[0][:, i]
+                    feature_importances[feature_name] = float(np.mean(weights))
+
+        if not feature_importances:
+            logger.warning("No feature selection layers found in the model")
+
+        return feature_importances

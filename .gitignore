@@ -166,6 +166,4 @@ kdp/data/fake_data.csv
 my_tests/*
 
 # derivative files
-data.csv
-sample_data.csv
-stats.json
+*.csv

@@ -130,15 +130,16 @@ Now if one wants to plot the a block diagram of the model or get the outout of t
 # Plot the model architecture
 ppr.plot_model("complex_model.png")
 
-# Get predictions with an example test batch from the example data
-processed_data = ppr.transform(test_batch)  # this returns a dict with "transformed_data" and "feature_weights"
-print("Output shape:", processed_data["transformed_data"].shape)
+# Transform data using direct model prediction
+transformed_data = ppr.model.predict(test_batch)
 
-# Analyze feature importance if feature selection is enabled
-if "feature_weights" in processed_data:
-    for feature_name in features:
-        weights = processed_data[f"{feature_name}_weights"]
-        print(f"Feature {feature_name} importance: {weights.mean()}")
+# Transform data using batch_predict
+transformed_data = ppr.batch_predict(test_batch)
+transformed_batches = list(transformed_data)  # For better visualization
+
+# Get feature importances
+feature_importances = ppr.get_feature_importances()
+print("Feature importances:", feature_importances)
 ```
 
 
