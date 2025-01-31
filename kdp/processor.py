@@ -8,6 +8,7 @@ from enum import Enum
 from functools import wraps
 from typing import Any
 
+import numpy as np
 import tensorflow as tf
 from loguru import logger
 
@@ -55,6 +56,15 @@ class TabularAttentionPlacementOptions(str, Enum):
     CATEGORICAL = "categorical"
     ALL_FEATURES = "all_features"
     MULTI_RESOLUTION = "multi_resolution"
+
+
+class FeatureSelectionPlacementOptions(str, Enum):
+    """Placement options for feature selection."""
+
+    NONE = "none"
+    NUMERIC = "numeric"
+    CATEGORICAL = "categorical"
+    ALL_FEATURES = "all_features"
 
 
 class FeatureSpaceConverter:
@@ -152,6 +162,9 @@ class PreprocessingModel:
         tabular_attention_placement: str = TabularAttentionPlacementOptions.ALL_FEATURES.value,
         tabular_attention_embedding_dim: int = 32,
         use_caching: bool = True,
+        feature_selection_placement: str = FeatureSelectionPlacementOptions.NONE.value,
+        feature_selection_units: int = 32,
+        feature_selection_dropout: float = 0.2,
     ) -> None:
         """Initialize a preprocessing model.
 
@@ -180,6 +193,9 @@ class PreprocessingModel:
             tabular_attention_placement (str): Where to apply tabular attention (none|numeric|categorical|all_features).
             tabular_attention_embedding_dim (int): Dimension of the embedding for multi-resolution attention.
             use_caching (bool): Whether to cache preprocessed features (default=True).
+            feature_selection_placement (str): Where to apply feature selection (none|numeric|categorical|all_features).
+            feature_selection_units (int): Number of units for feature selection.
+            feature_selection_dropout (float): Dropout rate for feature selection.
         """
         self.path_data = path_data
         self.batch_size = batch_size or 50_000
@@ -205,6 +221,11 @@ class PreprocessingModel:
         self.tabular_attention_dropout = tabular_attention_dropout
         self.tabular_attention_placement = tabular_attention_placement
         self.tabular_attention_embedding_dim = tabular_attention_embedding_dim
+
+        # feature selection control
+        self.feature_selection_placement = feature_selection_placement
+        self.feature_selection_units = feature_selection_units
+        self.feature_selection_dropout = feature_selection_dropout
 
         # PLACEHOLDERS
         self.preprocessors = {}
@@ -577,7 +598,20 @@ class PreprocessingModel:
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
 
-        # Store processed feature
+        # Apply feature selection if enabled for numeric features
+        if (
+            self.feature_selection_placement == FeatureSelectionPlacementOptions.NUMERIC
+            or self.feature_selection_placement == FeatureSelectionPlacementOptions.ALL_FEATURES
+        ):
+            feature_selector = PreprocessorLayerFactory.variable_selection_layer(
+                name=f"{feature_name}_feature_selection",
+                nr_features=1,  # Single feature for now
+                units=self.feature_selection_units,
+                dropout_rate=self.feature_selection_dropout,
+            )
+            _output_pipeline, feature_weights = feature_selector([_output_pipeline])
+            self.processed_features[f"{feature_name}_weights"] = feature_weights
+
         self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
@@ -661,6 +695,21 @@ class PreprocessingModel:
 
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
+
+        # Apply feature selection if enabled for categorical features
+        if (
+            self.feature_selection_placement == FeatureSelectionPlacementOptions.CATEGORICAL
+            or self.feature_selection_placement == FeatureSelectionPlacementOptions.ALL_FEATURES
+        ):
+            feature_selector = PreprocessorLayerFactory.variable_selection_layer(
+                name=f"{feature_name}_feature_selection",
+                nr_features=1,  # Single feature for now
+                units=self.feature_selection_units,
+                dropout_rate=self.feature_selection_dropout,
+            )
+            _output_pipeline, feature_weights = feature_selector([_output_pipeline])
+            self.processed_features[f"{feature_name}_weights"] = feature_weights
+
         self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
@@ -1387,3 +1436,24 @@ class PreprocessingModel:
             "feature_crosses": self.feature_crosses,
             "output_mode": self.output_mode,
         }
+
+    def get_feature_importances(self) -> dict[str, float]:
+        """Get feature importance scores from feature selection layers.
+
+        Returns:
+            dict[str, float]: Dictionary mapping feature names to their importance scores,
+                             where scores are averaged across all dimensions.
+        """
+        feature_importances = {}
+
+        for layer in self.model.layers:
+            if "feature_selection" in layer.name:
+                layer_weights = layer.get_weights()
+                for i, feature_name in enumerate(self.features_specs.keys()):
+                    weights = layer_weights[0][:, i]
+                    feature_importances[feature_name] = float(np.mean(weights))
+
+        if not feature_importances:
+            logger.warning("No feature selection layers found in the model")
+
+        return feature_importances

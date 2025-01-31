@@ -2,6 +2,7 @@ import inspect
 
 import tensorflow as tf
 
+from kdp.custom_layers import VariableSelection  # Add VariableSelection to the import list
 from kdp.custom_layers import (
     CastToFloat32Layer,
     DateEncodingLayer,
@@ -197,6 +198,23 @@ class PreprocessorLayerFactory:
             num_heads=num_heads,
             d_model=d_model,
             embedding_dim=embedding_dim,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def variable_selection_layer(name: str = "variable_selection", **kwargs: dict) -> tf.keras.layers.Layer:
+        """Create a VariableSelection layer.
+
+        Args:
+            name: The name of the layer.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the VariableSelection layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=VariableSelection,
             name=name,
             **kwargs,
         )
