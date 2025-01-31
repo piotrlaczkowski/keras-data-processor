@@ -64,7 +64,7 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
         """Helper method to verify feature weight properties.
 
         Args:
-            feature_weights: Dictionary of feature weights
+            feature_weights: Dictionary of feature importances
             features: Dictionary of feature specifications
             placement: Where feature selection is applied ("all_features", "numeric", or "categorical")
         """
@@ -82,23 +82,21 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
                 or (placement == "categorical" and is_categorical)
             )
 
-            weight_key = f"{feature_name}_weights"
-            if weight_key in feature_weights:
-                weights = feature_weights[weight_key]
+            if feature_name in feature_weights:
+                weight = feature_weights[feature_name]
 
-                # Check that weights are finite
-                self.assertTrue(tf.reduce_all(tf.math.is_finite(weights)))
+                # Check that weight is finite
+                self.assertTrue(tf.math.is_finite(weight))
 
-                # Check that weights have reasonable magnitude
-                self.assertAllInRange(weights, -10.0, 10.0)
+                # Check that weight has reasonable magnitude
+                self.assertAllInRange([weight], -10.0, 10.0)
 
-                # Check variance based on whether feature should have weights
-                weights_std = tf.math.reduce_std(weights)
-                if should_have_weights and len(weights) > 1:
-                    # Should have non-zero variance
-                    self.assertGreater(weights_std, 0)
+                # Check if feature should have weights
+                if should_have_weights:
+                    # Should have non-zero weight
+                    self.assertNotEqual(weight, 0)
                 else:
-                    # Might not have weights at all, or might have constant weights
+                    # Might not have weights at all
                     pass
 
     def test_feature_selection_weights(self):
@@ -135,16 +133,16 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             # Build the preprocessor
             result = ppr.build_preprocessor()
 
-            # Get feature weights
-            feature_weights = ppr._extract_feature_weights()
+            # Get feature importances
+            feature_importances = ppr.get_feature_importances()
 
             # Verify weights exist for all features
-            self.assertNotEmpty(feature_weights)
+            self.assertNotEmpty(feature_importances)
             for feature_name in features:
-                self.assertIn(f"{feature_name}_weights", feature_weights)
+                self.assertIn(feature_name, feature_importances)
 
             # Use helper method to verify weights
-            self._verify_feature_weights(feature_weights, features)
+            self._verify_feature_weights(feature_importances, features)
 
     def test_feature_selection_with_tabular_attention(self):
         """Test feature selection combined with tabular attention."""
@@ -178,9 +176,9 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             )
 
             result = ppr.build_preprocessor()
-            feature_weights = ppr._extract_feature_weights()
+            feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_weights, features)
+            self._verify_feature_weights(feature_importances, features)
 
     def test_feature_selection_with_transformer(self):
         """Test feature selection combined with transformer blocks."""
@@ -215,9 +213,9 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             )
 
             result = ppr.build_preprocessor()
-            feature_weights = ppr._extract_feature_weights()
+            feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_weights, features)
+            self._verify_feature_weights(feature_importances, features)
 
     def test_feature_selection_with_both(self):
         """Test feature selection with both tabular attention and transformer blocks."""
@@ -258,9 +256,9 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             )
 
             result = ppr.build_preprocessor()
-            feature_weights = ppr._extract_feature_weights()
+            feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_weights, features)
+            self._verify_feature_weights(feature_importances, features)
 
     def test_feature_selection_with_both_mixed_placement(self):
         """Test feature selection with both tabular attention and transformer blocks."""
@@ -302,9 +300,9 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             )
 
             result = ppr.build_preprocessor()
-            feature_weights = ppr._extract_feature_weights()
+            feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_weights, features, placement="numeric")
+            self._verify_feature_weights(feature_importances, features, placement="numeric")
 
     def test_feature_selection_with_both_mixed_placement_v2(self):
         """Test feature selection with both tabular attention and transformer blocks."""
@@ -346,9 +344,9 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             )
 
             result = ppr.build_preprocessor()
-            feature_weights = ppr._extract_feature_weights()
+            feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_weights, features, placement="categorical")
+            self._verify_feature_weights(feature_importances, features, placement="categorical")
 
     def test_feature_selection_with_both_mixed_placement_v3(self):
         """Test feature selection with both tabular attention and transformer blocks."""
@@ -390,9 +388,9 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             )
 
             result = ppr.build_preprocessor()
-            feature_weights = ppr._extract_feature_weights()
+            feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_weights, features, placement="numeric")
+            self._verify_feature_weights(feature_importances, features, placement="numeric")
 
     def test_feature_selection_with_both_mixed_placement_v4(self):
         """Test feature selection with mixed placement configuration.
@@ -441,6 +439,6 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             )
 
             result = ppr.build_preprocessor()
-            feature_weights = ppr._extract_feature_weights()
+            feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_weights, features, placement="categorical")
+            self._verify_feature_weights(feature_importances, features, placement="categorical")
