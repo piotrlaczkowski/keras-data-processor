@@ -34,17 +34,24 @@ theme:
         icon: material/toggle-switch
         name: Switch to light mode
 
+
 nav:
-  - 💡 KDP: index.md
-  - 🛠️ Defining Features: features.md
-  - 🏭 Layers Factory: layers_factory.md
-  - 📦 Integrating Preprocessing Model: integrations.md
-  - 🔌 Additional Model Extentions:
-    - 🤖 TransformerBlocks: transformer_blocks.md
-    - 🎯 TabularAttention: tabular_attention.md
-    - 🔂 Features Selection: feature_selection.md
-  - 🍦 Motivation: motivation.md
-  - 🍻 Contributing: contributing.md
+  - 🏠 Home: index.md
+  # - 💡 Understanding KDP: kdp_overview.md
+  - 🛠️ Key Features: features.md
+  - 🏭 Factory System:
+      - 🏗️ Layers Factory: layers_factory.md
+      - 📦 Integrating Preprocessing Models: integrations.md
+  - 🔌 Model Extensions:
+      - 🤖 Transformer Blocks: transformer_blocks.md
+      - 🎯 Tabular Attention: tabular_attention.md
+      - 🔂 Feature Selection: feature_selection.md
+  - 🏗️ Usage & Examples:
+      - 🚀 Quick Start: quick_start.md
+      - 🧩 Complex Examples: complex_examples.md
+  - 🎯 Motivation & Contribution:
+      - 🌍 Why KDP? (Motivation): motivation.md
+      - 🍻 Contributing Guide: contributing.md
 
 repo_name: Keras Data Preprocessor
 repo_url: https://github.com/piotrlaczkowski/keras-data-processor
