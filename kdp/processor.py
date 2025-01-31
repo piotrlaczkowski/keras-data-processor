@@ -9,7 +9,6 @@ from functools import wraps
 from typing import Any
 
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 from loguru import logger
 
@@ -1437,27 +1436,6 @@ class PreprocessingModel:
             "feature_crosses": self.feature_crosses,
             "output_mode": self.output_mode,
         }
-
-    def _convert_to_dataset(self, data: tf.data.Dataset | pd.DataFrame | dict) -> tf.data.Dataset:
-        """Convert input data to TensorFlow dataset.
-
-        Args:
-            data: Input data to convert. Can be a DataFrame, Dataset, or dict.
-
-        Returns:
-            tf.data.Dataset: The converted dataset.
-
-        Raises:
-            ValueError: If input data is not a supported type.
-        """
-        if isinstance(data, pd.DataFrame):
-            return tf.data.Dataset.from_tensor_slices(dict(data)).batch(32)
-        elif isinstance(data, dict):
-            return tf.data.Dataset.from_tensor_slices(data).batch(32)
-        elif isinstance(data, tf.data.Dataset):
-            return data
-        else:
-            raise ValueError("Input data must be a DataFrame, dict, or TensorFlow Dataset")
 
     def get_feature_importances(self) -> dict[str, float]:
         """Get feature importance scores from feature selection layers.
