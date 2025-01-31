@@ -69,7 +69,7 @@ If you wan't to request a new feature or you have detected an issue, please use 
         - `init repo structure`
         - `adding pre-processing unit-tests`
 
-- [x] Once the code is ready create a Merge Request (MR) into the DEV branch with a proper naming convention
+- [x] Once the code is ready create a Merge Request (MR) into the MAIN branch with a proper naming convention
 
   > The name of your MR should follow the same exact convention as your commits (we have a dedicated check for this in the CI):
 
