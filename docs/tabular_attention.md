@@ -1,23 +1,26 @@
-# Tabular Attention in KDP
+# 🎯 Tabular Attention in KDP
 
-The KDP package includes powerful attention mechanisms for tabular data:
-1. Standard TabularAttention for uniform feature processing
-2. MultiResolutionTabularAttention for type-specific feature processing
+## 📚 Overview
 
-## Overview
+KDP includes powerful attention mechanisms for tabular data processing:
 
-### Standard TabularAttention
+1. 🔄 **Standard TabularAttention**: Uniform feature processing
+2. 🎛️ **MultiResolutionTabularAttention**: Type-specific feature processing
+
+### 🔄 Standard TabularAttention
 The TabularAttention layer applies attention uniformly across all features, capturing:
-- Dependencies between features for each sample
-- Dependencies between samples for each feature
 
-### MultiResolutionTabularAttention
-The MultiResolutionTabularAttention layer implements a hierarchical attention mechanism that processes different feature types appropriately:
-1. **Numerical Features**: Full-resolution attention that preserves precise numerical relationships
-2. **Categorical Features**: Embedding-based attention that captures categorical patterns
-3. **Cross-Feature Attention**: Hierarchical attention between numerical and categorical features
+* 🔗 Dependencies between features for each sample
+* 📊 Dependencies between samples for each feature
 
-## Usage
+### 🎛️ MultiResolutionTabularAttention
+The MultiResolutionTabularAttention implements a hierarchical attention mechanism:
+
+* 📈 **Numerical Features**: Full-resolution attention preserving precise numerical relationships
+* 🏷️ **Categorical Features**: Embedding-based attention capturing categorical patterns
+* 🔄 **Cross-Feature Attention**: Hierarchical attention between numerical and categorical features
+
+## 💻 Usage Examples
 
 ### Standard TabularAttention
 
@@ -72,49 +75,53 @@ model = PreprocessingModel(
 
 ![Multi-Resolution TabularAttention](imgs/attention_example_multi_resolution.png)
 
-## Configuration Options
+## ⚙️ Configuration Options
 
-### Common Options
-- `tabular_attention` (bool): Enable/disable attention mechanisms
-- `tabular_attention_heads` (int): Number of attention heads
-- `tabular_attention_dim` (int): Dimension of the attention model
-- `tabular_attention_dropout` (float): Dropout rate for regularization
+### Core Parameters
 
-### Placement Options
-- `tabular_attention_placement` (str):
-  - `ALL_FEATURES`: Apply uniform attention to all features
-  - `NUMERIC`: Apply only to numeric features
-  - `CATEGORICAL`: Apply only to categorical features
-  - `MULTI_RESOLUTION`: Use type-specific attention mechanisms
-  - `NONE`: Disable attention
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `tabular_attention` | bool | Enable/disable attention mechanisms |
+| `tabular_attention_heads` | int | Number of attention heads |
+| `tabular_attention_dim` | int | Dimension of the attention model |
+| `tabular_attention_dropout` | float | Dropout rate for regularization |
 
-### Multi-Resolution Specific Options
-- `tabular_attention_embedding_dim` (int): Dimension for categorical embeddings in multi-resolution mode
+### 🎯 Placement Options
+Choose where to apply attention using `tabular_attention_placement`:
 
-## How It Works
+* `ALL_FEATURES`: Apply uniform attention to all features
+* `NUMERIC`: Apply only to numeric features
+* `CATEGORICAL`: Apply only to categorical features
+* `MULTI_RESOLUTION`: Use type-specific attention mechanisms
+* `NONE`: Disable attention
 
-### Standard TabularAttention
-1. **Self-Attention**: Applied uniformly across all features
-2. **Layer Normalization**: Stabilizes learning
-3. **Feed-forward Network**: Processes attention outputs
+### 🎛️ Multi-Resolution Settings
+* `tabular_attention_embedding_dim`: Dimension for categorical embeddings in multi-resolution mode
 
-### MultiResolutionTabularAttention
-1. **Numerical Processing**:
+## 🔍 How It Works
+
+### Standard TabularAttention Architecture
+1. 🔄 **Self-Attention**: Applied uniformly across all features
+2. 📊 **Layer Normalization**: Stabilizes learning
+3. 🧮 **Feed-forward Network**: Processes attention outputs
+
+### MultiResolutionTabularAttention Architecture
+1. 📈 **Numerical Processing**:
    - Full-resolution self-attention
    - Preserves numerical precision
    - Captures complex numerical relationships
 
-2. **Categorical Processing**:
+2. 🏷️ **Categorical Processing**:
    - Embedding-based attention
    - Lower-dimensional representations
    - Captures categorical patterns efficiently
 
-3. **Cross-Feature Integration**:
+3. 🔄 **Cross-Feature Integration**:
    - Hierarchical attention between feature types
    - Numerical features attend to categorical features
    - Preserves type-specific characteristics while enabling interaction
 
-## Best Practices
+## 📈 Best Practices
 
 ### When to Use Standard TabularAttention
 - Data has uniform feature importance
@@ -143,7 +150,7 @@ model = PreprocessingModel(
    - Increase if overfitting
    - Monitor validation performance
 
-## Advanced Usage
+## 🤖 Advanced Usage
 
 ### Custom Layer Integration
 
@@ -186,7 +193,7 @@ attention_layer = PreprocessorLayerFactory.multi_resolution_attention_layer(
 )
 ```
 
-## Performance Considerations
+## 📊 Performance Considerations
 
 1. **Memory Usage**:
    - MultiResolutionTabularAttention is more memory-efficient for categorical features
@@ -203,7 +210,7 @@ attention_layer = PreprocessorLayerFactory.multi_resolution_attention_layer(
    - Monitor memory usage and training time
    - Use gradient clipping to stabilize training
 
-## References
+## 📚 References
 
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762) - Original transformer paper
 - [TabNet: Attentive Interpretable Tabular Learning](https://arxiv.org/abs/1908.07442) - Attention for tabular data

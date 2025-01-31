@@ -1,16 +1,14 @@
-# Feature Selection in Keras Data Processor
+# 🎯 Feature Selection in KDP
 
-The Keras Data Processor includes a sophisticated feature selection mechanism based on the Gated Residual Variable Selection Network (GRVSN) architecture. This document explains the components, usage, and benefits of this feature.
+## 📚 Overview
 
-## Overview
+KDP includes a sophisticated feature selection mechanism based on the Gated Residual Variable Selection Network (GRVSN) architecture. This powerful system automatically learns and selects the most important features in your data.
 
-The feature selection mechanism uses a combination of gated units and residual networks to automatically learn the importance of different features in your data. It can be applied to both numeric and categorical features, either independently or together.
+## 🧩 Core Components
 
-## Components
+### 1. 🔀 GatedLinearUnit
 
-### 1. GatedLinearUnit
-
-The `GatedLinearUnit` is the basic building block that implements a gated activation function:
+The foundation of our feature selection system:
 
 ```python
 gl = GatedLinearUnit(units=64)
@@ -18,14 +16,14 @@ x = tf.random.normal((32, 100))
 y = gl(x)
 ```
 
-Key features:
-- Applies a linear transformation followed by a sigmoid gate
-- Selectively filters input data based on learned weights
-- Helps control information flow through the network
+**Key Features:**
+* 🔄 Applies linear transformation with sigmoid gate
+* 🎛️ Selectively filters input data
+* 🔍 Controls information flow through the network
 
-### 2. GatedResidualNetwork
+### 2. 🏗️ GatedResidualNetwork
 
-The `GatedResidualNetwork` combines gated linear units with residual connections:
+Combines gated units with residual connections:
 
 ```python
 grn = GatedResidualNetwork(units=64, dropout_rate=0.2)
@@ -33,15 +31,15 @@ x = tf.random.normal((32, 100))
 y = grn(x)
 ```
 
-Key features:
-- Uses ELU activation for non-linearity
-- Includes dropout for regularization
-- Adds residual connections to help with gradient flow
-- Applies layer normalization for stability
+**Key Features:**
+* ⚡ Uses ELU activation for non-linearity
+* 🎲 Includes dropout for regularization
+* 🔄 Adds residual connections for better gradient flow
+* 📊 Applies layer normalization for stability
 
-### 3. VariableSelection
+### 3. 🎯 VariableSelection
 
-The `VariableSelection` layer is the main feature selection component:
+The main feature selection component:
 
 ```python
 vs = VariableSelection(nr_features=3, units=64, dropout_rate=0.2)
@@ -51,17 +49,17 @@ x3 = tf.random.normal((32, 300))
 selected_features, weights = vs([x1, x2, x3])
 ```
 
-Key features:
-- Processes each feature independently using GRNs
-- Calculates feature importance weights using softmax
-- Returns both selected features and their weights
-- Supports different input dimensions for each feature
+**Key Features:**
+* 🔄 Independent GRN processing for each feature
+* ⚖️ Calculates feature importance weights via softmax
+* 📊 Returns both selected features and their weights
+* 🔧 Supports varying input dimensions per feature
 
-## Usage in Preprocessing Model
+## 💻 Usage Guide
 
 ### Configuration
 
-Configure feature selection in your preprocessing model:
+Set up feature selection in your preprocessing model:
 
 ```python
 model = PreprocessingModel(
@@ -72,18 +70,20 @@ model = PreprocessingModel(
 )
 ```
 
-### Placement Options
+### 🎯 Placement Options
 
-The `FeatureSelectionPlacementOptions` enum provides several options for where to apply feature selection:
+Choose where to apply feature selection using `FeatureSelectionPlacementOptions`:
 
-1. `NONE`: Disable feature selection
-2. `NUMERIC`: Apply only to numeric features
-3. `CATEGORICAL`: Apply only to categorical features
-4. `ALL_FEATURES`: Apply to all features
+| Option | Description |
+|--------|-------------|
+| `NONE` | Disable feature selection |
+| `NUMERIC` | Apply to numeric features only |
+| `CATEGORICAL` | Apply to categorical features only |
+| `ALL_FEATURES` | Apply to all features |
 
-### Accessing Feature Weights
+### 📊 Accessing Feature Weights
 
-After processing, feature weights are available in the `processed_features` dictionary:
+Monitor feature importance after processing:
 
 ```python
 # Process your data
@@ -92,25 +92,51 @@ processed = model.transform(data)
 # Access feature weights
 numeric_weights = processed["numeric_feature_weights"]
 categorical_weights = processed["categorical_feature_weights"]
+
+# Print feature importance
+for feature_name in features:
+    weights = processed_data[f"{feature_name}_weights"]
+    print(f"Feature {feature_name} importance: {weights.mean()}")
 ```
 
-## Benefits
+## 🌟 Benefits
 
-1. **Automatic Feature Selection**: The model learns which features are most important for your task.
-2. **Interpretability**: Feature weights provide insights into feature importance.
-3. **Improved Performance**: By focusing on relevant features, the model can achieve better performance.
-4. **Regularization**: Dropout and residual connections help prevent overfitting.
-5. **Flexibility**: Can be applied to different feature types and combinations.
+1. **🤖 Automatic Feature Selection**
+   * Learns feature importance automatically
+   * Adapts to your specific dataset
+   * Reduces manual feature engineering
 
-## Integration with Other Features
+2. **📊 Interpretability**
+   * Clear feature importance weights
+   * Insights into model decisions
+   * Easy to explain to stakeholders
 
-The feature selection mechanism integrates seamlessly with other preprocessing components:
+3. **⚡ Improved Performance**
+   * Focuses on relevant features
+   * Reduces noise in the data
+   * Better model convergence
 
-1. **Transformer Blocks**: Can be used before or after transformer blocks
-2. **Tabular Attention**: Complements tabular attention by focusing on important features
-3. **Custom Preprocessors**: Works with any custom preprocessing steps
+## 🔧 Best Practices
 
-## Example
+### Hyperparameter Tuning
+
+* 🎯 Start with default values
+* 📈 Adjust based on validation performance
+* 🔄 Monitor feature importance stability
+
+### Performance Optimization
+
+* ⚡ Use appropriate batch sizes
+* 🎲 Adjust dropout rates as needed
+* 📊 Monitor memory usage
+
+## 📚 References
+
+* [GRVSN Paper](https://arxiv.org/abs/xxxx.xxxxx)
+* [Feature Selection in Deep Learning](https://arxiv.org/abs/xxxx.xxxxx)
+* [KDP Documentation](https://kdp.readthedocs.io)
+
+## 📚 Example
 
 Here's a complete example of using feature selection:
 
@@ -153,7 +179,7 @@ for feature_name in features:
     print(f"Feature {feature_name} importance: {weights.mean()}")
 ```
 
-## Testing
+## 📊 Testing
 
 The feature selection components include comprehensive unit tests that verify:
 
@@ -167,4 +193,3 @@ The feature selection components include comprehensive unit tests that verify:
 Run the tests using:
 ```bash
 python -m pytest test/test_feature_selection.py -v
-```

@@ -39,8 +39,10 @@ nav:
   - 🛠️ Defining Features: features.md
   - 🏭 Layers Factory: layers_factory.md
   - 📦 Integrating Preprocessing Model: integrations.md
-  - 🤖 TransformerBlocks: transformer_blocks.md
-  - 🎯 TabularAttention: tabular_attention.md
+  - 🔌 Additional Model Extentions:
+    - 🤖 TransformerBlocks: transformer_blocks.md
+    - 🎯 TabularAttention: tabular_attention.md
+    - 🔂 Features Selection: feature_selection.md
   - 🍦 Motivation: motivation.md
   - 🍻 Contributing: contributing.md
 

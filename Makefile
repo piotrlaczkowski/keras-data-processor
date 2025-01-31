@@ -90,7 +90,7 @@ deploy_doc:
 .PHONY: serve_doc
 ## Test MkDocs based documentation locally.
 serve_doc:
-	mkdocs serve
+	poetry run mkdocs serve
 
 # ------------------------------------
 # Clean All
