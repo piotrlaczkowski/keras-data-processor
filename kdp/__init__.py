@@ -6,6 +6,7 @@ from kdp.processor import (
     CategoryEncodingOptions,
     OutputModeOptions,
     PreprocessingModel,
+    TabularAttentionPlacementOptions,
     TransformerBlockPlacementOptions,
 )
 from kdp.stats import DatasetStatistics
@@ -25,4 +26,5 @@ __all__ = [
     "CategoryEncodingOptions",
     "TransformerBlockPlacementOptions",
     "OutputModeOptions",
+    "TabularAttentionPlacementOptions",
 ]

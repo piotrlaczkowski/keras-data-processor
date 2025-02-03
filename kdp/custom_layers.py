@@ -1,8 +1,11 @@
 import math
 import re
 import string
+from enum import Enum
 
+import numpy as np
 import tensorflow as tf
+import tensorflow_probability as tfp
 
 
 class TextPreprocessingLayer(tf.keras.layers.Layer):
@@ -377,6 +380,706 @@ class SeasonLayer(tf.keras.layers.Layer):
             object: The SeasonLayer instance.
         """
         return cls(**config)
+
+
+class DistributionType(str, Enum):
+    """Supported distribution types for feature encoding."""
+
+    NORMAL = "normal"
+    HEAVY_TAILED = "heavy_tailed"
+    MULTIMODAL = "multimodal"
+    UNIFORM = "uniform"
+    EXPONENTIAL = "exponential"
+    LOG_NORMAL = "log_normal"
+    DISCRETE = "discrete"
+    MIXED = "mixed"
+    PERIODIC = "periodic"
+    SPARSE = "sparse"
+    BETA = "beta"  # For bounded data with two shape parameters
+    GAMMA = "gamma"  # For positive, right-skewed data
+    POISSON = "poisson"  # For count data
+    WEIBULL = "weibull"  # For reliability/survival data
+    CAUCHY = "cauchy"  # For extremely heavy-tailed data
+    ZERO_INFLATED = "zero_inflated"  # For data with excess zeros
+    BOUNDED = "bounded"  # For data with known bounds
+    ORDINAL = "ordinal"  # For ordered categorical data
+
+
+class DistributionAwareEncoder(tf.keras.layers.Layer):
+    """An advanced layer that adapts its encoding based on the input distribution.
+
+    This layer automatically detects and handles various distribution types:
+    - Normal distributions: For normally distributed data
+    - Heavy-tailed distributions: For data with heavier tails than normal
+    - Multimodal distributions: For data with multiple peaks
+    - Uniform distributions: For evenly distributed data
+    - Exponential distributions: For data with exponential decay
+    - Log-normal distributions: For data that is normal after log transform
+    - Discrete distributions: For data with finite distinct values
+    - Mixed distributions: For data that combines multiple distributions
+    - Periodic distributions: For data with cyclic patterns
+    - Sparse distributions: For data with many zeros
+    - Beta distributions: For bounded data between 0 and 1
+    - Gamma distributions: For positive, right-skewed data
+    - Poisson distributions: For count data
+    - Weibull distributions: For lifetime/failure data
+    - Cauchy distributions: For extremely heavy-tailed data
+    - Zero-inflated distributions: For data with excess zeros
+    - Bounded distributions: For data with known bounds
+    - Ordinal distributions: For ordered categorical data
+
+    The layer uses TensorFlow Probability (tfp) distributions for accurate modeling
+    and transformation of the input data. Each distribution type has a specialized
+    handler that applies appropriate transformations while preserving the statistical
+    properties of the data.
+    """
+
+    def __init__(
+        self,
+        num_bins: int = 1000,
+        epsilon: float = 1e-6,
+        detect_periodicity: bool = True,
+        handle_sparsity: bool = True,
+        adaptive_binning: bool = True,
+        mixture_components: int = 3,
+        trainable: bool = True,
+        name: str = None,
+        **kwargs,
+    ) -> None:
+        """Initialize the DistributionAwareEncoder.
+
+        Args:
+            num_bins: Number of bins for quantile encoding
+            epsilon: Small value for numerical stability
+            detect_periodicity: Enable periodic pattern detection
+            handle_sparsity: Enable special handling for sparse data
+            adaptive_binning: Enable adaptive bin boundaries
+            mixture_components: Number of components for mixture models
+            trainable: Whether parameters are trainable
+            name: Name of the layer
+            **kwargs: Additional layer arguments
+        """
+        super().__init__(name=name, trainable=trainable, **kwargs)
+        self.num_bins = num_bins
+        self.epsilon = epsilon
+        self.detect_periodicity = detect_periodicity
+        self.handle_sparsity = handle_sparsity
+        self.adaptive_binning = adaptive_binning
+        self.mixture_components = mixture_components
+
+        # Initialize TFP distributions
+        self.normal_dist = tfp.distributions.Normal
+        self.student_t_dist = tfp.distributions.StudentT
+        self.mixture_dist = tfp.distributions.MixtureSameFamily
+        self.categorical_dist = tfp.distributions.Categorical
+        self.exponential_dist = tfp.distributions.Exponential
+        self.lognormal_dist = tfp.distributions.LogNormal
+        self.uniform_dist = tfp.distributions.Uniform
+        self.beta_dist = tfp.distributions.Beta
+        self.gamma_dist = tfp.distributions.Gamma
+        self.poisson_dist = tfp.distributions.Poisson
+        self.weibull_dist = tfp.distributions.Weibull
+        self.cauchy_dist = tfp.distributions.Cauchy
+        self.zero_inflated_dist = tfp.distributions.Mixture
+        self.bernoulli_dist = tfp.distributions.Bernoulli
+
+    def build(self, input_shape) -> None:
+        """Build the layer.
+
+        Args:
+            input_shape: Shape of input tensor
+        """
+        # Quantile boundaries for adaptive binning
+        self.boundaries = self.add_weight(
+            name="boundaries",
+            shape=(self.num_bins - 1,),
+            initializer="zeros",
+            trainable=self.adaptive_binning,
+        )
+
+        # Distribution mixture parameters
+        self.mixture_weights = self.add_weight(
+            name="mixture_weights",
+            shape=(self.mixture_components,),
+            initializer="ones",
+            trainable=True,
+        )
+
+        # Periodic components
+        if self.detect_periodicity:
+            self.frequency = self.add_weight(
+                name="frequency",
+                shape=(),
+                initializer="ones",
+                trainable=True,
+            )
+            self.phase = self.add_weight(
+                name="phase",
+                shape=(),
+                initializer="zeros",
+                trainable=True,
+            )
+
+        super().build(input_shape)
+
+    def _estimate_distribution(self, inputs: tf.Tensor) -> dict:
+        """Enhanced distribution type detection with comprehensive checks."""
+        # Basic statistics
+        mean = tf.reduce_mean(inputs)
+        variance = tf.math.reduce_variance(inputs)
+        skewness = tf.reduce_mean(tf.pow((inputs - mean) / tf.sqrt(variance + self.epsilon), 3))
+        kurtosis = tf.reduce_mean(tf.pow((inputs - mean) / tf.sqrt(variance + self.epsilon), 4))
+
+        # Range statistics
+        min_val = tf.reduce_min(inputs)
+        max_val = tf.reduce_max(inputs)
+        # Calculate range for potential future use
+        _ = max_val - min_val  # Range value stored for future implementation
+
+        # Count statistics
+        zero_ratio = tf.reduce_mean(tf.cast(tf.abs(inputs) < self.epsilon, tf.float32))
+        flattened_inputs = tf.reshape(inputs, [-1])
+        unique_ratio = tf.cast(tf.size(tf.unique(flattened_inputs)[0]), tf.float32) / tf.cast(
+            tf.size(inputs),
+            tf.float32,
+        )
+        is_bounded = min_val > -10.0 and max_val < 10.0  # Arbitrary bounds for demonstration
+
+        # Distribution checks
+        is_sparse = zero_ratio > 0.5
+        is_zero_inflated = zero_ratio > 0.3 and not is_sparse
+        is_normal = tf.abs(kurtosis - 3.0) < 0.5 and tf.abs(skewness) < 0.5
+        is_uniform = tf.abs(kurtosis - 1.8) < 0.3
+        is_heavy_tailed = kurtosis > 3.5
+        is_cauchy = kurtosis > 20.0  # Extremely heavy-tailed
+        is_exponential = tf.abs(skewness - 2.0) < 0.5 and min_val >= -self.epsilon
+        is_log_normal = self._check_log_normal(inputs)
+        is_multimodal = self._detect_multimodality(inputs)
+        is_discrete = self._check_discreteness(inputs)
+        is_periodic = self.detect_periodicity and self._check_periodicity(inputs)
+
+        # Advanced distribution checks
+        is_beta = is_bounded and not is_uniform and min_val >= 0 and max_val <= 1
+        is_gamma = min_val >= -self.epsilon and skewness > 0 and not is_exponential
+        is_poisson = is_discrete and min_val >= -self.epsilon and variance > self.epsilon
+        is_weibull = min_val >= -self.epsilon and not is_exponential and not is_gamma
+        is_ordinal = is_discrete and unique_ratio < 0.05  # Less than 5% unique values
+
+        return {
+            "type": self._determine_primary_distribution(
+                {
+                    DistributionType.NORMAL: is_normal,
+                    DistributionType.UNIFORM: is_uniform,
+                    DistributionType.HEAVY_TAILED: is_heavy_tailed,
+                    DistributionType.EXPONENTIAL: is_exponential,
+                    DistributionType.LOG_NORMAL: is_log_normal,
+                    DistributionType.MULTIMODAL: is_multimodal,
+                    DistributionType.DISCRETE: is_discrete,
+                    DistributionType.PERIODIC: is_periodic,
+                    DistributionType.SPARSE: is_sparse,
+                    DistributionType.BETA: is_beta,
+                    DistributionType.GAMMA: is_gamma,
+                    DistributionType.POISSON: is_poisson,
+                    DistributionType.WEIBULL: is_weibull,
+                    DistributionType.CAUCHY: is_cauchy,
+                    DistributionType.ZERO_INFLATED: is_zero_inflated,
+                    DistributionType.BOUNDED: is_bounded,
+                    DistributionType.ORDINAL: is_ordinal,
+                },
+            ),
+            "stats": {
+                "mean": mean,
+                "variance": variance,
+                "skewness": skewness,
+                "kurtosis": kurtosis,
+                "zero_ratio": zero_ratio,
+            },
+        }
+
+    def _determine_primary_distribution(self, dist_flags: dict) -> str:
+        """Determine the primary distribution type based on flags."""
+        # Priority order for distribution types
+        priority_order = [
+            DistributionType.SPARSE,
+            DistributionType.ZERO_INFLATED,
+            DistributionType.ORDINAL,
+            DistributionType.PERIODIC,
+            DistributionType.MULTIMODAL,
+            DistributionType.DISCRETE,
+            DistributionType.POISSON,
+            DistributionType.CAUCHY,
+            DistributionType.HEAVY_TAILED,
+            DistributionType.LOG_NORMAL,
+            DistributionType.WEIBULL,
+            DistributionType.GAMMA,
+            DistributionType.EXPONENTIAL,
+            DistributionType.BETA,
+            DistributionType.BOUNDED,
+            DistributionType.UNIFORM,
+            DistributionType.NORMAL,
+        ]
+
+        for dist_type in priority_order:
+            if dist_flags.get(dist_type, False):
+                return dist_type
+
+        return DistributionType.MIXED
+
+    def _check_log_normal(self, inputs: tf.Tensor) -> tf.Tensor:
+        """Check if the distribution is log-normal."""
+        positive_inputs = inputs - tf.reduce_min(inputs) + self.epsilon
+        log_inputs = tf.math.log(positive_inputs)
+        log_kurtosis = tf.reduce_mean(
+            tf.pow((log_inputs - tf.reduce_mean(log_inputs)) / (tf.math.reduce_std(log_inputs) + self.epsilon), 4),
+        )
+        return tf.abs(log_kurtosis - 3.0) < 0.5
+
+    def _check_discreteness(self, inputs: tf.Tensor) -> tf.Tensor:
+        """Check if the distribution is discrete."""
+        flattened_inputs = tf.reshape(inputs, [-1])
+        unique_values = tf.unique(flattened_inputs)[0]
+        return tf.cast(tf.size(unique_values), tf.float32) / tf.cast(tf.size(inputs), tf.float32) < 0.01
+
+    def _check_periodicity(self, inputs: tf.Tensor) -> tf.Tensor:
+        """Check if the distribution has periodic patterns."""
+        # Simple autocorrelation check
+        shifted = inputs[1:]
+        original = inputs[:-1]
+        correlation = tf.reduce_mean((shifted - tf.reduce_mean(shifted)) * (original - tf.reduce_mean(original)))
+        return correlation > 0.7
+
+    def _gaussian_kernel_density_estimation(
+        self,
+        x: tf.Tensor,
+        sample_points: tf.Tensor,
+        bandwidth: float,
+    ) -> tf.Tensor:
+        """Custom implementation of Gaussian KDE using TensorFlow operations."""
+        x = tf.reshape(x, [-1, 1])  # Shape: [n_points, 1]
+        sample_points = tf.reshape(sample_points, [1, -1])  # Shape: [1, n_samples]
+
+        # Calculate squared distances
+        squared_distances = tf.square(x - sample_points)
+
+        # Apply Gaussian kernel
+        kernel_values = tf.exp(-squared_distances / (2.0 * tf.square(bandwidth)))
+
+        # Average over all data points
+        kde = tf.reduce_mean(kernel_values, axis=0)
+
+        return kde / (bandwidth * tf.sqrt(2.0 * np.pi))
+
+    def _detect_multimodality(self, inputs: tf.Tensor) -> tf.Tensor:
+        """Enhanced multimodality detection using KDE."""
+        flattened_inputs = tf.reshape(inputs, [-1])
+        sample_points = tf.linspace(
+            tf.reduce_min(flattened_inputs),
+            tf.reduce_max(flattened_inputs),
+            100,
+        )
+
+        kde = self._gaussian_kernel_density_estimation(
+            flattened_inputs,
+            sample_points,
+            bandwidth=0.1,
+        )
+
+        # Find local maxima
+        # Compare with both previous and next points
+        prev_kde = tf.concat([kde[:1], kde[:-1]], axis=0)
+        next_kde = tf.concat([kde[1:], kde[-1:]], axis=0)
+        peaks = tf.where(
+            tf.logical_and(
+                kde > prev_kde,
+                kde > next_kde,
+            ),
+        )
+
+        return tf.shape(peaks)[0] > 1
+
+    def _transform_distribution(self, inputs: tf.Tensor, dist_info: dict) -> tf.Tensor:
+        """Apply appropriate transformation based on distribution type."""
+        transformations = {
+            DistributionType.NORMAL: self._handle_normal,
+            DistributionType.HEAVY_TAILED: self._handle_heavy_tailed,
+            DistributionType.MULTIMODAL: self._handle_multimodal,
+            DistributionType.UNIFORM: self._handle_uniform,
+            DistributionType.EXPONENTIAL: self._handle_exponential,
+            DistributionType.LOG_NORMAL: self._handle_log_normal,
+            DistributionType.DISCRETE: self._handle_discrete,
+            DistributionType.PERIODIC: self._handle_periodic,
+            DistributionType.SPARSE: self._handle_sparse,
+            DistributionType.MIXED: self._handle_mixed,
+            DistributionType.BETA: self._handle_beta,
+            DistributionType.GAMMA: self._handle_gamma,
+            DistributionType.POISSON: self._handle_poisson,
+            DistributionType.WEIBULL: self._handle_weibull,
+            DistributionType.CAUCHY: self._handle_cauchy,
+            DistributionType.ZERO_INFLATED: self._handle_zero_inflated,
+            DistributionType.BOUNDED: self._handle_bounded,
+            DistributionType.ORDINAL: self._handle_ordinal,
+        }
+
+        transform_fn = transformations.get(dist_info["type"], self._handle_normal)
+        return transform_fn(inputs, dist_info["stats"])
+
+    def _handle_normal(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle normal distribution using TFP Normal distribution."""
+        dist = self.normal_dist(loc=stats["mean"], scale=tf.sqrt(stats["variance"] + self.epsilon))
+        normalized = dist.cdf(inputs)
+        return 2.0 * normalized - 1.0  # Scale to [-1, 1]
+
+    def _handle_heavy_tailed(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle heavy-tailed distribution using Student's t-distribution."""
+        # Estimate degrees of freedom using kurtosis
+        df = 6.0 / (stats["kurtosis"] - 3.0) if stats["kurtosis"] > 3.0 else 30.0
+        df = tf.clip_by_value(df, 2.1, 30.0)  # Ensure df > 2 for finite variance
+
+        dist = self.student_t_dist(
+            df=df,
+            loc=stats["mean"],
+            scale=tf.sqrt(stats["variance"] * (df - 2) / df + self.epsilon),
+        )
+        return dist.cdf(inputs)
+
+    def _handle_multimodal(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle multimodal distribution using Gaussian Mixture Model."""
+        # Initialize mixture model parameters
+        means_init = tf.linspace(
+            tf.reduce_min(inputs),
+            tf.reduce_max(inputs),
+            self.mixture_components,
+        )
+        scales_init = tf.ones_like(means_init) * tf.sqrt(stats["variance"] / self.mixture_components + self.epsilon)
+
+        # Normalize mixture weights
+        weights = tf.nn.softmax(self.mixture_weights)
+
+        # Create mixture distribution
+        mix_dist = self.categorical_dist(probs=weights)
+        comp_dist = self.normal_dist(loc=means_init, scale=scales_init)
+        mixture = self.mixture_dist(mix_dist, comp_dist)
+
+        return mixture.cdf(inputs)
+
+    def _handle_uniform(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
+        """Handle uniform distribution using TFP Uniform."""
+        low = tf.reduce_min(inputs)
+        high = tf.reduce_max(inputs)
+
+        dist = self.uniform_dist(low=low, high=high + self.epsilon)
+        return dist.cdf(inputs)
+
+    def _handle_exponential(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
+        """Handle exponential distribution using TFP Exponential."""
+        # Shift to non-negative values
+        shifted_inputs = inputs - tf.reduce_min(inputs)
+
+        # Estimate rate parameter (1/mean)
+        rate = 1.0 / (tf.reduce_mean(shifted_inputs) + self.epsilon)
+
+        dist = self.exponential_dist(rate=rate)
+        return dist.cdf(shifted_inputs)
+
+    def _handle_log_normal(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
+        """Handle log-normal distribution using TFP LogNormal."""
+        # Shift inputs to be positive
+        shifted_inputs = inputs - tf.reduce_min(inputs) + self.epsilon
+
+        # Estimate parameters in log space
+        log_inputs = tf.math.log(shifted_inputs)
+        mu = tf.reduce_mean(log_inputs)
+        sigma = tf.math.reduce_std(log_inputs)
+
+        dist = self.lognormal_dist(loc=mu, scale=sigma)
+        return dist.cdf(shifted_inputs)
+
+    def _handle_beta(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle beta-distributed data using beta CDF."""
+        # Estimate alpha and beta parameters
+        mean = stats["mean"]
+        var = stats["variance"]
+        alpha = mean * (mean * (1 - mean) / var - 1)
+        beta = (1 - mean) * (mean * (1 - mean) / var - 1)
+        dist = self.beta_dist(concentration1=alpha, concentration0=beta)
+        return dist.cdf(inputs)
+
+    def _handle_gamma(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle gamma-distributed data using gamma CDF."""
+        mean = stats["mean"]
+        var = stats["variance"]
+        alpha = mean**2 / var  # shape parameter
+        beta = mean / var  # rate parameter
+        dist = self.gamma_dist(concentration=alpha, rate=beta)
+        return dist.cdf(inputs)
+
+    def _handle_poisson(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle Poisson-distributed data."""
+        rate = stats["mean"]
+        dist = self.poisson_dist(rate=rate)
+        return dist.cdf(inputs)
+
+    def _handle_weibull(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle Weibull-distributed data."""
+        # Estimate parameters using method of moments
+        mean = stats["mean"]
+        k = 1.2  # Shape parameter (approximation)
+        lambda_ = mean / tf.math.exp(tf.math.lgamma(1 + 1 / k))
+        dist = self.weibull_dist(concentration=k, scale=lambda_)
+        return dist.cdf(inputs)
+
+    def _handle_cauchy(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
+        """Handle Cauchy-distributed data."""
+        # Use robust statistics for location and scale
+        location = tfp.stats.percentile(inputs, 50.0)  # median
+        scale = (tfp.stats.percentile(inputs, 75.0) - tfp.stats.percentile(inputs, 25.0)) / 2  # IQR/2
+        dist = self.cauchy_dist(loc=location, scale=scale)
+        return dist.cdf(inputs)
+
+    def _handle_zero_inflated(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle zero-inflated data."""
+        # Zero probability will be used in future implementations
+        _ = stats["zero_ratio"]
+        non_zero_mask = tf.abs(inputs) >= self.epsilon
+        non_zero_inputs = tf.boolean_mask(inputs, non_zero_mask)
+
+        # Model non-zero part with appropriate distribution
+        if tf.size(non_zero_inputs) > 0:
+            mean = tf.reduce_mean(non_zero_inputs)
+            var = tf.math.reduce_variance(non_zero_inputs)
+            if mean > 0 and var > mean:
+                # Use gamma for overdispersed positive data
+                transformed = self._handle_gamma(inputs, {"mean": mean, "variance": var})
+            else:
+                # Use normal as default
+                transformed = self._handle_normal(inputs, {"mean": mean, "variance": var})
+        else:
+            transformed = inputs
+
+        return tf.where(tf.abs(inputs) < self.epsilon, 0.0, transformed)
+
+    def _handle_bounded(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle bounded data with known bounds."""
+        min_val = tf.reduce_min(inputs)
+        max_val = tf.reduce_max(inputs)
+        # Scale to [0,1] using min-max scaling
+        scaled = (inputs - min_val) / (max_val - min_val + self.epsilon)
+        # Apply beta transformation if the distribution is not uniform
+        if tf.abs(stats["variance"] - 1 / 12) > 0.1:  # Not uniform
+            return self._handle_beta(scaled, stats)
+        return scaled
+
+    def _handle_ordinal(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
+        """Handle ordinal categorical data."""
+        # Get unique values and their counts
+        unique_values, _ = tf.unique(inputs)
+        unique_values = tf.sort(unique_values)
+        num_categories = tf.size(unique_values)
+
+        # Create mapping to [0, 1] space
+        indices = tf.range(num_categories, dtype=tf.float32)
+        normalized_indices = indices / tf.cast(num_categories - 1, tf.float32)
+
+        # Create value to index mapping
+        table = tf.lookup.StaticHashTable(
+            tf.lookup.KeyValueTensorInitializer(
+                tf.cast(unique_values, tf.int64),
+                normalized_indices,
+            ),
+            default_value=-1.0,
+        )
+
+        return table.lookup(inputs)
+
+    def _handle_discrete(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
+        """Handle discrete data using an ordinal encoding with spacing based on empirical CDF.
+
+        This method improves upon simple normalization by:
+        1. Preserving the relative frequencies of values
+        2. Maintaining proper spacing between values
+        3. Handling both numeric and categorical discrete data
+        """
+        # Get unique values and their counts
+        unique_values, indices = tf.unique_with_counts(inputs)
+        total_count = tf.reduce_sum(tf.cast(indices, tf.float32))
+
+        # Calculate empirical CDF for each unique value
+        cumsum = tf.cumsum(tf.cast(indices, tf.float32))
+        ecdf = cumsum / total_count
+
+        # Create a lookup table for the ECDF values
+        table = tf.lookup.StaticHashTable(
+            tf.lookup.KeyValueTensorInitializer(
+                unique_values,
+                ecdf,
+            ),
+            default_value=-1.0,
+        )
+
+        # Transform to [-1, 1] range
+        transformed = 2.0 * table.lookup(inputs) - 1.0
+        return transformed
+
+    def _handle_periodic(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle periodic data using Fourier features.
+
+        This method:
+        1. Normalizes the input data
+        2. Applies learned frequency and phase parameters
+        3. Returns both sine and cosine features to capture full periodicity
+        4. Handles multiple periods if detected
+
+        Args:
+            inputs: Input tensor to transform
+            stats: Dictionary containing distribution statistics
+
+        Returns:
+            tf.Tensor: A 2D tensor containing sine and cosine transformations
+        """
+        # Normalize the inputs to [-π, π] range for better periodic handling
+        normalized = (inputs - stats["mean"]) / (tf.sqrt(stats["variance"]) + self.epsilon)
+        normalized = normalized * tf.constant(math.pi, dtype=tf.float32)
+
+        # Detect the dominant period using autocorrelation if not provided
+        if not hasattr(self, "frequency") or self.frequency is None:
+            # Default to 2π for a full cycle if period detection fails
+            self.frequency = tf.Variable(1.0, trainable=True, dtype=tf.float32)
+            self.phase = tf.Variable(0.0, trainable=True, dtype=tf.float32)
+
+        # Base frequency features - always include fundamental frequency
+        base_features = tf.stack(
+            [
+                tf.sin(self.frequency * normalized + self.phase),
+                tf.cos(self.frequency * normalized + self.phase),
+            ],
+            axis=-1,
+        )
+
+        # Add higher frequency harmonics if multimodality is detected
+        # This helps capture more complex periodic patterns
+        if stats.get("is_multimodal", False):
+            harmonic_features = []
+            for harmonic in [2, 3, 4]:  # Add up to 4th harmonic
+                harmonic_freq = tf.cast(harmonic, tf.float32) * self.frequency
+                harmonic_features.extend(
+                    [
+                        tf.sin(harmonic_freq * normalized + self.phase),
+                        tf.cos(harmonic_freq * normalized + self.phase),
+                    ],
+                )
+            harmonic_tensor = tf.stack(harmonic_features, axis=-1)
+            # Combine base and harmonic features
+            return tf.concat([base_features, harmonic_tensor], axis=-1)
+
+        return base_features
+
+    def _handle_sparse(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
+        """Handle sparse data with special attention to zero values.
+
+        This method:
+        1. Identifies zero and non-zero values
+        2. Applies separate transformations to non-zero values
+        3. Preserves sparsity pattern
+        4. Handles both sparse continuous and sparse count data
+        """
+        # Identify zero and non-zero elements
+        is_zero = tf.abs(inputs) < self.epsilon
+        non_zero_mask = tf.logical_not(is_zero)
+        non_zero_values = tf.boolean_mask(inputs, non_zero_mask)
+
+        if tf.size(non_zero_values) > 0:
+            # Calculate statistics for non-zero values
+            non_zero_mean = tf.reduce_mean(non_zero_values)
+            non_zero_std = tf.math.reduce_std(non_zero_values)
+
+            # Choose appropriate transformation based on non-zero value properties
+            if tf.reduce_min(non_zero_values) >= 0:
+                if tf.math.reduce_variance(non_zero_values) > non_zero_mean:
+                    # Use gamma for overdispersed positive data
+                    transformed = self._handle_gamma(
+                        inputs,
+                        {
+                            "mean": non_zero_mean,
+                            "variance": tf.math.reduce_variance(non_zero_values),
+                        },
+                    )
+                else:
+                    # Use exponential for regular positive data
+                    transformed = self._handle_exponential(
+                        inputs,
+                        {
+                            "mean": non_zero_mean,
+                        },
+                    )
+            else:
+                # Use normal for general non-zero data
+                transformed = (inputs - non_zero_mean) / (non_zero_std + self.epsilon)
+        else:
+            transformed = inputs
+
+        # Preserve zeros and apply transformation to non-zeros
+        return tf.where(is_zero, tf.zeros_like(inputs), transformed)
+
+    def _handle_mixed(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
+        """Handle mixed distribution data using an ensemble approach.
+
+        This method:
+        1. Applies multiple appropriate transformations
+        2. Weights the transformations based on their fit
+        3. Combines the results adaptively
+        4. Handles complex, multi-modal patterns
+        """
+        # Apply different transformations
+        transformations = [
+            (self._handle_normal(inputs, stats), 1.0),
+            (self._handle_heavy_tailed(inputs, stats), 0.8 if stats["kurtosis"] > 3.0 else 0.2),
+            (self._handle_exponential(inputs, stats), 0.8 if stats["skewness"] > 1.0 else 0.2),
+        ]
+
+        if stats.get("is_multimodal", False):
+            transformations.append(
+                (self._handle_multimodal(inputs, stats), 0.9),
+            )
+
+        # Calculate weighted sum
+        total_weight = sum(weight for _, weight in transformations)
+        weighted_sum = tf.zeros_like(inputs)
+
+        for transformed, weight in transformations:
+            weighted_sum += (weight / total_weight) * transformed
+
+        return weighted_sum
+
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """Apply the layer to input tensor.
+
+        Args:
+            inputs: Input tensor
+
+        Returns:
+            Transformed tensor
+        """
+        dist_info = self._estimate_distribution(inputs)
+        return self._transform_distribution(inputs, dist_info)
+
+    def get_config(self) -> dict:
+        """Get layer configuration.
+
+        Returns:
+            Layer configuration dictionary
+        """
+        config = super().get_config()
+        config.update(
+            {
+                "num_bins": self.num_bins,
+                "epsilon": self.epsilon,
+                "detect_periodicity": self.detect_periodicity,
+                "handle_sparsity": self.handle_sparsity,
+                "adaptive_binning": self.adaptive_binning,
+                "mixture_components": self.mixture_components,
+            },
+        )
+        return config
 
 
 class TransformerBlock(tf.keras.layers.Layer):

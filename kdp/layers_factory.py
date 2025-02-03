@@ -2,16 +2,17 @@ import inspect
 
 import tensorflow as tf
 
-from kdp.custom_layers import VariableSelection  # Add VariableSelection to the import list
 from kdp.custom_layers import (
     CastToFloat32Layer,
     DateEncodingLayer,
     DateParsingLayer,
+    DistributionAwareEncoder,
     MultiResolutionTabularAttention,
     SeasonLayer,
     TabularAttention,
     TextPreprocessingLayer,
     TransformerBlock,
+    VariableSelection,
 )
 
 
@@ -46,6 +47,43 @@ class PreprocessorLayerFactory:
 
         # Create an instance of the layer class with the filtered kwargs
         return layer_class(**filtered_kwargs)
+
+    @staticmethod
+    def distribution_aware_encoder(
+        name: str = "distribution_aware",
+        num_bins: int = 1000,
+        epsilon: float = 1e-6,
+        detect_periodicity: bool = True,
+        handle_sparsity: bool = True,
+        adaptive_binning: bool = True,
+        mixture_components: int = 3,
+        **kwargs,
+    ) -> tf.keras.layers.Layer:
+        """Create a DistributionAwareEncoder layer.
+
+        Args:
+            name (str): Name of the layer
+            num_bins (int): Number of bins for quantile encoding
+            epsilon (float): Small value for numerical stability
+            detect_periodicity (bool): Whether to detect and handle periodic patterns
+            handle_sparsity (bool): Whether to handle sparse data specially
+            adaptive_binning (bool): Whether to use adaptive binning
+            mixture_components (int): Number of components for mixture modeling
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            DistributionAwareEncoder layer
+        """
+        return DistributionAwareEncoder(
+            name=name,
+            num_bins=num_bins,
+            epsilon=epsilon,
+            detect_periodicity=detect_periodicity,
+            handle_sparsity=handle_sparsity,
+            adaptive_binning=adaptive_binning,
+            mixture_components=mixture_components,
+            **kwargs,
+        )
 
     @staticmethod
     def text_preprocessing_layer(name: str = "text_preprocessing", **kwargs: dict) -> tf.keras.layers.Layer:

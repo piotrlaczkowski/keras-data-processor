@@ -163,6 +163,8 @@ class PreprocessingModel:
         tabular_attention_embedding_dim: int = 32,
         use_caching: bool = True,
         feature_selection_placement: str = FeatureSelectionPlacementOptions.NONE.value,
+        use_distribution_aware: bool = False,
+        distribution_aware_bins: int = 1000,
         feature_selection_units: int = 32,
         feature_selection_dropout: float = 0.2,
     ) -> None:
@@ -196,6 +198,8 @@ class PreprocessingModel:
             feature_selection_placement (str): Where to apply feature selection (none|numeric|categorical|all_features).
             feature_selection_units (int): Number of units for feature selection.
             feature_selection_dropout (float): Dropout rate for feature selection.
+            use_distribution_aware (bool): Whether to use distribution-aware encoding for features.
+            distribution_aware_bins (int): Number of bins to use for distribution-aware encoding.
         """
         self.path_data = path_data
         self.batch_size = batch_size or 50_000
@@ -225,6 +229,8 @@ class PreprocessingModel:
         # feature selection control
         self.feature_selection_placement = feature_selection_placement
         self.feature_selection_units = feature_selection_units
+        self.use_distribution_aware = use_distribution_aware
+        self.distribution_aware_bins = distribution_aware_bins
         self.feature_selection_dropout = feature_selection_dropout
 
         # PLACEHOLDERS
@@ -529,15 +535,17 @@ class PreprocessingModel:
             stats (dict): A dictionary containing the metadata of the feature, including
                 the mean and variance of the feature.
         """
-        # extracting stats
-        mean = stats["mean"]
-        variance = stats["var"]
-
         # getting feature object
         _feature = self.features_specs[feature_name]
 
         # initializing preprocessor
         preprocessor = FeaturePreprocessor(name=feature_name)
+
+        # Add cast to float32 first for all numeric features
+        preprocessor.add_processing_step(
+            layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+            name=f"cast_to_float_{feature_name}",
+        )
 
         # Check if feature has specific preprocessing steps defined
         if hasattr(_feature, "preprocessors") and _feature.preprocessors:
@@ -548,52 +556,70 @@ class PreprocessingModel:
                 feature_name=feature_name,
             )
         else:
-            # Default behavior if no specific preprocessing is defined
-            if _feature.feature_type == FeatureType.FLOAT_NORMALIZED:
-                logger.debug("Adding Float Normalized Feature")
+            # Check if distribution-aware encoding is enabled
+            if self.use_distribution_aware:
+                logger.info(f"Using distribution-aware encoding for {feature_name}")
+                # Cast to float32 before distribution-aware encoding
                 preprocessor.add_processing_step(
-                    layer_class="Normalization",
-                    mean=mean,
-                    variance=variance,
-                    name=f"norm_{feature_name}",
+                    layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                    name=f"pre_dist_cast_to_float_{feature_name}",
                 )
-            elif _feature.feature_type == FeatureType.FLOAT_RESCALED:
-                logger.debug("Adding Float Rescaled Feature")
-                rescaling_scale = _feature.kwargs.get("scale", 1.0)  # Default scale is 1.0 if not specified
+                # Apply distribution-aware encoding
                 preprocessor.add_processing_step(
-                    layer_class="Rescaling",
-                    scale=rescaling_scale,
-                    name=f"rescale_{feature_name}",
+                    layer_creator=PreprocessorLayerFactory.distribution_aware_encoder,
+                    name=f"distribution_aware_{feature_name}",
+                    num_bins=self.distribution_aware_bins,
+                    detect_periodicity=True,
+                    handle_sparsity=True,
+                    adaptive_binning=True,
+                    mixture_components=3,
                 )
-            elif _feature.feature_type == FeatureType.FLOAT_DISCRETIZED:
-                logger.debug("Adding Float Discretized Feature")
-                # output dimensions will be > 1
-                _out_dims = len(_feature.kwargs.get("bin_boundaries", 1.0)) + 1
+                # Cast to float32 after distribution-aware encoding
                 preprocessor.add_processing_step(
-                    layer_class="Discretization",
-                    **_feature.kwargs,
-                    name=f"discretize_{feature_name}",
-                )
-                preprocessor.add_processing_step(
-                    layer_class="CategoryEncoding",
-                    num_tokens=_out_dims,
-                    output_mode="one_hot",
-                    name=f"one_hot_{feature_name}",
+                    layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                    name=f"post_dist_cast_to_float_{feature_name}",
                 )
             else:
-                logger.debug("Adding Float Normalized Feature -> Default Option")
-                preprocessor.add_processing_step(
-                    layer_class="Normalization",
-                    mean=mean,
-                    variance=variance,
-                    name=f"norm_{feature_name}",
-                )
-
-        # Add cast to float32 for concatenation compatibility
-        preprocessor.add_processing_step(
-            layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
-            name=f"cast_to_float_{feature_name}",
-        )
+                # Default behavior if no specific preprocessing is defined
+                if _feature.feature_type == FeatureType.FLOAT_NORMALIZED:
+                    logger.debug("Adding Float Normalized Feature")
+                    preprocessor.add_processing_step(
+                        layer_class="Normalization",
+                        mean=stats["mean"],
+                        variance=stats["var"],
+                        name=f"norm_{feature_name}",
+                    )
+                elif _feature.feature_type == FeatureType.FLOAT_RESCALED:
+                    logger.debug("Adding Float Rescaled Feature")
+                    rescaling_scale = _feature.kwargs.get("scale", 1.0)  # Default scale is 1.0 if not specified
+                    preprocessor.add_processing_step(
+                        layer_class="Rescaling",
+                        scale=rescaling_scale,
+                        name=f"rescale_{feature_name}",
+                    )
+                elif _feature.feature_type == FeatureType.FLOAT_DISCRETIZED:
+                    logger.debug("Adding Float Discretized Feature")
+                    # output dimensions will be > 1
+                    _out_dims = len(_feature.kwargs.get("bin_boundaries", 1.0)) + 1
+                    preprocessor.add_processing_step(
+                        layer_class="Discretization",
+                        **_feature.kwargs,
+                        name=f"discretize_{feature_name}",
+                    )
+                    preprocessor.add_processing_step(
+                        layer_class="CategoryEncoding",
+                        num_tokens=_out_dims,
+                        output_mode="one_hot",
+                        name=f"one_hot_{feature_name}",
+                    )
+                else:
+                    logger.debug("Adding Float Normalized Feature -> Default Option")
+                    preprocessor.add_processing_step(
+                        layer_class="Normalization",
+                        mean=stats["mean"],
+                        variance=stats["var"],
+                        name=f"norm_{feature_name}",
+                    )
 
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
