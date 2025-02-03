@@ -17,14 +17,14 @@ normalization_layer = PreprocessorLayerFactory.create_layer(
 ```
 Available layers:
 
-- [x] Normalization
-- [x] Discretization
-- [x] CategoryEncoding
-- [x] Hashing
-- [x] HashedCrossing
-- [x] StringLookup
-- [x] IntegerLookup
-- [x] TextVectorization
+- [x] Normalization - Standardizes numerical features
+- [x] Discretization - Bins continuous features into discrete intervals
+- [x] CategoryEncoding - Converts categorical data into numeric representations
+- [x] Hashing - Performs feature hashing for categorical variables
+- [x] HashedCrossing - Creates feature crosses using hashing
+- [x] StringLookup - Converts string inputs to integer indices
+- [x] IntegerLookup - Maps integer inputs to indexed array positions
+- [x] TextVectorization - Processes raw text into encoded representations
 - [x] ... and more
 
 
