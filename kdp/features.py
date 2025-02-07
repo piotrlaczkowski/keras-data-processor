@@ -53,7 +53,11 @@ class Feature:
             **kwargs: Additional keyword arguments for the feature.
         """
         self.name = name
-        self.feature_type = FeatureType.from_string(feature_type) if isinstance(feature_type, str) else feature_type
+        self.feature_type = (
+            FeatureType.from_string(feature_type)
+            if isinstance(feature_type, str)
+            else feature_type
+        )
         self.preprocessors = preprocessors or []
         self.kwargs = kwargs
 
@@ -93,7 +97,9 @@ class Feature:
 class NumericalFeature(Feature):
     """NumericalFeature with dynamic kwargs passing."""
 
-    def __init__(self, name: str, feature_type: FeatureType = FeatureType.FLOAT, **kwargs) -> None:
+    def __init__(
+        self, name: str, feature_type: FeatureType = FeatureType.FLOAT, **kwargs
+    ) -> None:
         """Initializes a NumericalFeature instance.
 
         Args:
@@ -126,7 +132,9 @@ class CategoricalFeature(Feature):
         """
         super().__init__(name, feature_type, **kwargs)
         self.category_encoding = category_encoding
-        self.dtype = tf.int32 if feature_type == FeatureType.INTEGER_CATEGORICAL else tf.string
+        self.dtype = (
+            tf.int32 if feature_type == FeatureType.INTEGER_CATEGORICAL else tf.string
+        )
         self.kwargs = kwargs
 
     def _embedding_size_rule(self, nr_categories: int) -> int:
@@ -144,7 +152,9 @@ class CategoricalFeature(Feature):
 class TextFeature(Feature):
     """TextFeature with dynamic kwargs passing."""
 
-    def __init__(self, name: str, feature_type: FeatureType = FeatureType.TEXT, **kwargs) -> None:
+    def __init__(
+        self, name: str, feature_type: FeatureType = FeatureType.TEXT, **kwargs
+    ) -> None:
         """Initializes a TextFeature instance.
 
         Args:
@@ -160,7 +170,9 @@ class TextFeature(Feature):
 class DateFeature(Feature):
     """TextFeature with dynamic kwargs passing."""
 
-    def __init__(self, name: str, feature_type: FeatureType = FeatureType.DATE, **kwargs) -> None:
+    def __init__(
+        self, name: str, feature_type: FeatureType = FeatureType.DATE, **kwargs
+    ) -> None:
         """Initializes a DateFeature instance.
 
         Args:

@@ -20,7 +20,9 @@ class TextPreprocessingLayer(tf.keras.layers.Layer):
         self.stop_words = stop_words
         # Define punctuation and stop words patterns as part of the configuration
         self.punctuation_pattern = re.escape(string.punctuation)
-        self.stop_words_pattern = r"|".join([re.escape(word) for word in self.stop_words])
+        self.stop_words_pattern = r"|".join(
+            [re.escape(word) for word in self.stop_words]
+        )
 
     def call(self, x: tf.Tensor) -> tf.Tensor:
         """Preprocesses the input tensor.
@@ -173,12 +175,18 @@ class DateParsingLayer(tf.keras.layers.Layer):
             m = tf.where(month < 3, month + 12, month)
             k = y % 100
             j = y // 100
-            h = (day_of_month + ((13 * (m + 1)) // 5) + k + (k // 4) + (j // 4) - (2 * j)) % 7
-            day_of_week = tf.where(h == 0, 6, h - 1)  # Adjust to 0-6 range where 0 is Sunday
+            h = (
+                day_of_month + ((13 * (m + 1)) // 5) + k + (k // 4) + (j // 4) - (2 * j)
+            ) % 7
+            day_of_week = tf.where(
+                h == 0, 6, h - 1
+            )  # Adjust to 0-6 range where 0 is Sunday
 
             return tf.stack([year, month, day_of_month, day_of_week])
 
-        parsed_dates = tf.map_fn(parse_date, tf.squeeze(inputs), fn_output_signature=tf.int32)
+        parsed_dates = tf.map_fn(
+            parse_date, tf.squeeze(inputs), fn_output_signature=tf.int32
+        )
         return parsed_dates
 
     def compute_output_shape(self, input_shape: int) -> int:
@@ -209,7 +217,9 @@ class DateEncodingLayer(tf.keras.layers.Layer):
         return year % 1.0
 
     @tf.function
-    def cyclic_encoding(self, value: tf.Tensor, period: float) -> tuple[tf.Tensor, tf.Tensor]:
+    def cyclic_encoding(
+        self, value: tf.Tensor, period: float
+    ) -> tuple[tf.Tensor, tf.Tensor]:
         """Encode a value as a cyclical feature using sine and cosine transformations.
 
         Args:
@@ -259,8 +269,12 @@ class DateEncodingLayer(tf.keras.layers.Layer):
         # Encode each feature in cyclinc projections
         year_sin, year_cos = self.cyclic_encoding(year_float, period=1.0)
         month_sin, month_cos = self.cyclic_encoding(month_float, period=12.0)
-        day_of_month_sin, day_of_month_cos = self.cyclic_encoding(day_of_month_float, period=31.0)
-        day_of_week_sin, day_of_week_cos = self.cyclic_encoding(day_of_week_float, period=7.0)
+        day_of_month_sin, day_of_month_cos = self.cyclic_encoding(
+            day_of_month_float, period=31.0
+        )
+        day_of_week_sin, day_of_week_cos = self.cyclic_encoding(
+            day_of_week_float, period=7.0
+        )
 
         encoded = tf.stack(
             [
@@ -278,9 +292,19 @@ class DateEncodingLayer(tf.keras.layers.Layer):
 
         return encoded
 
-    def compute_output_shape(self, input_shape: int) -> int:
-        """Getting output shape."""
-        return tf.TensorShape([input_shape[0], 8])  # Changed to 8 for 4 features * 2 components each
+    def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:
+        """Compute the output shape of the distribution-aware encoder.
+
+        The output shape matches the input shape since this layer performs
+        element-wise transformations that preserve dimensionality.
+
+        Args:
+            input_shape: Shape of the input tensor.
+
+        Returns:
+            tf.TensorShape: Shape of the output tensor, which is identical to the input shape.
+        """
+        return input_shape
 
     def get_config(self) -> dict:
         """Returns the configuration of the layer as a dictionary."""
@@ -527,8 +551,12 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         # Basic statistics
         mean = tf.reduce_mean(inputs)
         variance = tf.math.reduce_variance(inputs)
-        skewness = tf.reduce_mean(tf.pow((inputs - mean) / tf.sqrt(variance + self.epsilon), 3))
-        kurtosis = tf.reduce_mean(tf.pow((inputs - mean) / tf.sqrt(variance + self.epsilon), 4))
+        skewness = tf.reduce_mean(
+            tf.pow((inputs - mean) / tf.sqrt(variance + self.epsilon), 3)
+        )
+        kurtosis = tf.reduce_mean(
+            tf.pow((inputs - mean) / tf.sqrt(variance + self.epsilon), 4)
+        )
 
         # Range statistics
         min_val = tf.reduce_min(inputs)
@@ -539,18 +567,22 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         # Count statistics
         zero_ratio = tf.reduce_mean(tf.cast(tf.abs(inputs) < self.epsilon, tf.float32))
         flattened_inputs = tf.reshape(inputs, [-1])
-        unique_ratio = tf.cast(tf.size(tf.unique(flattened_inputs)[0]), tf.float32) / tf.cast(
+        unique_ratio = tf.cast(
+            tf.size(tf.unique(flattened_inputs)[0]), tf.float32
+        ) / tf.cast(
             tf.size(inputs),
             tf.float32,
         )
-        is_bounded = min_val > -10.0 and max_val < 10.0  # Arbitrary bounds for demonstration
+        is_bounded = (
+            min_val > -100.0 and max_val < 100.0
+        )  # Arbitrary bounds for demonstration
 
         # Distribution checks
         is_sparse = zero_ratio > 0.5
         is_zero_inflated = zero_ratio > 0.3 and not is_sparse
         is_normal = tf.abs(kurtosis - 3.0) < 0.5 and tf.abs(skewness) < 0.5
         is_uniform = tf.abs(kurtosis - 1.8) < 0.3
-        is_heavy_tailed = kurtosis > 3.5
+        is_heavy_tailed = self._check_heavy_tailed(inputs)
         is_cauchy = kurtosis > 20.0  # Extremely heavy-tailed
         is_exponential = tf.abs(skewness - 2.0) < 0.5 and min_val >= -self.epsilon
         is_log_normal = self._check_log_normal(inputs)
@@ -561,9 +593,19 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         # Advanced distribution checks
         is_beta = is_bounded and not is_uniform and min_val >= 0 and max_val <= 1
         is_gamma = min_val >= -self.epsilon and skewness > 0 and not is_exponential
-        is_poisson = is_discrete and min_val >= -self.epsilon and variance > self.epsilon
+        is_poisson = (
+            is_discrete and min_val >= -self.epsilon and variance > self.epsilon
+        )
         is_weibull = min_val >= -self.epsilon and not is_exponential and not is_gamma
         is_ordinal = is_discrete and unique_ratio < 0.05  # Less than 5% unique values
+
+        # exceptions
+        if is_normal and is_multimodal:
+            is_normal = False
+        if is_normal and is_heavy_tailed:
+            is_normal = False
+        if is_multimodal and is_heavy_tailed:
+            is_heavy_tailed = False
 
         return {
             "type": self._determine_primary_distribution(
@@ -601,22 +643,22 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         # Priority order for distribution types
         priority_order = [
             DistributionType.SPARSE,
+            DistributionType.PERIODIC,
+            DistributionType.DISCRETE,
+            DistributionType.UNIFORM,
             DistributionType.ZERO_INFLATED,
             DistributionType.ORDINAL,
-            DistributionType.PERIODIC,
-            DistributionType.MULTIMODAL,
-            DistributionType.DISCRETE,
-            DistributionType.POISSON,
-            DistributionType.CAUCHY,
+            DistributionType.NORMAL,
             DistributionType.HEAVY_TAILED,
             DistributionType.LOG_NORMAL,
-            DistributionType.WEIBULL,
-            DistributionType.GAMMA,
-            DistributionType.EXPONENTIAL,
             DistributionType.BETA,
+            DistributionType.GAMMA,
+            DistributionType.POISSON,
+            DistributionType.CAUCHY,
+            DistributionType.WEIBULL,
+            DistributionType.EXPONENTIAL,
+            DistributionType.MULTIMODAL,
             DistributionType.BOUNDED,
-            DistributionType.UNIFORM,
-            DistributionType.NORMAL,
         ]
 
         for dist_type in priority_order:
@@ -625,12 +667,50 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
 
         return DistributionType.MIXED
 
+    def _check_heavy_tailed(self, inputs: tf.Tensor) -> tf.Tensor:
+        """Check for heavy-tailed distribution by comparing with normal distribution.
+
+        Compares the ratio of data beyond 2 and 3 standard deviations with what we'd
+        expect from a normal distribution, and checks for symmetry.
+        """
+        # Standardize the data
+        mean = tf.reduce_mean(inputs)
+        std = tf.math.reduce_std(inputs)
+        standardized = (inputs - mean) / std
+
+        # Check symmetry
+        left_tail = tf.reduce_mean(tf.cast(standardized < -2.0, tf.float32))
+        right_tail = tf.reduce_mean(tf.cast(standardized > 2.0, tf.float32))
+        is_symmetric = tf.abs(left_tail - right_tail) < 0.01  # 1% tolerance
+
+        # For a normal distribution:
+        # ~4.6% of data should be beyond 2 std
+        # ~0.3% of data should be beyond 3 std
+        beyond_2std = tf.reduce_mean(tf.cast(tf.abs(standardized) > 2.0, tf.float32))
+        beyond_3std = tf.reduce_mean(tf.cast(tf.abs(standardized) > 3.0, tf.float32))
+
+        # Check if the 2nd quantile is about the same as the 3rd quantile compared to the normal distribution
+        # and ensure the distribution is symmetric
+        is_heavy = tf.logical_and(
+            tf.logical_and(
+                beyond_2std < 0.046 * 1.5,
+                beyond_3std > 0.0029,
+            ),
+            is_symmetric,
+        )
+
+        return is_heavy
+
     def _check_log_normal(self, inputs: tf.Tensor) -> tf.Tensor:
         """Check if the distribution is log-normal."""
         positive_inputs = inputs - tf.reduce_min(inputs) + self.epsilon
         log_inputs = tf.math.log(positive_inputs)
         log_kurtosis = tf.reduce_mean(
-            tf.pow((log_inputs - tf.reduce_mean(log_inputs)) / (tf.math.reduce_std(log_inputs) + self.epsilon), 4),
+            tf.pow(
+                (log_inputs - tf.reduce_mean(log_inputs))
+                / (tf.math.reduce_std(log_inputs) + self.epsilon),
+                4,
+            ),
         )
         return tf.abs(log_kurtosis - 3.0) < 0.5
 
@@ -638,15 +718,66 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         """Check if the distribution is discrete."""
         flattened_inputs = tf.reshape(inputs, [-1])
         unique_values = tf.unique(flattened_inputs)[0]
-        return tf.cast(tf.size(unique_values), tf.float32) / tf.cast(tf.size(inputs), tf.float32) < 0.01
+        return (
+            tf.cast(tf.size(unique_values), tf.float32)
+            / tf.cast(tf.size(inputs), tf.float32)
+            < 0.01
+        )
 
-    def _check_periodicity(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Check if the distribution has periodic patterns."""
-        # Simple autocorrelation check
-        shifted = inputs[1:]
-        original = inputs[:-1]
-        correlation = tf.reduce_mean((shifted - tf.reduce_mean(shifted)) * (original - tf.reduce_mean(original)))
-        return correlation > 0.7
+    def _check_periodicity(
+        self, data: tf.Tensor, max_lag: int = None, threshold: float = 0.3
+    ) -> tf.Tensor:
+        """Test for periodicity in time series data using autocorrelation.
+
+        Args:
+            data: Input time series tensor
+            max_lag: Maximum lag to test. If None, uses n_samples/2
+            threshold: Correlation threshold to consider as periodic
+
+        Returns:
+            bool tensor indicating if data is periodic
+        """
+        # Ensure data is 1D and float32
+        data = tf.cast(tf.reshape(data, [-1]), tf.float32)
+        n_samples = tf.shape(data)[0]
+
+        # Set default max_lag if not provided
+        if max_lag is None:
+            max_lag = tf.cast(n_samples / 2, tf.int32)
+
+        # Center the data
+        data_centered = data - tf.reduce_mean(data)
+        variance = tf.reduce_sum(tf.square(data_centered))
+
+        # Calculate autocorrelation for different lags
+        autocorr = tf.TensorArray(tf.float32, size=max_lag)
+
+        # Calculate correlation
+        for lag in tf.range(1, max_lag):
+            y1 = data_centered[lag:]
+            y2 = data_centered[:-lag]
+
+            correlation = tf.reduce_sum(y1 * y2) / variance
+            autocorr = autocorr.write(lag, correlation)
+
+        # Find peaks in the autocorrelation function
+        autocorr = autocorr.stack()
+        peaks = tf.where(
+            tf.logical_and(
+                autocorr > threshold,
+                tf.logical_and(
+                    autocorr > tf.concat([[0.0], autocorr[:-1]], 0),
+                    autocorr > tf.concat([autocorr[1:], [0.0]], 0),
+                ),
+            ),
+        )
+
+        # Check if we found any significant peaks
+        if tf.size(peaks) > 1:
+            tf.cast(peaks[0][0] + 1, tf.int32)  # +1 because lag starts at 1
+            return True
+        else:
+            return False
 
     def _gaussian_kernel_density_estimation(
         self,
@@ -671,20 +802,20 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
 
     def _detect_multimodality(self, inputs: tf.Tensor) -> tf.Tensor:
         """Enhanced multimodality detection using KDE."""
+        # Instead of stack, use reshape and transpose for similar functionality
         flattened_inputs = tf.reshape(inputs, [-1])
         sample_points = tf.linspace(
             tf.reduce_min(flattened_inputs),
             tf.reduce_max(flattened_inputs),
-            100,
+            500,
         )
 
         kde = self._gaussian_kernel_density_estimation(
             flattened_inputs,
             sample_points,
-            bandwidth=0.1,
+            bandwidth=0.5,
         )
 
-        # Find local maxima
         # Compare with both previous and next points
         prev_kde = tf.concat([kde[:1], kde[:-1]], axis=0)
         next_kde = tf.concat([kde[1:], kde[-1:]], axis=0)
@@ -695,6 +826,27 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             ),
         )
 
+        # Need at least 2 peaks to be multimodal or periodic
+        if tf.shape(peaks)[0] <= 1:
+            return False
+
+        # Check regularity of peak spacing
+        peak_positions = tf.cast(peaks[:, 0], tf.float32)
+
+        # If we have 3 or more peaks, check for periodicity
+        if tf.shape(peak_positions)[0] >= 3:
+            # Calculate distances between consecutive peaks
+            peak_distances = peak_positions[1:] - peak_positions[:-1]
+
+            # Check if distances are similar (within 20% of mean)
+            mean_distance = tf.reduce_mean(peak_distances)
+            max_deviation = tf.reduce_max(tf.abs(peak_distances - mean_distance))
+
+            # If max deviation is less than 20% of mean distance, it's likely periodic
+            is_periodic = max_deviation < (0.2 * mean_distance)
+            return not is_periodic  # Return False if periodic, True if multimodal
+
+        # If less than 3 peaks, check if at least 2 peaks for multimodality
         return tf.shape(peaks)[0] > 1
 
     def _transform_distribution(self, inputs: tf.Tensor, dist_info: dict) -> tf.Tensor:
@@ -721,11 +873,14 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         }
 
         transform_fn = transformations.get(dist_info["type"], self._handle_normal)
-        return transform_fn(inputs, dist_info["stats"])
+        result = transform_fn(inputs, dist_info["stats"])
+        return tf.cast(result, tf.float32)
 
     def _handle_normal(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
         """Handle normal distribution using TFP Normal distribution."""
-        dist = self.normal_dist(loc=stats["mean"], scale=tf.sqrt(stats["variance"] + self.epsilon))
+        dist = self.normal_dist(
+            loc=stats["mean"], scale=tf.sqrt(stats["variance"] + self.epsilon)
+        )
         normalized = dist.cdf(inputs)
         return 2.0 * normalized - 1.0  # Scale to [-1, 1]
 
@@ -750,7 +905,9 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             tf.reduce_max(inputs),
             self.mixture_components,
         )
-        scales_init = tf.ones_like(means_init) * tf.sqrt(stats["variance"] / self.mixture_components + self.epsilon)
+        scales_init = tf.ones_like(means_init) * tf.sqrt(
+            stats["variance"] / self.mixture_components + self.epsilon
+        )
 
         # Normalize mixture weights
         weights = tf.nn.softmax(self.mixture_weights)
@@ -768,7 +925,8 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         high = tf.reduce_max(inputs)
 
         dist = self.uniform_dist(low=low, high=high + self.epsilon)
-        return dist.cdf(inputs)
+        result = dist.cdf(inputs)
+        return result
 
     def _handle_exponential(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
         """Handle exponential distribution using TFP Exponential."""
@@ -832,7 +990,9 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         """Handle Cauchy-distributed data."""
         # Use robust statistics for location and scale
         location = tfp.stats.percentile(inputs, 50.0)  # median
-        scale = (tfp.stats.percentile(inputs, 75.0) - tfp.stats.percentile(inputs, 25.0)) / 2  # IQR/2
+        scale = (
+            tfp.stats.percentile(inputs, 75.0) - tfp.stats.percentile(inputs, 25.0)
+        ) / 2  # IQR/2
         dist = self.cauchy_dist(loc=location, scale=scale)
         return dist.cdf(inputs)
 
@@ -849,10 +1009,14 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             var = tf.math.reduce_variance(non_zero_inputs)
             if mean > 0 and var > mean:
                 # Use gamma for overdispersed positive data
-                transformed = self._handle_gamma(inputs, {"mean": mean, "variance": var})
+                transformed = self._handle_gamma(
+                    inputs, {"mean": mean, "variance": var}
+                )
             else:
                 # Use normal as default
-                transformed = self._handle_normal(inputs, {"mean": mean, "variance": var})
+                transformed = self._handle_normal(
+                    inputs, {"mean": mean, "variance": var}
+                )
         else:
             transformed = inputs
 
@@ -892,33 +1056,30 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         return table.lookup(inputs)
 
     def _handle_discrete(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
-        """Handle discrete data using an ordinal encoding with spacing based on empirical CDF.
+        """Handle discrete data using rank-based normalization.
 
-        This method improves upon simple normalization by:
-        1. Preserving the relative frequencies of values
-        2. Maintaining proper spacing between values
-        3. Handling both numeric and categorical discrete data
+        This method:
+        1. Preserves the ordering of discrete values
+        2. Creates evenly spaced values in [-1, 1]
+        3. Handles both numeric and categorical discrete data
         """
-        # Get unique values and their counts
-        unique_values, indices = tf.unique_with_counts(inputs)
-        total_count = tf.reduce_sum(tf.cast(indices, tf.float32))
+        # Get unique values and sort them
+        unique_values = tf.sort(tf.unique(inputs)[0])
+        num_unique = tf.shape(unique_values)[0]
 
-        # Calculate empirical CDF for each unique value
-        cumsum = tf.cumsum(tf.cast(indices, tf.float32))
-        ecdf = cumsum / total_count
+        # Create evenly spaced values between -1 and 1
+        normalized_values = tf.linspace(-1.0, 1.0, num_unique)
 
-        # Create a lookup table for the ECDF values
-        table = tf.lookup.StaticHashTable(
+        # Create mapping from original to normalized values
+        mapping = tf.lookup.StaticHashTable(
             tf.lookup.KeyValueTensorInitializer(
-                unique_values,
-                ecdf,
+                tf.cast(unique_values, tf.int64),  # Convert to int64 for hash table
+                normalized_values,
             ),
             default_value=-1.0,
         )
 
-        # Transform to [-1, 1] range
-        transformed = 2.0 * table.lookup(inputs) - 1.0
-        return transformed
+        return mapping.lookup(tf.cast(inputs, tf.int64))
 
     def _handle_periodic(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
         """Handle periodic data using Fourier features.
@@ -937,7 +1098,9 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             tf.Tensor: A 2D tensor containing sine and cosine transformations
         """
         # Normalize the inputs to [-π, π] range for better periodic handling
-        normalized = (inputs - stats["mean"]) / (tf.sqrt(stats["variance"]) + self.epsilon)
+        normalized = (inputs - stats["mean"]) / (
+            tf.sqrt(stats["variance"]) + self.epsilon
+        )
         normalized = normalized * tf.constant(math.pi, dtype=tf.float32)
 
         # Detect the dominant period using autocorrelation if not provided
@@ -947,7 +1110,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             self.phase = tf.Variable(0.0, trainable=True, dtype=tf.float32)
 
         # Base frequency features - always include fundamental frequency
-        base_features = tf.stack(
+        base_features = tf.stack(  # noqa: PD013
             [
                 tf.sin(self.frequency * normalized + self.phase),
                 tf.cos(self.frequency * normalized + self.phase),
@@ -1032,8 +1195,14 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         # Apply different transformations
         transformations = [
             (self._handle_normal(inputs, stats), 1.0),
-            (self._handle_heavy_tailed(inputs, stats), 0.8 if stats["kurtosis"] > 3.0 else 0.2),
-            (self._handle_exponential(inputs, stats), 0.8 if stats["skewness"] > 1.0 else 0.2),
+            (
+                self._handle_heavy_tailed(inputs, stats),
+                0.8 if stats["kurtosis"] > 3.0 else 0.2,
+            ),
+            (
+                self._handle_exponential(inputs, stats),
+                0.8 if stats["skewness"] > 1.0 else 0.2,
+            ),
         ]
 
         if stats.get("is_multimodal", False):
@@ -1049,6 +1218,20 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             weighted_sum += (weight / total_weight) * transformed
 
         return weighted_sum
+
+    def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:
+        """Compute the output shape of the distribution-aware encoder.
+
+        The output shape matches the input shape since this layer performs
+        element-wise transformations that preserve dimensionality.
+
+        Args:
+            input_shape: Shape of the input tensor.
+
+        Returns:
+            tf.TensorShape: Shape of the output tensor, which is identical to the input shape.
+        """
+        return input_shape
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
         """Apply the layer to input tensor.
@@ -1109,7 +1292,9 @@ class TransformerBlock(tf.keras.layers.Layer):
         self.dropout_rate = dropout_rate
 
         # Define layers
-        self.multihead_attention = tf.keras.layers.MultiHeadAttention(num_heads=num_heads, key_dim=dim_model)
+        self.multihead_attention = tf.keras.layers.MultiHeadAttention(
+            num_heads=num_heads, key_dim=dim_model
+        )
         self.dropout1 = tf.keras.layers.Dropout(dropout_rate)
         self.add1 = tf.keras.layers.Add()
         self.layer_norm1 = tf.keras.layers.LayerNormalization()
@@ -1160,7 +1345,9 @@ class TabularAttention(tf.keras.layers.Layer):
     layer normalization, dropout, and a feed-forward network.
     """
 
-    def __init__(self, num_heads: int, d_model: int, dropout_rate: float = 0.1, **kwargs):
+    def __init__(
+        self, num_heads: int, d_model: int, dropout_rate: float = 0.1, **kwargs
+    ):
         """Initialize the TabularAttention layer.
 
         Args:
@@ -1229,24 +1416,38 @@ class TabularAttention(tf.keras.layers.Layer):
             ValueError: If input tensor is not 3-dimensional
         """
         if len(inputs.shape) != 3:
-            raise ValueError("Input tensor must be 3-dimensional (batch_size, num_samples, num_features)")
+            raise ValueError(
+                "Input tensor must be 3-dimensional (batch_size, num_samples, num_features)"
+            )
 
         # Project inputs to d_model dimension
         projected = self.input_projection(inputs)
 
         # Inter-feature attention: across columns (features)
-        features = self.feature_attention(projected, projected, projected, training=training)
-        features = self.feature_layernorm(projected + self.feature_dropout(features, training=training))
+        features = self.feature_attention(
+            projected, projected, projected, training=training
+        )
+        features = self.feature_layernorm(
+            projected + self.feature_dropout(features, training=training)
+        )
         features_ffn = self.ffn(features)
-        features = self.feature_layernorm2(features + self.feature_dropout2(features_ffn, training=training))
+        features = self.feature_layernorm2(
+            features + self.feature_dropout2(features_ffn, training=training)
+        )
 
         # Inter-sample attention: across rows (samples)
-        samples = tf.transpose(features, perm=[0, 2, 1])  # Transpose for sample attention
+        samples = tf.transpose(
+            features, perm=[0, 2, 1]
+        )  # Transpose for sample attention
         samples = self.sample_attention(samples, samples, samples, training=training)
         samples = tf.transpose(samples, perm=[0, 2, 1])  # Transpose back
-        samples = self.sample_layernorm(features + self.sample_dropout(samples, training=training))
+        samples = self.sample_layernorm(
+            features + self.sample_dropout(samples, training=training)
+        )
         samples_ffn = self.ffn(samples)
-        outputs = self.sample_layernorm2(samples + self.sample_dropout2(samples_ffn, training=training))
+        outputs = self.sample_layernorm2(
+            samples + self.sample_dropout2(samples_ffn, training=training)
+        )
 
         return outputs
 
@@ -1302,7 +1503,14 @@ class MultiResolutionTabularAttention(tf.keras.layers.Layer):
             - categorical_output: Tensor of shape `(batch_size, num_categorical, d_model)`
     """
 
-    def __init__(self, num_heads: int, d_model: int, embedding_dim: int, dropout_rate: float = 0.1, **kwargs) -> None:
+    def __init__(
+        self,
+        num_heads: int,
+        d_model: int,
+        embedding_dim: int,
+        dropout_rate: float = 0.1,
+        **kwargs,
+    ) -> None:
         """Initialize the MultiResolutionTabularAttention layer.
 
         Args:
@@ -1396,7 +1604,8 @@ class MultiResolutionTabularAttention(tf.keras.layers.Layer):
             training=training,
         )
         numerical_1 = self.numerical_layernorm1(
-            numerical_projected + self.numerical_dropout1(numerical_attn, training=training),
+            numerical_projected
+            + self.numerical_dropout1(numerical_attn, training=training),
         )
         numerical_ffn = self.numerical_ffn(numerical_1)
         numerical_2 = self.numerical_layernorm2(
@@ -1412,11 +1621,13 @@ class MultiResolutionTabularAttention(tf.keras.layers.Layer):
             training=training,
         )
         categorical_1 = self.categorical_layernorm1(
-            categorical_projected + self.categorical_dropout1(categorical_attn, training=training),
+            categorical_projected
+            + self.categorical_dropout1(categorical_attn, training=training),
         )
         categorical_ffn = self.categorical_ffn(categorical_1)
         categorical_2 = self.categorical_layernorm2(
-            categorical_1 + self.categorical_dropout2(categorical_ffn, training=training),
+            categorical_1
+            + self.categorical_dropout2(categorical_ffn, training=training),
         )
 
         # Cross attention: numerical features attend to categorical features
@@ -1631,7 +1842,9 @@ class VariableSelection(tf.keras.layers.Layer):
             - feature_weights: Weights assigned to each feature
     """
 
-    def __init__(self, nr_features: int, units: int, dropout_rate: float = 0.2, **kwargs: dict) -> None:
+    def __init__(
+        self, nr_features: int, units: int, dropout_rate: float = 0.2, **kwargs: dict
+    ) -> None:
         """Initialize the VariableSelection layer.
 
         Args:
@@ -1655,7 +1868,9 @@ class VariableSelection(tf.keras.layers.Layer):
         self.grn_concat = GatedResidualNetwork(units=units, dropout_rate=dropout_rate)
         self.softmax = tf.keras.layers.Dense(units=nr_features, activation="softmax")
 
-    def call(self, inputs: list[tf.Tensor], training: bool = False) -> tuple[tf.Tensor, tf.Tensor]:
+    def call(
+        self, inputs: list[tf.Tensor], training: bool = False
+    ) -> tuple[tf.Tensor, tf.Tensor]:
         """Forward pass of the layer.
 
         Args:
@@ -1678,7 +1893,9 @@ class VariableSelection(tf.keras.layers.Layer):
         x = tf.stack(x, axis=1)
 
         # Apply feature selection weights
-        selected_features = tf.squeeze(tf.matmul(feature_weights, x, transpose_a=True), axis=1)
+        selected_features = tf.squeeze(
+            tf.matmul(feature_weights, x, transpose_a=True), axis=1
+        )
         return selected_features, feature_weights
 
     def get_config(self) -> dict:

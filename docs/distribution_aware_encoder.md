@@ -123,7 +123,7 @@ encoder = DistributionAwareEncoder(
 |-----------|------|---------|-------------|
 | num_bins | int | 1000 | Number of bins for quantile encoding |
 | epsilon | float | 1e-6 | Small value for numerical stability |
-| detect_periodicity | bool | True | Enable periodic pattern detection |
+| detect_periodicity | bool | True | Enable periodic pattern detection | Remove this parameter when having multimodal functions/distributions
 | handle_sparsity | bool | True | Enable special handling for sparse data |
 | adaptive_binning | bool | True | Enable adaptive bin boundaries |
 | mixture_components | int | 3 | Number of components for mixture models |

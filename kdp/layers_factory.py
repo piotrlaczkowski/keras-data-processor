@@ -18,7 +18,9 @@ from kdp.custom_layers import (
 
 class PreprocessorLayerFactory:
     @staticmethod
-    def create_layer(layer_class: str | object, name: str = None, **kwargs) -> tf.keras.layers.Layer:
+    def create_layer(
+        layer_class: str | object, name: str = None, **kwargs
+    ) -> tf.keras.layers.Layer:
         """Create a layer using the layer class name, automatically filtering kwargs based on the layer class.
 
         Args:
@@ -39,7 +41,9 @@ class PreprocessorLayerFactory:
         constructor_params = inspect.signature(layer_class.__init__).parameters
 
         # Filter kwargs to only include those that the constructor can accept
-        filtered_kwargs = {key: value for key, value in kwargs.items() if key in constructor_params}
+        filtered_kwargs = {
+            key: value for key, value in kwargs.items() if key in constructor_params
+        }
 
         # Add the 'name' argument if provided else default the class name lowercase option
         if name:
@@ -86,7 +90,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def text_preprocessing_layer(name: str = "text_preprocessing", **kwargs: dict) -> tf.keras.layers.Layer:
+    def text_preprocessing_layer(
+        name: str = "text_preprocessing", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a TextPreprocessingLayer layer.
 
         Args:
@@ -103,7 +109,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def cast_to_float32_layer(name: str = "cast_to_float32", **kwargs: dict) -> tf.keras.layers.Layer:
+    def cast_to_float32_layer(
+        name: str = "cast_to_float32", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a CastToFloat32Layer layer.
 
         Args:
@@ -120,7 +128,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def date_parsing_layer(name: str = "date_parsing_layer", **kwargs: dict) -> tf.keras.layers.Layer:
+    def date_parsing_layer(
+        name: str = "date_parsing_layer", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a DateParsingLayer layer.
 
         Args:
@@ -137,7 +147,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def date_encoding_layer(name: str = "date_encoding_layer", **kwargs: dict) -> tf.keras.layers.Layer:
+    def date_encoding_layer(
+        name: str = "date_encoding_layer", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a DateEncodingLayer layer.
 
         Args:
@@ -154,7 +166,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def date_season_layer(name: str = "date_season_layer", **kwargs: dict) -> tf.keras.layers.Layer:
+    def date_season_layer(
+        name: str = "date_season_layer", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a SeasonLayer layer.
 
         Args:
@@ -171,7 +185,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def transformer_block_layer(name: str = "transformer", **kwargs: dict) -> tf.keras.layers.Layer:
+    def transformer_block_layer(
+        name: str = "transformer", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a TransformerBlock layer.
 
         Args:
@@ -241,7 +257,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def variable_selection_layer(name: str = "variable_selection", **kwargs: dict) -> tf.keras.layers.Layer:
+    def variable_selection_layer(
+        name: str = "variable_selection", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a VariableSelection layer.
 
         Args:
