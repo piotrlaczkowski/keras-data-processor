@@ -468,6 +468,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         mixture_components: int = 3,
         trainable: bool = True,
         name: str = None,
+        specified_distribution: DistributionType = None,
         **kwargs,
     ) -> None:
         """Initialize the DistributionAwareEncoder.
@@ -481,6 +482,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             mixture_components: Number of components for mixture models
             trainable: Whether parameters are trainable
             name: Name of the layer
+            specified_distribution: Specific distribution type to use
             **kwargs: Additional layer arguments
         """
         super().__init__(name=name, trainable=trainable, **kwargs)
@@ -490,6 +492,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         self.handle_sparsity = handle_sparsity
         self.adaptive_binning = adaptive_binning
         self.mixture_components = mixture_components
+        self.specified_distribution = specified_distribution
 
         # Initialize TFP distributions
         self.normal_dist = tfp.distributions.Normal
@@ -547,7 +550,9 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         super().build(input_shape)
 
     def _estimate_distribution(self, inputs: tf.Tensor) -> dict:
-        """Enhanced distribution type detection with comprehensive checks."""
+        """Estimate distribution type with comprehensive checks or use specified distribution type."""
+
+        # Otherwise, perform automatic detection
         # Basic statistics
         mean = tf.reduce_mean(inputs)
         variance = tf.math.reduce_variance(inputs)
@@ -574,7 +579,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             tf.float32,
         )
         is_bounded = (
-            min_val > -100.0 and max_val < 100.0
+            min_val > -1000.0 and max_val < 1000.0
         )  # Arbitrary bounds for demonstration
 
         # Distribution checks
@@ -607,6 +612,20 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         if is_multimodal and is_heavy_tailed:
             is_heavy_tailed = False
 
+        # Create stats dictionary with tensor values
+        stats_dict = {
+            "mean": mean,
+            "variance": variance,
+            "skewness": skewness,
+            "kurtosis": kurtosis,
+            "zero_ratio": zero_ratio,
+        }
+
+        if self.specified_distribution:
+            return {
+                "type": self.specified_distribution,
+                "stats": stats_dict,
+            }
         return {
             "type": self._determine_primary_distribution(
                 {
@@ -629,13 +648,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
                     DistributionType.ORDINAL: is_ordinal,
                 },
             ),
-            "stats": {
-                "mean": mean,
-                "variance": variance,
-                "skewness": skewness,
-                "kurtosis": kurtosis,
-                "zero_ratio": zero_ratio,
-            },
+            "stats": stats_dict,
         }
 
     def _determine_primary_distribution(self, dist_flags: dict) -> str:
@@ -660,6 +673,10 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             DistributionType.MULTIMODAL,
             DistributionType.BOUNDED,
         ]
+
+        for dist_type, is_flag in dist_flags.items():
+            print(f"{dist_type}: {is_flag}")
+        print("\n--------------------------------")
 
         for dist_type in priority_order:
             if dist_flags.get(dist_type, False):
@@ -1243,6 +1260,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             Transformed tensor
         """
         dist_info = self._estimate_distribution(inputs)
+        print(f"Distribution info: {dist_info}")
         return self._transform_distribution(inputs, dist_info)
 
     def get_config(self) -> dict:
@@ -1260,6 +1278,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
                 "handle_sparsity": self.handle_sparsity,
                 "adaptive_binning": self.adaptive_binning,
                 "mixture_components": self.mixture_components,
+                "specified_distribution": self.specified_distribution,
             },
         )
         return config

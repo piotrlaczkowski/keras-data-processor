@@ -7,6 +7,7 @@ from kdp.custom_layers import (
     DateEncodingLayer,
     DateParsingLayer,
     DistributionAwareEncoder,
+    DistributionType,
     MultiResolutionTabularAttention,
     SeasonLayer,
     TabularAttention,
@@ -61,6 +62,7 @@ class PreprocessorLayerFactory:
         handle_sparsity: bool = True,
         adaptive_binning: bool = True,
         mixture_components: int = 3,
+        specified_distribution: "DistributionType" = None,
         **kwargs,
     ) -> tf.keras.layers.Layer:
         """Create a DistributionAwareEncoder layer.
@@ -73,6 +75,7 @@ class PreprocessorLayerFactory:
             handle_sparsity (bool): Whether to handle sparse data specially
             adaptive_binning (bool): Whether to use adaptive binning
             mixture_components (int): Number of components for mixture modeling
+            specified_distribution (DistributionType): Optional specific distribution type to use
             **kwargs: Additional keyword arguments
 
         Returns:
@@ -86,6 +89,7 @@ class PreprocessorLayerFactory:
             handle_sparsity=handle_sparsity,
             adaptive_binning=adaptive_binning,
             mixture_components=mixture_components,
+            specified_distribution=specified_distribution,
             **kwargs,
         )
 

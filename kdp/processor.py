@@ -182,6 +182,7 @@ class PreprocessingModel:
         feature_selection_placement: str = FeatureSelectionPlacementOptions.NONE.value,
         use_distribution_aware: bool = False,
         distribution_aware_bins: int = 1000,
+        specified_distribution: str = None,
         feature_selection_units: int = 32,
         feature_selection_dropout: float = 0.2,
     ) -> None:
@@ -217,6 +218,9 @@ class PreprocessingModel:
             feature_selection_dropout (float): Dropout rate for feature selection.
             use_distribution_aware (bool): Whether to use distribution-aware encoding for features.
             distribution_aware_bins (int): Number of bins to use for distribution-aware encoding.
+            specified_distribution (str, optional): The specified distribution type for
+                distribution-aware encoding. Options: 'normal', 'lognormal', 'exponential', etc.
+                Defaults to None (automatic detection).
         """
         self.path_data = path_data
         self.batch_size = batch_size or 50_000
@@ -268,6 +272,8 @@ class PreprocessingModel:
 
         # initializing stats
         self._init_stats()
+
+        self.specified_distribution = specified_distribution
 
     def _monitor_performance(func: Callable) -> Callable:
         """Decorator to monitor the performance of a function.
@@ -606,6 +612,7 @@ class PreprocessingModel:
                     handle_sparsity=True,
                     adaptive_binning=True,
                     mixture_components=3,
+                    specified_distribution=self.specified_distribution,
                 )
                 # Cast to float32 after distribution-aware encoding
                 preprocessor.add_processing_step(

@@ -34,6 +34,28 @@ class FeatureType(Enum):
     DATE = auto()
 
 
+class DistributionType(str, Enum):
+    """Supported distribution types for feature encoding."""
+
+    NORMAL = "normal"
+    HEAVY_TAILED = "heavy_tailed"
+    MULTIMODAL = "multimodal"
+    UNIFORM = "uniform"
+    EXPONENTIAL = "exponential"
+    LOG_NORMAL = "log_normal"
+    DISCRETE = "discrete"
+    PERIODIC = "periodic"
+    SPARSE = "sparse"
+    BETA = "beta"
+    GAMMA = "gamma"
+    POISSON = "poisson"
+    WEIBULL = "weibull"
+    CAUCHY = "cauchy"
+    ZERO_INFLATED = "zero_inflated"
+    BOUNDED = "bounded"
+    ORDINAL = "ordinal"
+
+
 class Feature:
     """Base class for features with support for dynamic kwargs."""
 
@@ -98,18 +120,23 @@ class NumericalFeature(Feature):
     """NumericalFeature with dynamic kwargs passing."""
 
     def __init__(
-        self, name: str, feature_type: FeatureType = FeatureType.FLOAT, **kwargs
+        self,
+        name: str,
+        feature_type: FeatureType = FeatureType.FLOAT_NORMALIZED,
+        distribution: DistributionType | None = None,
+        **kwargs,
     ) -> None:
         """Initializes a NumericalFeature instance.
 
         Args:
             name (str): The name of the feature.
             feature_type (FeatureType): The type of the feature.
+            distribution (DistributionType | None): The distribution type for the feature.
             **kwargs: Additional keyword arguments for the feature.
         """
         super().__init__(name, feature_type, **kwargs)
         self.dtype = tf.float32
-        self.kwargs = kwargs
+        self.distribution = distribution
 
 
 class CategoricalFeature(Feature):
