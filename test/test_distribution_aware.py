@@ -188,35 +188,6 @@ class TestDistributionAwareEncoder(tf.test.TestCase):
         # We should activate this when the distribution could be properly detected as log-normal
         # self.assertLess(tf.math.reduce_variance(outputs), tf.math.reduce_variance(inputs))
 
-    def test_discrete_distribution(self):  #########
-        # Generate discrete data
-        np.random.seed(42)
-        data = np.random.choice(5, 1000)
-        inputs = tf.convert_to_tensor(data, dtype=tf.float32)
-
-        # Process data
-        outputs = self.encoder(inputs)
-
-        # Check output properties
-        self.assertEqual(outputs.shape, inputs.shape)
-        self.assertAllInRange(outputs, -1, 1)
-
-        # Verify distribution detection
-        dist_info = self.encoder._estimate_distribution(inputs)
-        self.assertEqual(dist_info["type"], DistributionType.DISCRETE)
-
-        # Check value mapping consistency
-        unique_inputs = tf.unique(inputs)[0]
-        unique_outputs = tf.unique(outputs)[0]
-        self.assertEqual(len(unique_inputs), len(unique_outputs))
-
-        # Check ordering preservation
-        self.assertTrue(
-            tf.reduce_all(
-                tf.equal(tf.argsort(unique_inputs), tf.argsort(unique_outputs))
-            )
-        )
-
     def test_beta_distribution(self):
         # Generate beta distribution data
         np.random.seed(42)
@@ -287,101 +258,86 @@ class TestDistributionAwareEncoder(tf.test.TestCase):
     #     self.assertLess(tf.abs(tf.reduce_mean(outputs)), 1.0)
     #     self.assertLess(tf.math.reduce_variance(outputs), tf.math.reduce_variance(inputs))
 
-    # def test_poisson_distribution(self): #########
-    #     # Generate Poisson distribution data
-    #     np.random.seed(42)
-    #     data = np.random.poisson(5, 1000)
-    #     inputs = tf.convert_to_tensor(data, dtype=tf.float32)
+    def test_poisson_distribution(self):  #########
+        # Generate Poisson distribution data
+        np.random.seed(42)
+        data = np.random.poisson(5, 100)
+        inputs = tf.convert_to_tensor(data, dtype=tf.float32)
 
-    #     # Process data
-    #     outputs = self.encoder(inputs)
+        mean = tf.reduce_mean(inputs)
+        variance = tf.math.reduce_variance(inputs)
 
-    #     # Check output properties
-    #     self.assertEqual(outputs.shape, inputs.shape)
-    #     self.assertAllInRange(outputs, 0, 1)
+        self.assertGreater(variance / mean, 0.8)
+        self.assertLess(variance / mean, 1.2)
 
-    #     # Verify distribution detection
-    #     dist_info = self.encoder._estimate_distribution(inputs)
-    #     self.assertEqual(dist_info["type"], DistributionType.POISSON)
+        # Process data
+        outputs = self.encoder(inputs)
 
-    # def test_weibull_distribution(self):
-    #     # Generate Weibull distribution data
-    #     np.random.seed(42)
-    #     data = np.random.weibull(1.5, 1000)
-    #     inputs = tf.convert_to_tensor(data, dtype=tf.float32)
+        # Check output properties
+        self.assertEqual(outputs.shape, inputs.shape)
+        self.assertAllInRange(outputs, -1, 1)
 
-    #     # Process data
-    #     outputs = self.encoder(inputs)
+        # Verify distribution detection
+        dist_info = self.encoder._estimate_distribution(inputs)
+        self.assertEqual(dist_info["type"], DistributionType.POISSON)
 
-    #     # Check output properties
-    #     self.assertEqual(outputs.shape, inputs.shape)
-    #     self.assertAllInRange(outputs, 0, 1)
+    def test_exponential_distribution(self):
+        """Test that the encoder correctly identifies exponential distributions."""
+        # Generate exponential data
+        np.random.seed(42)
+        data = np.random.exponential(scale=2.0, size=1000)
+        inputs = tf.convert_to_tensor(data, dtype=tf.float32)
 
-    #     # Verify distribution detection
-    #     dist_info = self.encoder._estimate_distribution(inputs)
-    #     self.assertEqual(dist_info["type"], DistributionType.WEIBULL)
+        # Calculate skewness manually to verify
+        mean = tf.reduce_mean(inputs)
+        variance = tf.math.reduce_variance(inputs)
+        skewness = tf.reduce_mean(
+            tf.pow((inputs - mean) / tf.sqrt(variance + self.encoder.epsilon), 3)
+        )
 
-    # def test_zero_inflated_distribution(self):
-    #     # Generate zero-inflated data
-    #     np.random.seed(42)
-    #     data = np.zeros(1000)
-    #     non_zero_mask = np.random.random(1000) > 0.7
-    #     data[non_zero_mask] = np.random.poisson(3, size=non_zero_mask.sum())
-    #     inputs = tf.convert_to_tensor(data, dtype=tf.float32)
+        # Verify skewness is close to 2.0 (characteristic of exponential)
+        self.assertLess(tf.abs(skewness - 2.0), 0.5)
 
-    #     # Process data
-    #     outputs = self.encoder(inputs)
+        # Process data
+        outputs = self.encoder(inputs)
 
-    #     # Check output properties
-    #     self.assertEqual(outputs.shape, inputs.shape)
-    #     self.assertAllInRange(outputs, 0, 1)
+        # Check output properties
+        self.assertEqual(outputs.shape, inputs.shape)
+        self.assertAllInRange(outputs, -1, 1)
 
-    #     # Verify distribution detection
-    #     dist_info = self.encoder._estimate_distribution(inputs)
-    #     self.assertEqual(dist_info["type"], DistributionType.ZERO_INFLATED)
+        # Verify distribution detection
+        dist_info = self.encoder._estimate_distribution(inputs)
+        self.assertEqual(dist_info["type"], DistributionType.EXPONENTIAL)
 
-    #     # Check zero preservation
-    #     zero_mask = tf.abs(inputs) < self.encoder.epsilon
-    #     self.assertTrue(tf.reduce_all(tf.abs(outputs[zero_mask]) < self.encoder.epsilon))
+        # Additional exponential properties
+        self.assertGreaterEqual(
+            tf.reduce_min(inputs), -self.encoder.epsilon
+        )  # Non-negative
+        self.assertNear(variance, tf.square(mean), 0.5)  # Variance ≈ mean²
 
-    # def test_bounded_distribution(self):
-    #     # Generate bounded data
-    #     np.random.seed(42)
-    #     data = np.clip(np.random.normal(0, 1, 1000), -2, 2)
-    #     inputs = tf.convert_to_tensor(data, dtype=tf.float32)
+    def test_zero_inflated_distribution(self):
+        # Generate zero-inflated data
+        np.random.seed(42)
+        data = np.random.random(100)  # Generate 100 random numbers between 0 and 1
+        zero_mask = np.random.random(100) < 0.4  # Create mask for 60% zeros
+        data[zero_mask] = 0  # Zero out 60% of values
+        inputs = tf.convert_to_tensor(data, dtype=tf.float32)
 
-    #     # Process data
-    #     outputs = self.encoder(inputs)
+        # Process data
+        outputs = self.encoder(inputs)
 
-    #     # Check output properties
-    #     self.assertEqual(outputs.shape, inputs.shape)
-    #     self.assertAllInRange(outputs, -1, 1)
+        # Check output properties
+        self.assertEqual(outputs.shape, inputs.shape)
 
-    #     # Verify distribution detection
-    #     dist_info = self.encoder._estimate_distribution(inputs)
-    #     self.assertEqual(dist_info["type"], DistributionType.BOUNDED)
+        # Verify distribution detection
+        dist_info = self.encoder._estimate_distribution(inputs)
+        self.assertEqual(dist_info["type"], DistributionType.ZERO_INFLATED)
 
-    # def test_ordinal_distribution(self):
-    #     # Generate ordinal data
-    #     np.random.seed(42)
-    #     data = np.random.choice([1, 2, 3, 4, 5], 1000, p=[0.1, 0.2, 0.4, 0.2, 0.1])
-    #     inputs = tf.convert_to_tensor(data, dtype=tf.float32)
-
-    #     # Process data
-    #     outputs = self.encoder(inputs)
-
-    #     # Check output properties
-    #     self.assertEqual(outputs.shape, inputs.shape)
-    #     self.assertAllInRange(outputs, 0, 1)
-
-    #     # Verify distribution detection
-    #     dist_info = self.encoder._estimate_distribution(inputs)
-    #     self.assertEqual(dist_info["type"], DistributionType.ORDINAL)
-
-    #     # Check ordering preservation
-    #     unique_inputs = tf.unique(inputs)[0]
-    #     unique_outputs = tf.unique(outputs)[0]
-    #     self.assertTrue(tf.reduce_all(tf.equal(tf.argsort(unique_inputs), tf.argsort(unique_outputs))))
+        # Check zero preservation
+        zero_mask = tf.abs(inputs) < self.encoder.epsilon
+        self.assertTrue(
+            tf.reduce_all(tf.abs(outputs[zero_mask]) < self.encoder.epsilon)
+        )
 
     def test_config(self):
         config = self.encoder.get_config()

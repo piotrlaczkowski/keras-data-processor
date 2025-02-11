@@ -570,17 +570,16 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         _ = max_val - min_val  # Range value stored for future implementation
 
         # Count statistics
-        zero_ratio = tf.reduce_mean(tf.cast(tf.abs(inputs) < self.epsilon, tf.float32))
-        flattened_inputs = tf.reshape(inputs, [-1])
-        unique_ratio = tf.cast(
-            tf.size(tf.unique(flattened_inputs)[0]), tf.float32
-        ) / tf.cast(
-            tf.size(inputs),
-            tf.float32,
-        )
+        is_zero = tf.abs(inputs) < self.epsilon
+        num_zeros = tf.reduce_sum(tf.cast(is_zero, tf.float32))
+        total_elements = tf.cast(tf.size(inputs), tf.float32)
+        zero_ratio = num_zeros / total_elements
+
         is_bounded = (
             min_val > -1000.0 and max_val < 1000.0
         )  # Arbitrary bounds for demonstration
+
+        print(f"zero_ratioAAA: {zero_ratio}")
 
         # Distribution checks
         is_sparse = zero_ratio > 0.5
@@ -597,12 +596,8 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
 
         # Advanced distribution checks
         is_beta = is_bounded and not is_uniform and min_val >= 0 and max_val <= 1
-        is_gamma = min_val >= -self.epsilon and skewness > 0 and not is_exponential
-        is_poisson = (
-            is_discrete and min_val >= -self.epsilon and variance > self.epsilon
-        )
-        is_weibull = min_val >= -self.epsilon and not is_exponential and not is_gamma
-        is_ordinal = is_discrete and unique_ratio < 0.05  # Less than 5% unique values
+        is_gamma = min_val >= -self.epsilon and skewness > 0
+        is_poisson = is_discrete and (0.8 < (variance / mean) < 1.2)
 
         # exceptions
         if is_normal and is_multimodal:
@@ -635,17 +630,13 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
                     DistributionType.EXPONENTIAL: is_exponential,
                     DistributionType.LOG_NORMAL: is_log_normal,
                     DistributionType.MULTIMODAL: is_multimodal,
-                    DistributionType.DISCRETE: is_discrete,
                     DistributionType.PERIODIC: is_periodic,
                     DistributionType.SPARSE: is_sparse,
                     DistributionType.BETA: is_beta,
                     DistributionType.GAMMA: is_gamma,
                     DistributionType.POISSON: is_poisson,
-                    DistributionType.WEIBULL: is_weibull,
                     DistributionType.CAUCHY: is_cauchy,
                     DistributionType.ZERO_INFLATED: is_zero_inflated,
-                    DistributionType.BOUNDED: is_bounded,
-                    DistributionType.ORDINAL: is_ordinal,
                 },
             ),
             "stats": stats_dict,
@@ -657,21 +648,17 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         priority_order = [
             DistributionType.SPARSE,
             DistributionType.PERIODIC,
-            DistributionType.DISCRETE,
             DistributionType.UNIFORM,
             DistributionType.ZERO_INFLATED,
-            DistributionType.ORDINAL,
             DistributionType.NORMAL,
             DistributionType.HEAVY_TAILED,
             DistributionType.LOG_NORMAL,
-            DistributionType.BETA,
-            DistributionType.GAMMA,
             DistributionType.POISSON,
-            DistributionType.CAUCHY,
-            DistributionType.WEIBULL,
+            DistributionType.BETA,
             DistributionType.EXPONENTIAL,
+            DistributionType.GAMMA,
+            DistributionType.CAUCHY,
             DistributionType.MULTIMODAL,
-            DistributionType.BOUNDED,
         ]
 
         for dist_type, is_flag in dist_flags.items():
@@ -735,11 +722,23 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         """Check if the distribution is discrete."""
         flattened_inputs = tf.reshape(inputs, [-1])
         unique_values = tf.unique(flattened_inputs)[0]
-        return (
+
+        unique_val_vs_range = (
             tf.cast(tf.size(unique_values), tf.float32)
             / tf.cast(tf.size(inputs), tf.float32)
-            < 0.01
-        )
+        ) < 0.5
+
+        is_mostly_integer = (
+            tf.reduce_mean(
+                tf.cast(
+                    tf.abs(flattened_inputs - tf.round(flattened_inputs)) < 0.1,
+                    tf.float32,
+                )
+            )
+            > 0.9
+        )  # 90% of values are nearly integer
+
+        return tf.logical_and(unique_val_vs_range, is_mostly_integer)
 
     def _check_periodicity(
         self, data: tf.Tensor, max_lag: int = None, threshold: float = 0.3
@@ -875,14 +874,12 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             DistributionType.UNIFORM: self._handle_uniform,
             DistributionType.EXPONENTIAL: self._handle_exponential,
             DistributionType.LOG_NORMAL: self._handle_log_normal,
-            DistributionType.DISCRETE: self._handle_discrete,
             DistributionType.PERIODIC: self._handle_periodic,
             DistributionType.SPARSE: self._handle_sparse,
             DistributionType.MIXED: self._handle_mixed,
             DistributionType.BETA: self._handle_beta,
             DistributionType.GAMMA: self._handle_gamma,
             DistributionType.POISSON: self._handle_poisson,
-            DistributionType.WEIBULL: self._handle_weibull,
             DistributionType.CAUCHY: self._handle_cauchy,
             DistributionType.ZERO_INFLATED: self._handle_zero_inflated,
             DistributionType.BOUNDED: self._handle_bounded,
@@ -992,7 +989,8 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         """Handle Poisson-distributed data."""
         rate = stats["mean"]
         dist = self.poisson_dist(rate=rate)
-        return dist.cdf(inputs)
+        result = dist.cdf(inputs)
+        return result
 
     def _handle_weibull(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
         """Handle Weibull-distributed data."""
