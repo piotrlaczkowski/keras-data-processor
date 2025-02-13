@@ -462,7 +462,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         mixture_components: int = 3,
         trainable: bool = True,
         name: str = None,
-        specified_distribution: DistributionType = None,
+        prefered_distribution: DistributionType = None,
         **kwargs,
     ) -> None:
         """Initialize the DistributionAwareEncoder.
@@ -476,17 +476,18 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             mixture_components: Number of components for mixture models
             trainable: Whether parameters are trainable
             name: Name of the layer
-            specified_distribution: Specific distribution type to use
+            prefered_distribution: Specific distribution type to use
             **kwargs: Additional layer arguments
         """
         super().__init__(name=name, trainable=trainable, **kwargs)
+        self.name = name
         self.num_bins = num_bins
         self.epsilon = epsilon
         self.detect_periodicity = detect_periodicity
         self.handle_sparsity = handle_sparsity
         self.adaptive_binning = adaptive_binning
         self.mixture_components = mixture_components
-        self.specified_distribution = specified_distribution
+        self.prefered_distribution = prefered_distribution
 
         # Initialize TFP distributions
         self.normal_dist = tfp.distributions.Normal
@@ -543,14 +544,12 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
 
         super().build(input_shape)
 
-    def _estimate_distribution(
-        self, inputs: tf.Tensor, feature_name: str = "unknown"
-    ) -> dict:
+    def _estimate_distribution(self, inputs: tf.Tensor, name: str = "unknown") -> dict:
         """Estimate distribution type with comprehensive checks or use specified distribution type.
 
         Args:
             inputs: Input tensor to analyze
-            feature_name: Name of the feature being analyzed
+            name: Name of the feature being analyzed
         """
 
         # Otherwise, perform automatic detection
@@ -638,13 +637,15 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             "zero_ratio": zero_ratio,
         }
 
-        if self.specified_distribution:
+        feature_name = name.rsplit("_", 1)[-1]
+
+        if self.prefered_distribution:
             tf.print(
                 "\n--------------------------------",
-                f"Using manually specified distribution for {feature_name}: {self.specified_distribution}",
+                f'Using manually specified distribution for "{feature_name}": {self.prefered_distribution}',
             )
             return {
-                "type": self.specified_distribution,
+                "type": self.prefered_distribution,
                 "stats": stats_dict,
             }
         else:
@@ -667,7 +668,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             )
             tf.print(
                 "\n--------------------------------",
-                f"Determined distribution type for {feature_name}: {distrib_dict_determined}",
+                f'Determined distribution type for "{feature_name}": {distrib_dict_determined}',
             )
             return {
                 "type": distrib_dict_determined,
@@ -1260,7 +1261,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         Returns:
             Transformed tensor
         """
-        dist_info = self._estimate_distribution(inputs)
+        dist_info = self._estimate_distribution(inputs, name=self.name)
         # print(f"Distribution info: {dist_info}")
         return self._transform_distribution(inputs, dist_info)
 
@@ -1279,7 +1280,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
                 "handle_sparsity": self.handle_sparsity,
                 "adaptive_binning": self.adaptive_binning,
                 "mixture_components": self.mixture_components,
-                "specified_distribution": self.specified_distribution,
+                "prefered_distribution": self.prefered_distribution,
             },
         )
         return config

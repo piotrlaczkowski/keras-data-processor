@@ -112,8 +112,16 @@ class FeatureSpaceConverter:
                     FeatureType.FLOAT_RESCALED,
                     FeatureType.FLOAT_DISCRETIZED,
                 }:
+                    # Get preferred_distribution from kwargs if provided
+                    preferred_distribution = (
+                        spec.kwargs.get("preferred_distribution")
+                        if isinstance(spec, Feature)
+                        else None
+                    )
                     feature_instance = NumericalFeature(
-                        name=name, feature_type=feature_type
+                        name=name,
+                        feature_type=feature_type,
+                        preferred_distribution=preferred_distribution,
                     )
                 elif feature_type in {
                     FeatureType.INTEGER_CATEGORICAL,
@@ -182,7 +190,6 @@ class PreprocessingModel:
         feature_selection_placement: str = FeatureSelectionPlacementOptions.NONE.value,
         use_distribution_aware: bool = False,
         distribution_aware_bins: int = 1000,
-        specified_distribution: str = None,
         feature_selection_units: int = 32,
         feature_selection_dropout: float = 0.2,
     ) -> None:
@@ -218,9 +225,6 @@ class PreprocessingModel:
             feature_selection_dropout (float): Dropout rate for feature selection.
             use_distribution_aware (bool): Whether to use distribution-aware encoding for features.
             distribution_aware_bins (int): Number of bins to use for distribution-aware encoding.
-            specified_distribution (str, optional): The specified distribution type for
-                distribution-aware encoding. Options: 'normal', 'lognormal', 'exponential', etc.
-                Defaults to None (automatic detection).
         """
         self.path_data = path_data
         self.batch_size = batch_size or 50_000
@@ -272,8 +276,6 @@ class PreprocessingModel:
 
         # initializing stats
         self._init_stats()
-
-        self.specified_distribution = specified_distribution
 
     def _monitor_performance(func: Callable) -> Callable:
         """Decorator to monitor the performance of a function.
@@ -603,16 +605,27 @@ class PreprocessingModel:
                     layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
                     name=f"pre_dist_cast_to_float_{feature_name}",
                 )
+                # Check if manually specified distribution is provided
+                _prefered_distribution = _feature.kwargs.get("prefered_distribution")
+                if _prefered_distribution is not None:
+                    logger.info(
+                        f"Using manually specified distribution for {feature_name}"
+                    )
+                else:
+                    logger.info(
+                        f"Using automatic distribution detection for {feature_name}"
+                    )
+
                 # Apply distribution-aware encoding
                 preprocessor.add_processing_step(
                     layer_creator=PreprocessorLayerFactory.distribution_aware_encoder,
-                    name=f"distribution_aware_{feature_name}",
+                    name=f"distribution_aware_layer_{feature_name}",
                     num_bins=self.distribution_aware_bins,
                     detect_periodicity=True,
                     handle_sparsity=True,
                     adaptive_binning=True,
                     mixture_components=3,
-                    specified_distribution=self.specified_distribution,
+                    prefered_distribution=_prefered_distribution,
                 )
                 # Cast to float32 after distribution-aware encoding
                 preprocessor.add_processing_step(

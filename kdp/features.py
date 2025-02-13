@@ -123,7 +123,7 @@ class NumericalFeature(Feature):
         self,
         name: str,
         feature_type: FeatureType = FeatureType.FLOAT_NORMALIZED,
-        distribution: DistributionType | None = None,
+        preferred_distribution: DistributionType | None = None,
         **kwargs,
     ) -> None:
         """Initializes a NumericalFeature instance.
@@ -131,12 +131,12 @@ class NumericalFeature(Feature):
         Args:
             name (str): The name of the feature.
             feature_type (FeatureType): The type of the feature.
-            distribution (DistributionType | None): The distribution type for the feature.
+            preferred_distribution (DistributionType | None): The preferred distribution type for the feature.
             **kwargs: Additional keyword arguments for the feature.
         """
         super().__init__(name, feature_type, **kwargs)
         self.dtype = tf.float32
-        self.distribution = distribution
+        self.preferred_distribution = preferred_distribution
 
 
 class CategoricalFeature(Feature):

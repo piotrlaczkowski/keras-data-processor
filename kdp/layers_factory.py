@@ -62,7 +62,7 @@ class PreprocessorLayerFactory:
         handle_sparsity: bool = True,
         adaptive_binning: bool = True,
         mixture_components: int = 3,
-        specified_distribution: "DistributionType" = None,
+        prefered_distribution: "DistributionType" = None,
         **kwargs,
     ) -> tf.keras.layers.Layer:
         """Create a DistributionAwareEncoder layer.
@@ -89,7 +89,7 @@ class PreprocessorLayerFactory:
             handle_sparsity=handle_sparsity,
             adaptive_binning=adaptive_binning,
             mixture_components=mixture_components,
-            specified_distribution=specified_distribution,
+            prefered_distribution=prefered_distribution,
             **kwargs,
         )
 
