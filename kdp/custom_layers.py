@@ -585,7 +585,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             tf.greater(zero_ratio, 0.3), tf.logical_not(is_sparse)
         )
         is_normal = tf.logical_and(tf.abs(kurtosis - 3.0) < 0.5, tf.abs(skewness) < 0.5)
-        is_uniform = tf.abs(kurtosis - 1.8) < 0.3
+        is_uniform = tf.abs(kurtosis - 1.8) < 0.2
         is_heavy_tailed = self._check_heavy_tailed(inputs)
         is_cauchy = kurtosis > 20.0  # Extremely heavy-tailed
         is_exponential = tf.logical_and(
@@ -694,6 +694,10 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             DistributionType.MULTIMODAL,
         ]
 
+        # for dist_type in priority_order:
+        #     flag_value = tf.get_static_value(dist_flags[dist_type])
+        #     tf.print(f"{dist_type:15} : {flag_value}")
+
         for dist_type in priority_order:
             flag_value = tf.get_static_value(dist_flags.get(dist_type, False))
             if flag_value:
@@ -756,7 +760,8 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         unique_val_vs_range = (
             tf.cast(tf.size(unique_values), tf.float32)
             / tf.cast(tf.size(inputs), tf.float32)
-        ) < 0.5
+            < 0.5
+        )
 
         is_mostly_integer = (
             tf.reduce_mean(
@@ -1052,30 +1057,32 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         return dist.cdf(inputs)
 
     def _handle_zero_inflated(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle zero-inflated data."""
-        # Zero probability will be used in future implementations
-        _ = stats["zero_ratio"]
+        """
+        Handle zero-inflated data using tf.cond. This version models the non-zero part
+        with an appropriate distribution (gamma or normal) based on the statistics of the non-zero inputs.
+        """
         non_zero_mask = tf.abs(inputs) >= self.epsilon
         non_zero_inputs = tf.boolean_mask(inputs, non_zero_mask)
 
-        # Model non-zero part with appropriate distribution
-        if tf.size(non_zero_inputs) > 0:
+        def non_zero_transform():
+            # Calculate statistics for non-zero values
             mean = tf.reduce_mean(non_zero_inputs)
             var = tf.math.reduce_variance(non_zero_inputs)
-            if mean > 0 and var > mean:
-                # Use gamma for overdispersed positive data
-                transformed = self._handle_gamma(
-                    inputs, {"mean": mean, "variance": var}
-                )
-            else:
-                # Use normal as default
-                transformed = self._handle_normal(
-                    inputs, {"mean": mean, "variance": var}
-                )
-        else:
-            transformed = inputs
+            # Determine if overdispersion exists: positive mean and variance > mean
+            return tf.cond(
+                tf.logical_and(tf.greater(mean, 0.0), tf.greater(var, mean)),
+                lambda: self._handle_gamma(inputs, {"mean": mean, "variance": var}),
+                lambda: self._handle_normal(inputs, {"mean": mean, "variance": var}),
+            )
 
-        return tf.where(tf.abs(inputs) < self.epsilon, 0.0, transformed)
+        transformed = tf.cond(
+            tf.greater(tf.size(non_zero_inputs), 0), non_zero_transform, lambda: inputs
+        )
+
+        # Preserve zeros (values where |inputs| < epsilon) in the output.
+        return tf.where(
+            tf.abs(inputs) < self.epsilon, tf.zeros_like(inputs), transformed
+        )
 
     def _handle_bounded(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
         """Handle bounded data with known bounds."""
@@ -1142,51 +1149,45 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         This method:
         1. Normalizes the input data
         2. Applies learned frequency and phase parameters
-        3. Returns both sine and cosine features to capture full periodicity
-        4. Handles multiple periods if detected
+        3. Returns sine and cosine features to capture full periodicity
+        4. Optionally adds higher harmonics if multimodality is detected
 
         Args:
             inputs: Input tensor to transform
             stats: Dictionary containing distribution statistics
 
         Returns:
-            tf.Tensor: A 2D tensor containing sine and cosine transformations
+            tf.Tensor: The transformed tensor with sine and cosine features concatenated.
         """
-        # Normalize the inputs to [-π, π] range for better periodic handling
+        # Normalize the inputs to [-π, π]
         normalized = (inputs - stats["mean"]) / (
             tf.sqrt(stats["variance"]) + self.epsilon
         )
         normalized = normalized * tf.constant(math.pi, dtype=tf.float32)
 
-        # Detect the dominant period using autocorrelation if not provided
+        # Set default frequency and phase parameters if not provided or initialized
         if not hasattr(self, "frequency") or self.frequency is None:
-            # Default to 2π for a full cycle if period detection fails
             self.frequency = tf.Variable(1.0, trainable=True, dtype=tf.float32)
             self.phase = tf.Variable(0.0, trainable=True, dtype=tf.float32)
 
-        # Base frequency features - always include fundamental frequency
-        base_features = tf.stack(  # noqa: PD013
-            [
-                tf.sin(self.frequency * normalized + self.phase),
-                tf.cos(self.frequency * normalized + self.phase),
-            ],
-            axis=-1,
-        )
+        sin_feat = tf.sin(self.frequency * normalized + self.phase)
+        cos_feat = tf.cos(self.frequency * normalized + self.phase)
 
-        # Add higher frequency harmonics if multimodality is detected
-        # This helps capture more complex periodic patterns
+        # Concatenate along the last axis to avoid adding an extra dimension
+        base_features = tf.concat([sin_feat, cos_feat], axis=-1)
+
+        # Optionally add harmonic features if multimodality is detected.
         if stats.get("is_multimodal", False):
             harmonic_features = []
-            for harmonic in [2, 3, 4]:  # Add up to 4th harmonic
+            for harmonic in [2, 3, 4]:  # Add up to the 4th harmonic.
                 harmonic_freq = tf.cast(harmonic, tf.float32) * self.frequency
-                harmonic_features.extend(
-                    [
-                        tf.sin(harmonic_freq * normalized + self.phase),
-                        tf.cos(harmonic_freq * normalized + self.phase),
-                    ],
+                harmonic_features.append(
+                    tf.sin(harmonic_freq * normalized + self.phase)
                 )
-            harmonic_tensor = tf.stack(harmonic_features, axis=-1)
-            # Combine base and harmonic features
+                harmonic_features.append(
+                    tf.cos(harmonic_freq * normalized + self.phase)
+                )
+            harmonic_tensor = tf.concat(harmonic_features, axis=-1)
             return tf.concat([base_features, harmonic_tensor], axis=-1)
 
         return base_features
@@ -1205,37 +1206,35 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         non_zero_mask = tf.logical_not(is_zero)
         non_zero_values = tf.boolean_mask(inputs, non_zero_mask)
 
-        if tf.size(non_zero_values) > 0:
+        def non_zero_transform():
             # Calculate statistics for non-zero values
             non_zero_mean = tf.reduce_mean(non_zero_values)
             non_zero_std = tf.math.reduce_std(non_zero_values)
 
-            # Choose appropriate transformation based on non-zero value properties
-            if tf.reduce_min(non_zero_values) >= 0:
-                if tf.math.reduce_variance(non_zero_values) > non_zero_mean:
-                    # Use gamma for overdispersed positive data
-                    transformed = self._handle_gamma(
+            # Note: use tf.cond to decide among different transformations
+            return tf.cond(
+                tf.greater_equal(tf.reduce_min(non_zero_values), 0.0),
+                lambda: tf.cond(
+                    tf.greater(tf.math.reduce_variance(non_zero_values), non_zero_mean),
+                    lambda: self._handle_gamma(
                         inputs,
                         {
                             "mean": non_zero_mean,
                             "variance": tf.math.reduce_variance(non_zero_values),
                         },
-                    )
-                else:
-                    # Use exponential for regular positive data
-                    transformed = self._handle_exponential(
+                    ),
+                    lambda: self._handle_exponential(
                         inputs,
                         {
                             "mean": non_zero_mean,
                         },
-                    )
-            else:
-                # Use normal for general non-zero data
-                transformed = (inputs - non_zero_mean) / (non_zero_std + self.epsilon)
-        else:
-            transformed = inputs
+                    ),
+                ),
+                lambda: (inputs - non_zero_mean) / (non_zero_std + self.epsilon),
+            )
 
         # Preserve zeros and apply transformation to non-zeros
+        transformed = non_zero_transform()  # Call the function and assign the result
         return tf.where(is_zero, tf.zeros_like(inputs), transformed)
 
     def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:

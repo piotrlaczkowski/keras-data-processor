@@ -155,18 +155,18 @@ class TestFeatureSpaceConverter(unittest.TestCase):
         self.assertEqual(len(self.converter.numeric_features), 0)
         self.assertEqual(len(self.converter.categorical_features), 0)
         self.assertEqual(len(self.converter.text_features), 0)
-        self.assertEqual(len(self.converter.date_features), 0)  # Check date_features
+        self.assertEqual(len(self.converter.date_features), 0)
 
     def test_init_features_specs_with_duplicates(self):
         """Test _init_features_specs with duplicate feature names."""
         features_specs = {
-            "feature": "float",
-            "feature_2": "text",  # Changed from "feature" to "feature_2"
+            "feature": "float",  # noqa: F601 duplicate key intentional for testing duplicates
+            "feature": "text",  # noqa: F601 duplicate key intentional for testing duplicates
         }
         self.converter._init_features_specs(features_specs)
         self.assertNotIn("feature", self.converter.numeric_features)
-        self.assertIn("feature_2", self.converter.text_features)
-        self.assertEqual(len(self.converter.features_space), 2)  # Changed from 1 to 2
+        self.assertIn("feature", self.converter.text_features)
+        self.assertEqual(len(self.converter.features_space), 1)
 
     def test_init_features_specs_with_multiple_same_type(self):
         """Test handling multiple features of the same type."""
@@ -1117,17 +1117,23 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
         self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
 
-    def test_preprocessor_all_features_with_transformer_and_attention(self):
+    def test_preprocessor_all_features_with_transformer_and_attention_with_distribution_aware_v1(
+        self,
+    ):
         """Test all feature types with both transformer and attention."""
         features = {
             "num1": NumericalFeature(
-                name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+                name="num1",
+                feature_type=FeatureType.FLOAT_NORMALIZED,
+                prefered_distribution="periodic",
             ),
             "cat1": CategoricalFeature(
                 name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
             ),
             "date1": DateFeature(
-                name="date1", feature_type=FeatureType.DATE, add_season=True
+                name="date1",
+                feature_type=FeatureType.DATE,
+                add_season=True,
             ),
         }
 
@@ -1149,6 +1155,7 @@ class TestPreprocessingModel(unittest.TestCase):
             transfo_nr_blocks=2,
             transfo_nr_heads=4,
             transfo_ff_units=32,
+            use_distribution_aware=True,
         )
 
         # Build and verify preprocessor
@@ -1166,14 +1173,18 @@ class TestPreprocessingModel(unittest.TestCase):
         # Check output dimensions
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
         self.assertEqual(
-            preprocessed.shape[-1], 1 + 4 + 12
+            preprocessed.shape[-1], 2 + 4 + 12
         )  # The dimensions for num1, cat1, date1
 
-    def test_preprocessor_all_features_with_transformer_and_attention_v2(self):
+    def test_preprocessor_all_features_with_transformer_and_attention_with_distribution_aware_v2(
+        self,
+    ):
         """Test all feature types with both transformer and attention."""
         features = {
             "num1": NumericalFeature(
-                name="num1", feature_type=FeatureType.FLOAT_RESCALED
+                name="num1",
+                feature_type=FeatureType.FLOAT_RESCALED,
+                prefered_distribution="multimodal",
             ),
             "cat1": CategoricalFeature(
                 name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
@@ -1182,7 +1193,9 @@ class TestPreprocessingModel(unittest.TestCase):
                 name="date1", feature_type=FeatureType.DATE, add_season=True
             ),
             "num2": NumericalFeature(
-                name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+                name="num2",
+                feature_type=FeatureType.FLOAT_NORMALIZED,
+                prefered_distribution="beta",
             ),
             "cat2": CategoricalFeature(
                 name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL
@@ -1211,6 +1224,8 @@ class TestPreprocessingModel(unittest.TestCase):
             transfo_nr_blocks=2,
             transfo_nr_heads=4,
             transfo_ff_units=32,
+            use_distribution_aware=False,
+            distribution_aware_bins=5000,
         )
 
         # Build and verify preprocessor
@@ -1229,11 +1244,15 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
         self.assertEqual(preprocessed.shape[-1], 65)  # Example dimension
 
-    def test_preprocessor_all_features_with_transformer_and_attention_v3(self):
+    def test_preprocessor_all_features_with_transformer_and_attention_with_distribution_aware_v3(
+        self,
+    ):
         """Test all feature types with both transformer and attention."""
         features = {
             "num1": NumericalFeature(
-                name="num1", feature_type=FeatureType.FLOAT_RESCALED
+                name="num1",
+                feature_type=FeatureType.FLOAT_RESCALED,
+                prefered_distribution="log_normal",
             ),
             "cat1": CategoricalFeature(
                 name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
@@ -1274,6 +1293,8 @@ class TestPreprocessingModel(unittest.TestCase):
             transfo_nr_heads=2,
             transfo_ff_units=19,
             transfo_placement="all_features",
+            use_distribution_aware=True,
+            distribution_aware_bins=500,
         )
 
         # Build and verify preprocessor
@@ -1292,7 +1313,9 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertEqual(len(preprocessed.shape), 3)  # (batch_size, d_model)
         self.assertEqual(preprocessed.shape[-1], 23)  # Example dimension
 
-    def test_preprocessor_all_features_with_transformer_and_attention_v4(self):
+    def test_preprocessor_all_features_with_transformer_and_attention_with_distribution_aware_v4(
+        self,
+    ):
         """Test all feature types with both transformer and attention."""
         features = {
             "num1": NumericalFeature(
@@ -1332,6 +1355,8 @@ class TestPreprocessingModel(unittest.TestCase):
             transfo_nr_blocks=2,
             transfo_nr_heads=2,
             transfo_ff_units=16,
+            use_distribution_aware=True,
+            distribution_aware_bins=500,
         )
 
         # Build and verify preprocessor
@@ -1460,7 +1485,9 @@ class TestPreprocessingModel(unittest.TestCase):
         """Test all feature types with distribution-aware encoder."""
         features = {
             "num1": NumericalFeature(
-                name="num1", feature_type=FeatureType.FLOAT_RESCALED
+                name="num1",
+                feature_type=FeatureType.FLOAT_RESCALED,
+                prefered_distribution="log_normal",
             ),
         }
 
@@ -1475,8 +1502,7 @@ class TestPreprocessingModel(unittest.TestCase):
             features_stats_path=self.features_stats_path,
             overwrite_stats=True,
             use_distribution_aware=True,
-            distribution_aware_bins=1000,
-            specified_distribution=DistributionType.NORMAL,
+            distribution_aware_bins=1118,
         )
 
         # Build and verify preprocessor
@@ -1494,6 +1520,68 @@ class TestPreprocessingModel(unittest.TestCase):
         # Check output dimensions
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
         self.assertEqual(preprocessed.shape[-1], 1)  # Example dimension
+
+    def test_preprocessor_all_features_with_distribution_types(self):
+        """Test all feature types with different distribution types."""
+        # Define all distribution types to test
+        distribution_types = [
+            DistributionType.SPARSE,
+            DistributionType.PERIODIC,
+            DistributionType.UNIFORM,
+            DistributionType.ZERO_INFLATED,
+            DistributionType.NORMAL,
+            DistributionType.HEAVY_TAILED,
+            DistributionType.LOG_NORMAL,
+            DistributionType.POISSON,
+            DistributionType.BETA,
+            DistributionType.EXPONENTIAL,
+            DistributionType.GAMMA,
+            DistributionType.CAUCHY,
+            DistributionType.MULTIMODAL,
+        ]
+
+        for dist_type in distribution_types:
+            with self.subTest(distribution_type=dist_type):
+                features = {
+                    "num1": NumericalFeature(
+                        name="num1",
+                        feature_type=FeatureType.FLOAT_RESCALED,
+                        prefered_distribution=dist_type,
+                    ),
+                }
+
+                # Generate fake data
+                df = generate_fake_data(features, num_rows=100)
+                df.to_csv(self._path_data, index=False)
+
+                # Create preprocessor
+                ppr = PreprocessingModel(
+                    path_data=str(self._path_data),
+                    features_specs=features,
+                    features_stats_path=self.features_stats_path,
+                    overwrite_stats=True,
+                    use_distribution_aware=True,
+                    distribution_aware_bins=1234,
+                )
+
+                # Build and verify preprocessor
+                result = ppr.build_preprocessor()
+                self.assertIsNotNone(result["model"])
+
+                # Create a small batch of test data
+                test_data = generate_fake_data(features, num_rows=5)
+                dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+                # Test preprocessing
+                preprocessed = result["model"].predict(dataset)
+                self.assertIsNotNone(preprocessed)
+
+                # Check output dimensions
+                self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+                self.assertEqual(
+                    preprocessed.shape[-1],
+                    2 if dist_type == DistributionType.PERIODIC else 1,
+                )  # Example dimension
 
 
 class TestPreprocessingModel_Combinations(unittest.TestCase):

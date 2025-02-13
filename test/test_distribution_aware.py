@@ -9,8 +9,10 @@ from kdp.custom_layers import DistributionAwareEncoder, DistributionType
 
 class TestDistributionAwareEncoder(tf.test.TestCase):
     def setUp(self):
+        """Setup test case environment."""
         super().setUp()
         self.encoder = DistributionAwareEncoder(
+            name="test_encoder",
             num_bins=100,
             detect_periodicity=True,
             handle_sparsity=True,
@@ -60,32 +62,33 @@ class TestDistributionAwareEncoder(tf.test.TestCase):
         self.assertLess(tf.reduce_max(tf.abs(outputs)), 10.0)
 
     def test_multimodal_distribution(self):
-        # deactivate periodicity detection when having multimodal functions/distributions
-        self.encoder = DistributionAwareEncoder(
-            num_bins=100,
-            detect_periodicity=False,
-            handle_sparsity=True,
-            adaptive_binning=True,
-            mixture_components=3,
-        )
+        # # deactivate periodicity detection when having multimodal functions/distributions
+        # self.encoder = DistributionAwareEncoder(
+        #     num_bins=100,
+        #     detect_periodicity=False,
+        #     handle_sparsity=True,
+        #     adaptive_binning=True,
+        #     mixture_components=3,
+        # )
 
         # Generate mixture of two normal distributions
         np.random.seed(42)
         data1 = np.random.normal(-2, 0.5, 500)
-        data2 = np.random.normal(2, 0.5, 500)
-        data = np.concatenate([data1, data2])
+        data2 = np.random.normal(1, 0.3, 500)
+        data3 = np.random.normal(10, 0.8, 500)
+        data = np.concatenate([data1, data2, data3])
         inputs = tf.convert_to_tensor(data, dtype=tf.float32)
 
         # Process data
         outputs = self.encoder(inputs)
 
-        # Check output properties
-        self.assertEqual(outputs.shape, inputs.shape)
-        self.assertAllInRange(outputs, 0, 1)
-
         # Verify distribution detection
         dist_info = self.encoder._estimate_distribution(inputs)
         self.assertEqual(dist_info["type"], DistributionType.MULTIMODAL)
+
+        # Check output properties
+        self.assertEqual(outputs.shape, inputs.shape)
+        self.assertAllInRange(outputs, 0, 1)
 
         # Check if output captures both modes
         unique_values = tf.unique(outputs)[0]
@@ -156,7 +159,9 @@ class TestDistributionAwareEncoder(tf.test.TestCase):
         outputs = self.encoder(inputs)
 
         # Check output properties
-        self.assertEqual(outputs.shape, (inputs.shape[0], 2))  # 2D for sin/cos encoding
+        self.assertEqual(
+            outputs.shape, (inputs.shape[0]) * 2
+        )  # 1D for sin/cos concatenatated
 
         # Verify distribution detection
         dist_info = self.encoder._estimate_distribution(inputs)
