@@ -24,6 +24,7 @@ features = {
     "quantity": NumericalFeature(
         name="quantity",
         feature_type=FeatureType.FLOAT_RESCALED
+        prefered_distribution="poisson" # here we could specify a prefered distribution (normal, periodic, etc)
     ),
 
     # Categorical features
@@ -118,6 +119,10 @@ ppr = PreprocessingModel(
     feature_selection_placement="all_features", # Choose between (all_features|numeric|categorical)
     feature_selection_units=32,
     feature_selection_dropout=0.15,
+
+    # Distribution aware configuration
+    use_distribution_aware=True, # here we activate the distribution aware encoder
+    distribution_aware_bins=1000, # thats the default value, but you can change it for finer data
 )
 
 # Build the preprocessor

@@ -66,11 +66,6 @@ The Distribution-Aware Encoder is an advanced preprocessing layer that automatic
     - Handled via rate parameter estimation
     - Detection: Integer values and variance≈mean
 
-13. **Weibull Distribution**
-    - For lifetime/failure data
-    - Handled via Weibull CDF
-    - Detection: Shape and scale analysis
-
 14. **Cauchy Distribution**
     - For extremely heavy-tailed data
     - Handled via robust location-scale estimation
@@ -81,26 +76,58 @@ The Distribution-Aware Encoder is an advanced preprocessing layer that automatic
     - Handled via mixture model approach
     - Detection: Zero proportion analysis
 
-16. **Bounded Distribution**
-    - For data with known bounds
-    - Handled via scaled beta transformation
-    - Detection: Value range analysis
-
-17. **Ordinal Distribution**
-    - For ordered categorical data
-    - Handled via learned mapping
-    - Detection: Discrete ordered values
-
 ## Usage
 
 ### Basic Usage
+
+The capability only works with numerical features!
+
 ```python
 from kdp.processor import PreprocessingModel
+from kdp.features import NumericalFeature
 
-preprocessor = PreprocessingModel(
-    features_stats=stats,
-    features_specs=specs,
+# Define features
+features = {
+    # Numerical features
+    "feature1": NumericalFeature(),
+    "feature2": NumericalFeature(),
+    # etc ..
+}
+
+# Initialize the model
+model = PreprocessingModel( # here
+    features=features,
     use_distribution_aware=True
+)
+```
+
+### Manual Usage
+
+```python
+from kdp.processor import PreprocessingModel
+from kdp.features import NumericalFeature
+
+# Define features
+features = {
+    # Numerical features
+    # Numerical features
+    "feature1": NumericalFeature(
+        name="feature1",
+        feature_type=FeatureType.FLOAT_NORMALIZED
+    ),
+    "feature2": NumericalFeature(
+        name="feature2",
+        feature_type=FeatureType.FLOAT_RESCALED
+        prefered_distribution="log_normal" # here we could specify a prefered distribution (normal, periodic, etc)
+    )
+    # etc ..
+}
+
+# Initialize the model
+model = PreprocessingModel( # here
+    features=features,
+    use_distribution_aware=True,
+    distribution_aware_bins=1000, # 1000 is the default value, but you can change it for finer data
 )
 ```
 
@@ -271,40 +298,6 @@ The DistributionAwareEncoder is integrated into the numeric feature processing p
    - Use appropriate batch sizes
    - Enable caching for repeated processing
    - Adjust mixture components based on data
-
-## Example Use Cases
-
-### 1. Financial Data
-```python
-# Handle heavy-tailed return distributions
-preprocessor = PreprocessingModel(
-    use_distribution_aware=True,
-    handle_sparsity=False,
-    mixture_components=2
-)
-```
-
-### 2. Temporal Data
-```python
-# Handle periodic patterns
-preprocessor = PreprocessingModel(
-    use_distribution_aware=True,
-    detect_periodicity=True,
-    adaptive_binning=True
-)
-```
-
-### 3. Sparse Features
-```python
-# Handle sparse categorical data
-preprocessor = PreprocessingModel(
-    use_distribution_aware=True,
-    handle_sparsity=True,
-    mixture_components=1
-)
-```
-
-## Monitoring and Debugging
 
 ### Distribution Detection
 ```python
