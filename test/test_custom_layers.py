@@ -1,8 +1,6 @@
 """Tests for custom layers in the KDP package."""
 
-import logging
 import math
-from datetime import datetime
 
 import numpy as np
 import pytest
@@ -28,7 +26,9 @@ def test_tabular_attention_layer_init():
 
 def test_tabular_attention_layer_config():
     """Test get_config and from_config methods."""
-    original_layer = TabularAttention(num_heads=4, d_model=64, dropout_rate=0.2, name="test_attention")
+    original_layer = TabularAttention(
+        num_heads=4, d_model=64, dropout_rate=0.2, name="test_attention"
+    )
 
     config = original_layer.get_config()
     restored_layer = TabularAttention.from_config(config)
@@ -107,8 +107,8 @@ def test_tabular_attention_invalid_inputs():
         layer(inputs)
 
 
-def test_tabular_attention_end_to_end():
-    """Test TabularAttention layer in a simple end-to-end model."""
+def test_tabular_attention_end_to_end_simple():
+    """Test TabularAttention in a simple end-to-end model."""
     batch_size = 16
     num_samples = 5
     num_features = 4
@@ -146,7 +146,11 @@ def test_multi_resolution_attention_layer_init():
 def test_multi_resolution_attention_layer_config():
     """Test get_config and from_config methods for MultiResolutionTabularAttention."""
     original_layer = MultiResolutionTabularAttention(
-        num_heads=4, d_model=64, embedding_dim=32, dropout_rate=0.2, name="test_multi_attention"
+        num_heads=4,
+        d_model=64,
+        embedding_dim=32,
+        dropout_rate=0.2,
+        name="test_multi_attention",
     )
 
     config = original_layer.get_config()
@@ -168,14 +172,20 @@ def test_multi_resolution_attention_computation():
     categorical_dim = 8
 
     # Create a layer instance
-    layer = MultiResolutionTabularAttention(num_heads=2, d_model=numerical_dim, embedding_dim=categorical_dim)
+    layer = MultiResolutionTabularAttention(
+        num_heads=2, d_model=numerical_dim, embedding_dim=categorical_dim
+    )
 
     # Create input data
     numerical_features = tf.random.normal((batch_size, num_numerical, numerical_dim))
-    categorical_features = tf.random.normal((batch_size, num_categorical, categorical_dim))
+    categorical_features = tf.random.normal(
+        (batch_size, num_categorical, categorical_dim)
+    )
 
     # Call the layer
-    numerical_output, categorical_output = layer(numerical_features, categorical_features, training=True)
+    numerical_output, categorical_output = layer(
+        numerical_features, categorical_features, training=True
+    )
 
     # Check output shapes
     assert numerical_output.shape == (batch_size, num_numerical, numerical_dim)
@@ -184,7 +194,9 @@ def test_multi_resolution_attention_computation():
     # Test with different batch sizes
     numerical_features_2 = tf.random.normal((64, num_numerical, numerical_dim))
     categorical_features_2 = tf.random.normal((64, num_categorical, categorical_dim))
-    num_out_2, cat_out_2 = layer(numerical_features_2, categorical_features_2, training=False)
+    num_out_2, cat_out_2 = layer(
+        numerical_features_2, categorical_features_2, training=False
+    )
     assert num_out_2.shape == (64, num_numerical, numerical_dim)
     assert cat_out_2.shape == (64, num_categorical, numerical_dim)
 
@@ -198,17 +210,26 @@ def test_multi_resolution_attention_training():
     categorical_dim = 4
 
     layer = MultiResolutionTabularAttention(
-        num_heads=2, d_model=numerical_dim, embedding_dim=categorical_dim, dropout_rate=0.5
+        num_heads=2,
+        d_model=numerical_dim,
+        embedding_dim=categorical_dim,
+        dropout_rate=0.5,
     )
 
     numerical_features = tf.random.normal((batch_size, num_numerical, numerical_dim))
-    categorical_features = tf.random.normal((batch_size, num_categorical, categorical_dim))
+    categorical_features = tf.random.normal(
+        (batch_size, num_categorical, categorical_dim)
+    )
 
     # Test in training mode
-    num_train, cat_train = layer(numerical_features, categorical_features, training=True)
+    num_train, cat_train = layer(
+        numerical_features, categorical_features, training=True
+    )
 
     # Test in inference mode
-    num_infer, cat_infer = layer(numerical_features, categorical_features, training=False)
+    num_infer, cat_infer = layer(
+        numerical_features, categorical_features, training=False
+    )
 
     # The outputs should be different due to dropout
     assert not np.allclose(num_train.numpy(), num_infer.numpy())
@@ -218,7 +239,11 @@ def test_multi_resolution_attention_training():
 def test_multi_resolution_attention_factory():
     """Test creation of MultiResolutionTabularAttention layer through PreprocessorLayerFactory."""
     layer = PreprocessorLayerFactory.multi_resolution_attention_layer(
-        num_heads=4, d_model=64, embedding_dim=32, name="test_multi_attention", dropout_rate=0.2
+        num_heads=4,
+        d_model=64,
+        embedding_dim=32,
+        name="test_multi_attention",
+        dropout_rate=0.2,
     )
 
     assert isinstance(layer, MultiResolutionTabularAttention)
@@ -229,7 +254,7 @@ def test_multi_resolution_attention_factory():
     assert layer.name == "test_multi_attention"
 
 
-def test_multi_resolution_attention_end_to_end():
+def test_multi_resolution_attention_end_to_end_complex():
     """Test MultiResolutionTabularAttention layer in a simple end-to-end model."""
     batch_size = 16
     num_numerical = 4
@@ -252,7 +277,9 @@ def test_multi_resolution_attention_end_to_end():
     outputs = tf.keras.layers.Dense(output_dim)(combined)
 
     # Create model
-    model = tf.keras.Model(inputs=[numerical_inputs, categorical_inputs], outputs=outputs)
+    model = tf.keras.Model(
+        inputs=[numerical_inputs, categorical_inputs], outputs=outputs
+    )
 
     # Compile the model
     model.compile(optimizer="adam", loss="mse")
@@ -351,9 +378,12 @@ class TestDateEncodingLayer:
         )
 
         result = layer(dates)
-        assert result.shape == (
-            3,
-            8,
+        assert (
+            result.shape
+            == (
+                3,
+                8,
+            )
         )  # [batch_size, (year_sin, year_cos, month_sin, month_cos, day_sin, day_cos, weekday_sin, weekday_cos)]
 
         # Check that all values are between -1 and 1 (sine/cosine range)
@@ -395,7 +425,10 @@ class TestDateEncodingLayer:
         month_encoding_jan = result[1, 2:4]  # month sine and cosine for January
 
         # calculate the angle between the two vectors
-        dot_product = month_encoding_dec[0] * month_encoding_jan[0] + month_encoding_dec[1] * month_encoding_jan[1]
+        dot_product = (
+            month_encoding_dec[0] * month_encoding_jan[0]
+            + month_encoding_dec[1] * month_encoding_jan[1]
+        )
         angle_rad = math.acos(dot_product)
         angle_deg = math.degrees(angle_rad)
 
@@ -426,7 +459,10 @@ class TestDateEncodingLayer:
         sunday_encoding = result[0, 6:8]  # weekday sine and cosine for Sunday
         saturday_encoding = result[6, 6:8]  # weekday sine and cosine for Saturday
 
-        dot_product = sunday_encoding[0] * saturday_encoding[0] + sunday_encoding[1] * saturday_encoding[1]
+        dot_product = (
+            sunday_encoding[0] * saturday_encoding[0]
+            + sunday_encoding[1] * saturday_encoding[1]
+        )
         angle_rad = math.acos(dot_product)
         angle_deg = math.degrees(angle_rad)
         print("ANGLE DEGREES:", angle_deg)
@@ -566,7 +602,9 @@ def test_tabular_attention_training_modes():
     num_heads = 3
     dropout_rate = 0.5  # High dropout for visible effect
 
-    layer = TabularAttention(num_heads=num_heads, d_model=d_model, dropout_rate=dropout_rate)
+    layer = TabularAttention(
+        num_heads=num_heads, d_model=d_model, dropout_rate=dropout_rate
+    )
 
     # Create inputs
     inputs = tf.random.normal((batch_size, num_samples, num_features))
@@ -596,7 +634,8 @@ def test_tabular_attention_feature_interactions():
     correlated_features = tf.concat(
         [
             base_feature,
-            base_feature * 2 + tf.random.normal((batch_size, num_samples, 1), stddev=0.1),
+            base_feature * 2
+            + tf.random.normal((batch_size, num_samples, 1), stddev=0.1),
             tf.random.normal((batch_size, num_samples, num_features - 2)),
         ],
         axis=-1,
@@ -610,7 +649,9 @@ def test_tabular_attention_feature_interactions():
     output_uncorrelated = layer(uncorrelated_features)
 
     # The attention patterns should be different
-    assert not np.allclose(output_correlated.numpy(), output_uncorrelated.numpy(), rtol=1e-3)
+    assert not np.allclose(
+        output_correlated.numpy(), output_uncorrelated.numpy(), rtol=1e-3
+    )
 
 
 def test_tabular_attention_config():
@@ -693,21 +734,29 @@ def test_multi_resolution_attention_shapes():
     embedding_dim = 16
     num_heads = 4
 
-    layer = MultiResolutionTabularAttention(num_heads=num_heads, d_model=d_model, embedding_dim=embedding_dim)
+    layer = MultiResolutionTabularAttention(
+        num_heads=num_heads, d_model=d_model, embedding_dim=embedding_dim
+    )
 
     # Create sample inputs
-    numerical_features = tf.random.normal((batch_size, num_numerical, numerical_features_num))
-    categorical_features = tf.random.normal((batch_size, num_categorical, categorical_features_num))
+    numerical_features = tf.random.normal(
+        (batch_size, num_numerical, numerical_features_num)
+    )
+    categorical_features = tf.random.normal(
+        (batch_size, num_categorical, categorical_features_num)
+    )
 
     # Process features
-    numerical_output, categorical_output = layer(numerical_features, categorical_features, training=True)
+    numerical_output, categorical_output = layer(
+        numerical_features, categorical_features, training=True
+    )
 
     # Check shapes
     assert numerical_output.shape == (batch_size, num_numerical, d_model)
     assert categorical_output.shape == (batch_size, num_categorical, d_model)
 
 
-def test_multi_resolution_attention_training():
+def test_multi_resolution_attention_training_simple():
     """Test MultiResolutionTabularAttention behavior in training vs inference modes."""
     # Setup
     batch_size = 16
@@ -721,18 +770,27 @@ def test_multi_resolution_attention_training():
     dropout_rate = 0.5  # High dropout for visible effect
 
     layer = MultiResolutionTabularAttention(
-        num_heads=num_heads, d_model=d_model, embedding_dim=embedding_dim, dropout_rate=dropout_rate
+        num_heads=num_heads,
+        d_model=d_model,
+        embedding_dim=embedding_dim,
+        dropout_rate=dropout_rate,
     )
 
     # Create inputs
     numerical_features = tf.random.normal((batch_size, num_numerical, numerical_dim))
-    categorical_features = tf.random.normal((batch_size, num_categorical, categorical_dim))
+    categorical_features = tf.random.normal(
+        (batch_size, num_categorical, categorical_dim)
+    )
 
     # Get outputs in training mode
-    num_train, cat_train = layer(numerical_features, categorical_features, training=True)
+    num_train, cat_train = layer(
+        numerical_features, categorical_features, training=True
+    )
 
     # Get outputs in inference mode
-    num_infer, cat_infer = layer(numerical_features, categorical_features, training=False)
+    num_infer, cat_infer = layer(
+        numerical_features, categorical_features, training=False
+    )
 
     # Check that outputs are different due to dropout
     assert not np.allclose(num_train.numpy(), num_infer.numpy())
@@ -769,23 +827,34 @@ def test_multi_resolution_attention_cross_attention():
     # Convert strings to one-hot encodings
     all_colors = ["red", "blue", "green", "yellow"]
     table = tf.lookup.StaticHashTable(
-        tf.lookup.KeyValueTensorInitializer(all_colors, tf.range(len(all_colors), dtype=tf.int64)), default_value=-1
+        tf.lookup.KeyValueTensorInitializer(
+            all_colors, tf.range(len(all_colors), dtype=tf.int64)
+        ),
+        default_value=-1,
     )
 
     categorical_pattern1 = tf.one_hot(table.lookup(colors1), categorical_dim)
     categorical_pattern2 = tf.one_hot(table.lookup(colors2), categorical_dim)
 
     # Process with contrasting categorical patterns
-    num_output1, cat_output1 = layer(numerical_features, categorical_pattern1, training=False)
-    num_output2, cat_output2 = layer(numerical_features, categorical_pattern2, training=False)
+    num_output1, cat_output1 = layer(
+        numerical_features, categorical_pattern1, training=False
+    )
+    num_output2, cat_output2 = layer(
+        numerical_features, categorical_pattern2, training=False
+    )
 
     # Check numerical outputs are different due to contrasting categorical patterns
     num_mean_diff = tf.reduce_mean(tf.abs(num_output1 - num_output2))
-    assert num_mean_diff > 1e-3, "Numerical outputs are too similar - cross attention may not be working"
+    assert (
+        num_mean_diff > 1e-3
+    ), "Numerical outputs are too similar - cross attention may not be working"
 
     # Check categorical outputs are different
     cat_mean_diff = tf.reduce_mean(tf.abs(cat_output1 - cat_output2))
-    assert cat_mean_diff > 1e-3, "Categorical outputs are too similar - cross attention may not be working"
+    assert (
+        cat_mean_diff > 1e-3
+    ), "Categorical outputs are too similar - cross attention may not be working"
 
     # Check shapes are correct
     assert cat_output1.shape == cat_output2.shape
@@ -794,13 +863,19 @@ def test_multi_resolution_attention_cross_attention():
     assert cat_output1.shape[2] == d_model
 
     # Check outputs are in reasonable range
-    assert tf.reduce_all(tf.abs(cat_output1) < 10), "Categorical outputs 1 have unexpectedly large values"
-    assert tf.reduce_all(tf.abs(cat_output2) < 10), "Categorical outputs 2 have unexpectedly large values"
+    assert tf.reduce_all(
+        tf.abs(cat_output1) < 10
+    ), "Categorical outputs 1 have unexpectedly large values"
+    assert tf.reduce_all(
+        tf.abs(cat_output2) < 10
+    ), "Categorical outputs 2 have unexpectedly large values"
 
 
 def test_multi_resolution_attention_config():
     """Test configuration saving and loading."""
-    original_layer = MultiResolutionTabularAttention(num_heads=4, d_model=32, embedding_dim=16, dropout_rate=0.2)
+    original_layer = MultiResolutionTabularAttention(
+        num_heads=4, d_model=32, embedding_dim=16, dropout_rate=0.2
+    )
 
     config = original_layer.get_config()
     restored_layer = MultiResolutionTabularAttention.from_config(config)
@@ -811,7 +886,7 @@ def test_multi_resolution_attention_config():
     assert restored_layer.dropout_rate == original_layer.dropout_rate
 
 
-def test_multi_resolution_attention_end_to_end():
+def test_multi_resolution_attention_end_to_end_simple():
     """Test MultiResolutionTabularAttention in a simple end-to-end model."""
     # Setup
     batch_size = 16
@@ -827,13 +902,17 @@ def test_multi_resolution_attention_end_to_end():
     numerical_inputs = tf.keras.Input(shape=(num_numerical, numerical_dim))
     categorical_inputs = tf.keras.Input(shape=(num_categorical, categorical_dim))
 
-    attention_layer = MultiResolutionTabularAttention(num_heads=num_heads, d_model=d_model, embedding_dim=embedding_dim)
+    attention_layer = MultiResolutionTabularAttention(
+        num_heads=num_heads, d_model=d_model, embedding_dim=embedding_dim
+    )
 
     num_output, cat_output = attention_layer(numerical_inputs, categorical_inputs)
     combined = tf.keras.layers.Concatenate(axis=1)([num_output, cat_output])
     outputs = tf.keras.layers.Dense(1)(combined)
 
-    model = tf.keras.Model(inputs=[numerical_inputs, categorical_inputs], outputs=outputs)
+    model = tf.keras.Model(
+        inputs=[numerical_inputs, categorical_inputs], outputs=outputs
+    )
 
     # Compile model
     model.compile(optimizer="adam", loss="mse")

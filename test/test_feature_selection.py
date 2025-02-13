@@ -3,7 +3,6 @@
 import os
 import tempfile
 
-import numpy as np
 import tensorflow as tf
 
 from kdp.custom_layers import GatedLinearUnit, GatedResidualNetwork, VariableSelection
@@ -26,7 +25,9 @@ class TestGatedLinearUnit(tf.test.TestCase):
         # Test that outputs are bounded by the sigmoid gate
         inputs = tf.random.normal((self.batch_size, self.input_dim))
         outputs = self.layer(inputs)
-        self.assertAllInRange(outputs, -10.0, 10.0)  # Reasonable range for gated outputs
+        self.assertAllInRange(
+            outputs, -10.0, 10.0
+        )  # Reasonable range for gated outputs
 
     def test_serialization_basic(self):
         config = self.layer.get_config()
@@ -69,7 +70,9 @@ class TestGatedResidualNetwork(tf.test.TestCase):
         self.input_dim = 100
         self.units = 64
         self.dropout_rate = 0.2
-        self.layer = GatedResidualNetwork(units=self.units, dropout_rate=self.dropout_rate)
+        self.layer = GatedResidualNetwork(
+            units=self.units, dropout_rate=self.dropout_rate
+        )
 
     def test_output_shape(self):
         inputs = tf.random.normal((self.batch_size, self.input_dim))
@@ -137,7 +140,9 @@ class TestGatedResidualNetwork(tf.test.TestCase):
         # Test with different input types
         inputs_int = tf.cast(inputs, tf.float32)
         outputs_from_int = grn(inputs_int)
-        self.assertEqual(outputs_from_int.dtype, tf.float32)  # Should always output float32
+        self.assertEqual(
+            outputs_from_int.dtype, tf.float32
+        )  # Should always output float32
 
     def test_serialization_and_output_consistency(self):
         """Test serialization and deserialization of GatedResidualNetwork."""
@@ -166,7 +171,11 @@ class TestVariableSelection(tf.test.TestCase):
         self.feature_dims = [100, 200, 300]  # Different dimensions for each feature
         self.units = 64
         self.dropout_rate = 0.2
-        self.layer = VariableSelection(nr_features=self.nr_features, units=self.units, dropout_rate=self.dropout_rate)
+        self.layer = VariableSelection(
+            nr_features=self.nr_features,
+            units=self.units,
+            dropout_rate=self.dropout_rate,
+        )
 
     def test_output_shape(self):
         # Create inputs with different dimensions
@@ -307,7 +316,9 @@ class TestVariableSelection(tf.test.TestCase):
 
         # Save and reload the model
         with tempfile.TemporaryDirectory() as tmp_dir:
-            model_path = os.path.join(tmp_dir, "test_model.keras")  # Added .keras extension
+            model_path = os.path.join(
+                tmp_dir, "test_model.keras"
+            )  # Added .keras extension
             model.save(model_path)
             loaded_model = tf.keras.models.load_model(
                 model_path,

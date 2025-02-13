@@ -293,18 +293,15 @@ class DateEncodingLayer(tf.keras.layers.Layer):
         return encoded
 
     def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:
-        """Compute the output shape of the distribution-aware encoder.
-
-        The output shape matches the input shape since this layer performs
-        element-wise transformations that preserve dimensionality.
+        """Compute the output shape after cyclic encoding.
 
         Args:
-            input_shape: Shape of the input tensor.
+            input_shape: Shape of the input tensor [batch, 4]
 
         Returns:
-            tf.TensorShape: Shape of the output tensor, which is identical to the input shape.
+            tf.TensorShape: Shape of output tensor [batch, 8] for the 8 cyclic components
         """
-        return input_shape
+        return tf.TensorShape([input_shape[0], 8])
 
     def get_config(self) -> dict:
         """Returns the configuration of the layer as a dictionary."""
@@ -416,13 +413,11 @@ class DistributionType(str, Enum):
     EXPONENTIAL = "exponential"
     LOG_NORMAL = "log_normal"
     DISCRETE = "discrete"
-    MIXED = "mixed"
     PERIODIC = "periodic"
     SPARSE = "sparse"
     BETA = "beta"  # For bounded data with two shape parameters
     GAMMA = "gamma"  # For positive, right-skewed data
     POISSON = "poisson"  # For count data
-    WEIBULL = "weibull"  # For reliability/survival data
     CAUCHY = "cauchy"  # For extremely heavy-tailed data
     ZERO_INFLATED = "zero_inflated"  # For data with excess zeros
     BOUNDED = "bounded"  # For data with known bounds
@@ -440,7 +435,6 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
     - Exponential distributions: For data with exponential decay
     - Log-normal distributions: For data that is normal after log transform
     - Discrete distributions: For data with finite distinct values
-    - Mixed distributions: For data that combines multiple distributions
     - Periodic distributions: For data with cyclic patterns
     - Sparse distributions: For data with many zeros
     - Beta distributions: For bounded data between 0 and 1
@@ -549,8 +543,15 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
 
         super().build(input_shape)
 
-    def _estimate_distribution(self, inputs: tf.Tensor) -> dict:
-        """Estimate distribution type with comprehensive checks or use specified distribution type."""
+    def _estimate_distribution(
+        self, inputs: tf.Tensor, feature_name: str = "unknown"
+    ) -> dict:
+        """Estimate distribution type with comprehensive checks or use specified distribution type.
+
+        Args:
+            inputs: Input tensor to analyze
+            feature_name: Name of the feature being analyzed
+        """
 
         # Otherwise, perform automatic detection
         # Basic statistics
@@ -575,37 +576,58 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         total_elements = tf.cast(tf.size(inputs), tf.float32)
         zero_ratio = num_zeros / total_elements
 
-        is_bounded = (
-            min_val > -1000.0 and max_val < 1000.0
+        is_bounded = tf.logical_and(
+            tf.greater(min_val, -1000.0), tf.less(max_val, 1000.0)
         )  # Arbitrary bounds for demonstration
-
-        print(f"zero_ratioAAA: {zero_ratio}")
 
         # Distribution checks
         is_sparse = zero_ratio > 0.5
-        is_zero_inflated = zero_ratio > 0.3 and not is_sparse
-        is_normal = tf.abs(kurtosis - 3.0) < 0.5 and tf.abs(skewness) < 0.5
+        is_zero_inflated = tf.logical_and(
+            tf.greater(zero_ratio, 0.3), tf.logical_not(is_sparse)
+        )
+        is_normal = tf.logical_and(tf.abs(kurtosis - 3.0) < 0.5, tf.abs(skewness) < 0.5)
         is_uniform = tf.abs(kurtosis - 1.8) < 0.3
         is_heavy_tailed = self._check_heavy_tailed(inputs)
         is_cauchy = kurtosis > 20.0  # Extremely heavy-tailed
-        is_exponential = tf.abs(skewness - 2.0) < 0.5 and min_val >= -self.epsilon
+        is_exponential = tf.logical_and(
+            tf.abs(skewness - 2.0) < 0.5, tf.greater_equal(min_val, -self.epsilon)
+        )
         is_log_normal = self._check_log_normal(inputs)
         is_multimodal = self._detect_multimodality(inputs)
         is_discrete = self._check_discreteness(inputs)
         is_periodic = self.detect_periodicity and self._check_periodicity(inputs)
 
         # Advanced distribution checks
-        is_beta = is_bounded and not is_uniform and min_val >= 0 and max_val <= 1
-        is_gamma = min_val >= -self.epsilon and skewness > 0
-        is_poisson = is_discrete and (0.8 < (variance / mean) < 1.2)
+        is_beta = tf.logical_and(
+            tf.logical_and(is_bounded, tf.logical_not(is_uniform)),
+            tf.logical_and(tf.greater_equal(min_val, 0.0), tf.less_equal(max_val, 1.0)),
+        )
+        is_gamma = tf.logical_and(
+            tf.greater_equal(min_val, -self.epsilon), tf.greater(skewness, 0.0)
+        )
+        is_poisson = tf.logical_and(
+            is_discrete,
+            tf.logical_and(
+                tf.greater(variance / mean, 0.8), tf.less(variance / mean, 1.2)
+            ),
+        )
 
         # exceptions
-        if is_normal and is_multimodal:
-            is_normal = False
-        if is_normal and is_heavy_tailed:
-            is_normal = False
-        if is_multimodal and is_heavy_tailed:
-            is_heavy_tailed = False
+        is_normal = tf.cond(
+            tf.logical_and(is_normal, is_multimodal),
+            lambda: tf.constant(False),
+            lambda: is_normal,
+        )
+        is_normal = tf.cond(
+            tf.logical_and(is_normal, is_heavy_tailed),
+            lambda: tf.constant(False),
+            lambda: is_normal,
+        )
+        is_heavy_tailed = tf.cond(
+            tf.logical_and(is_multimodal, is_heavy_tailed),
+            lambda: tf.constant(False),
+            lambda: is_heavy_tailed,
+        )
 
         # Create stats dictionary with tensor values
         stats_dict = {
@@ -617,12 +639,16 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         }
 
         if self.specified_distribution:
+            tf.print(
+                "\n--------------------------------",
+                f"Using manually specified distribution for {feature_name}: {self.specified_distribution}",
+            )
             return {
                 "type": self.specified_distribution,
                 "stats": stats_dict,
             }
-        return {
-            "type": self._determine_primary_distribution(
+        else:
+            distrib_dict_determined = self._determine_primary_distribution(
                 {
                     DistributionType.NORMAL: is_normal,
                     DistributionType.UNIFORM: is_uniform,
@@ -637,10 +663,16 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
                     DistributionType.POISSON: is_poisson,
                     DistributionType.CAUCHY: is_cauchy,
                     DistributionType.ZERO_INFLATED: is_zero_inflated,
-                },
-            ),
-            "stats": stats_dict,
-        }
+                }
+            )
+            tf.print(
+                "\n--------------------------------",
+                f"Determined distribution type for {feature_name}: {distrib_dict_determined}",
+            )
+            return {
+                "type": distrib_dict_determined,
+                "stats": stats_dict,
+            }
 
     def _determine_primary_distribution(self, dist_flags: dict) -> str:
         """Determine the primary distribution type based on flags."""
@@ -661,15 +693,12 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             DistributionType.MULTIMODAL,
         ]
 
-        for dist_type, is_flag in dist_flags.items():
-            print(f"{dist_type}: {is_flag}")
-        print("\n--------------------------------")
-
         for dist_type in priority_order:
-            if dist_flags.get(dist_type, False):
+            flag_value = tf.get_static_value(dist_flags.get(dist_type, False))
+            if flag_value:
                 return dist_type
 
-        return DistributionType.MIXED
+        return DistributionType.NORMAL
 
     def _check_heavy_tailed(self, inputs: tf.Tensor) -> tf.Tensor:
         """Check for heavy-tailed distribution by comparing with normal distribution.
@@ -741,59 +770,63 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         return tf.logical_and(unique_val_vs_range, is_mostly_integer)
 
     def _check_periodicity(
-        self, data: tf.Tensor, max_lag: int = None, threshold: float = 0.3
+        self, data: tf.Tensor, max_lag: int = 50, threshold: float = 0.3
     ) -> tf.Tensor:
         """Test for periodicity in time series data using autocorrelation.
 
         Args:
-            data: Input time series tensor
-            max_lag: Maximum lag to test. If None, uses n_samples/2
-            threshold: Correlation threshold to consider as periodic
+            data: Input time series tensor.
+            max_lag: Maximum lag to test. Defaults to 50.
+            threshold: Correlation threshold to consider as periodic.
 
         Returns:
-            bool tensor indicating if data is periodic
+            tf.Tensor: A boolean tensor indicating if the data is periodic.
         """
         # Ensure data is 1D and float32
         data = tf.cast(tf.reshape(data, [-1]), tf.float32)
         n_samples = tf.shape(data)[0]
 
-        # Set default max_lag if not provided
-        if max_lag is None:
-            max_lag = tf.cast(n_samples / 2, tf.int32)
+        # Set max_lag to the minimum of provided max_lag and n_samples // 2
+        max_lag = tf.minimum(
+            tf.cast(max_lag, tf.int32), tf.cast(n_samples // 2, tf.int32)
+        )
+
+        # Handle cases where n_samples is too small
+        max_lag = tf.cond(
+            tf.greater(max_lag, 0),
+            lambda: max_lag,
+            lambda: tf.constant(1, dtype=tf.int32),
+        )
 
         # Center the data
         data_centered = data - tf.reduce_mean(data)
-        variance = tf.reduce_sum(tf.square(data_centered))
+        variance = (
+            tf.reduce_sum(tf.square(data_centered)) + 1e-8
+        )  # Add epsilon to avoid division by zero
 
-        # Calculate autocorrelation for different lags
-        autocorr = tf.TensorArray(tf.float32, size=max_lag)
-
-        # Calculate correlation
-        for lag in tf.range(1, max_lag):
+        # Define a function to compute correlation for a given lag
+        def compute_corr(lag):
             y1 = data_centered[lag:]
             y2 = data_centered[:-lag]
+            corr = tf.reduce_sum(y1 * y2) / variance
+            return corr
 
-            correlation = tf.reduce_sum(y1 * y2) / variance
-            autocorr = autocorr.write(lag, correlation)
+        # Create lags from 1 to max_lag
+        lags = tf.range(1, max_lag + 1)
+
+        # Compute autocorrelation for each lag using map_fn
+        autocorr = tf.map_fn(compute_corr, lags, dtype=tf.float32)
 
         # Find peaks in the autocorrelation function
-        autocorr = autocorr.stack()
+        condition1 = autocorr > threshold
+        condition2 = autocorr > tf.concat([[0.0], autocorr[:-1]], 0)
+        condition3 = autocorr > tf.concat([autocorr[1:], [0.0]], 0)
         peaks = tf.where(
-            tf.logical_and(
-                autocorr > threshold,
-                tf.logical_and(
-                    autocorr > tf.concat([[0.0], autocorr[:-1]], 0),
-                    autocorr > tf.concat([autocorr[1:], [0.0]], 0),
-                ),
-            ),
+            tf.logical_and(tf.logical_and(condition1, condition2), condition3)
         )
 
-        # Check if we found any significant peaks
-        if tf.size(peaks) > 1:
-            tf.cast(peaks[0][0] + 1, tf.int32)  # +1 because lag starts at 1
-            return True
-        else:
-            return False
+        # Check if we found more than one significant peak
+        return tf.greater(tf.shape(peaks)[0], 1)
 
     def _gaussian_kernel_density_estimation(
         self,
@@ -843,8 +876,11 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         )
 
         # Need at least 2 peaks to be multimodal or periodic
-        if tf.shape(peaks)[0] <= 1:
-            return False
+        return tf.cond(
+            tf.shape(peaks)[0] <= 1,
+            lambda: tf.constant(False),
+            lambda: tf.constant(True),
+        )
 
         # Check regularity of peak spacing
         peak_positions = tf.cast(peaks[:, 0], tf.float32)
@@ -876,7 +912,6 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             DistributionType.LOG_NORMAL: self._handle_log_normal,
             DistributionType.PERIODIC: self._handle_periodic,
             DistributionType.SPARSE: self._handle_sparse,
-            DistributionType.MIXED: self._handle_mixed,
             DistributionType.BETA: self._handle_beta,
             DistributionType.GAMMA: self._handle_gamma,
             DistributionType.POISSON: self._handle_poisson,
@@ -901,7 +936,11 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
     def _handle_heavy_tailed(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
         """Handle heavy-tailed distribution using Student's t-distribution."""
         # Estimate degrees of freedom using kurtosis
-        df = 6.0 / (stats["kurtosis"] - 3.0) if stats["kurtosis"] > 3.0 else 30.0
+        df = tf.cond(
+            stats["kurtosis"] > 3.0,
+            lambda: 6.0 / (stats["kurtosis"] - 3.0),
+            lambda: tf.constant(30.0),
+        )
         df = tf.clip_by_value(df, 2.1, 30.0)  # Ensure df > 2 for finite variance
 
         dist = self.student_t_dist(
@@ -1198,42 +1237,6 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         # Preserve zeros and apply transformation to non-zeros
         return tf.where(is_zero, tf.zeros_like(inputs), transformed)
 
-    def _handle_mixed(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle mixed distribution data using an ensemble approach.
-
-        This method:
-        1. Applies multiple appropriate transformations
-        2. Weights the transformations based on their fit
-        3. Combines the results adaptively
-        4. Handles complex, multi-modal patterns
-        """
-        # Apply different transformations
-        transformations = [
-            (self._handle_normal(inputs, stats), 1.0),
-            (
-                self._handle_heavy_tailed(inputs, stats),
-                0.8 if stats["kurtosis"] > 3.0 else 0.2,
-            ),
-            (
-                self._handle_exponential(inputs, stats),
-                0.8 if stats["skewness"] > 1.0 else 0.2,
-            ),
-        ]
-
-        if stats.get("is_multimodal", False):
-            transformations.append(
-                (self._handle_multimodal(inputs, stats), 0.9),
-            )
-
-        # Calculate weighted sum
-        total_weight = sum(weight for _, weight in transformations)
-        weighted_sum = tf.zeros_like(inputs)
-
-        for transformed, weight in transformations:
-            weighted_sum += (weight / total_weight) * transformed
-
-        return weighted_sum
-
     def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:
         """Compute the output shape of the distribution-aware encoder.
 
@@ -1258,7 +1261,7 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             Transformed tensor
         """
         dist_info = self._estimate_distribution(inputs)
-        print(f"Distribution info: {dist_info}")
+        # print(f"Distribution info: {dist_info}")
         return self._transform_distribution(inputs, dist_info)
 
     def get_config(self) -> dict:
