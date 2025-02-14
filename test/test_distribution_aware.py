@@ -382,5 +382,271 @@ class TestDistributionAwareEncoder(tf.test.TestCase):
             self.encoder(tf.constant([["1", "2"], ["3", "4"]]))
 
 
+class TestAdvancedOptionsDistributionAwareEncoder(tf.test.TestCase):
+    def setUp(self):
+        super().setUp()
+        # Create an instance of the DistributionAwareEncoder with advanced features enabled.
+        self.encoder = DistributionAwareEncoder(
+            name="distribution_aware_encoder",
+            num_bins=1000,
+            epsilon=1e-6,
+            detect_periodicity=True,
+            handle_sparsity=True,
+            adaptive_binning=True,
+            mixture_components=3,
+            trainable=True,
+        )
+
+    def test_config_serialization(self):
+        """Test that the encoder's configuration is correctly saved and restored."""
+        config = self.encoder.get_config()
+        new_encoder = DistributionAwareEncoder.from_config(config)
+        self.assertEqual(new_encoder.num_bins, self.encoder.num_bins)
+        self.assertEqual(new_encoder.epsilon, self.encoder.epsilon)
+        self.assertEqual(
+            new_encoder.detect_periodicity, self.encoder.detect_periodicity
+        )
+        self.assertEqual(new_encoder.handle_sparsity, self.encoder.handle_sparsity)
+        self.assertEqual(new_encoder.adaptive_binning, self.encoder.adaptive_binning)
+        self.assertEqual(
+            new_encoder.mixture_components, self.encoder.mixture_components
+        )
+        self.assertTrue(new_encoder.trainable)
+
+    def test_periodic_processing(self):
+        """Test that periodic input data is encoded with the periodic branch."""
+        # Create periodic data: sin wave with some noise.
+        t = np.linspace(0, 4 * np.pi, 100).astype(np.float32)
+        data = np.sin(t) + 0.05 * np.random.normal(0, 1, 100).astype(np.float32)
+        inputs = tf.convert_to_tensor(data)
+        outputs = self.encoder(inputs, training=False)
+
+        # With detect_periodicity=True, the output is expected to be concatenated
+        # (e.g., sin/cos branches) doubling the dimensionality.
+        self.assertEqual(
+            outputs.shape[0],
+            inputs.shape[0] * 2,
+            "Periodicity encoding failed to double output dimensions.",
+        )
+
+    def test_sparsity_handling(self):
+        """Test that sparse inputs (mostly zeros) produce near-zero outputs in those positions."""
+        data = np.zeros(100, dtype=np.float32)
+        # Set a few indices to non-zero values.
+        indices = np.random.choice(np.arange(100), size=10, replace=False)
+        data[indices] = np.random.normal(1, 0.1, size=10)
+        inputs = tf.convert_to_tensor(data)
+        outputs = self.encoder(inputs, training=False)
+
+        # In regions where input values are near zero the encoder should preserve sparsity.
+        zero_mask = np.abs(data) < self.encoder.epsilon
+        outputs_val = outputs.numpy()
+        self.assertTrue(
+            np.all(np.abs(outputs_val[zero_mask]) < self.encoder.epsilon),
+            "Sparse inputs not preserved as near-zero in outputs.",
+        )
+
+
+class TestEncoderConfigurations(tf.test.TestCase):
+    def test_detect_periodicity_true(self):
+        """When detect_periodicity is True, periodic inputs should produce an output with doubled dimensions."""
+        encoder = DistributionAwareEncoder(
+            name="encoder_periodic_true",
+            num_bins=1000,
+            epsilon=1e-6,
+            detect_periodicity=True,
+            handle_sparsity=True,
+            adaptive_binning=True,
+            mixture_components=3,
+            trainable=True,
+        )
+        # Create a sinusoidal input signal.
+        t = np.linspace(0, 4 * np.pi, 100).astype(np.float32)
+        data = np.sin(t)
+        inputs = tf.convert_to_tensor(data)
+        outputs = encoder(inputs, training=False)
+        # With periodic detection enabled, the encoder output is expected to be (input_length * 2,)
+        self.assertEqual(
+            outputs.shape,
+            (inputs.shape[0] * 2,),
+            "Expected output shape to be twice the input length when detecting periodicity.",
+        )
+
+    def test_detect_periodicity_false(self):
+        """When detect_periodicity is False, the output shape should match the input."""
+        encoder = DistributionAwareEncoder(
+            name="encoder_periodic_false",
+            num_bins=1000,
+            epsilon=1e-6,
+            detect_periodicity=False,
+            handle_sparsity=True,
+            adaptive_binning=True,
+            mixture_components=3,
+            trainable=True,
+        )
+        # Use a sinusoidal input.
+        t = np.linspace(0, 4 * np.pi, 100).astype(np.float32)
+        data = np.sin(t)
+        inputs = tf.convert_to_tensor(data)
+        outputs = encoder(inputs, training=False)
+        self.assertEqual(
+            outputs.shape,
+            inputs.shape,
+            "Expected output shape to be the same as input when periodicity detection is disabled.",
+        )
+
+    def test_handle_sparsity_true(self):
+        """When handle_sparsity is True, input values near zero should be preserved as near-zero in the output."""
+        encoder = DistributionAwareEncoder(
+            name="encoder_sparsity_true",
+            num_bins=1000,
+            epsilon=1e-6,
+            detect_periodicity=False,
+            handle_sparsity=True,
+            adaptive_binning=True,
+            mixture_components=3,
+            trainable=True,
+        )
+        # Generate sparse input data: mostly zeros with some non-zero values.
+        data = np.zeros(200, dtype=np.float32)
+        np.random.seed(42)
+        indices = np.random.choice(200, size=20, replace=False)
+        data[indices] = np.random.normal(0, 1, size=20)
+        inputs = tf.convert_to_tensor(data)
+        outputs = encoder(inputs, training=False)
+
+        # For sparsity handling, zeros (or near-zero) in the input should give near-zero outputs.
+        zero_mask = np.abs(data) < encoder.epsilon
+        outputs_np = outputs.numpy()
+        self.assertTrue(
+            np.all(np.abs(outputs_np[zero_mask]) < encoder.epsilon),
+            "When handle_sparsity is True, inputs near zero should produce near-zero outputs.",
+        )
+
+    def test_handle_sparsity_false(self):
+        """When handle_sparsity is False, there is no requirement to preserve zeros."""
+        encoder = DistributionAwareEncoder(
+            name="encoder_sparsity_false",
+            num_bins=1000,
+            epsilon=1e-6,
+            detect_periodicity=False,
+            handle_sparsity=False,
+            adaptive_binning=True,
+            mixture_components=3,
+            trainable=True,
+        )
+        # Generate similar sparse input.
+        data = np.zeros(200, dtype=np.float32)
+        np.random.seed(42)
+        indices = np.random.choice(200, size=20, replace=False)
+        data[indices] = np.random.normal(0, 1, size=20)
+        inputs = tf.convert_to_tensor(data)
+        outputs = encoder(inputs, training=False)
+
+        # When handle_sparsity is False, we do not insist on preserving zeros; instead, we can check that
+        # at least some non-zero output is produced for non-zero input.
+        non_zero_mask = np.abs(data) > encoder.epsilon
+        outputs_np = outputs.numpy()
+        self.assertTrue(
+            np.any(np.abs(outputs_np[non_zero_mask]) > encoder.epsilon),
+            "When handle_sparsity is False, non-zero inputs should result in non-zero outputs.",
+        )
+
+    def test_adaptive_binning_flag(self):
+        """Test that the adaptive_binning flag is stored correctly."""
+        encoder_true = DistributionAwareEncoder(
+            name="encoder_adaptive_true",
+            num_bins=1000,
+            epsilon=1e-6,
+            detect_periodicity=False,
+            handle_sparsity=True,
+            adaptive_binning=True,
+            mixture_components=3,
+            trainable=True,
+        )
+        encoder_false = DistributionAwareEncoder(
+            name="encoder_adaptive_false",
+            num_bins=1000,
+            epsilon=1e-6,
+            detect_periodicity=False,
+            handle_sparsity=True,
+            adaptive_binning=False,
+            mixture_components=3,
+            trainable=True,
+        )
+        self.assertTrue(
+            encoder_true.adaptive_binning, "Encoder should have adaptive_binning=True."
+        )
+        self.assertFalse(
+            encoder_false.adaptive_binning,
+            "Encoder should have adaptive_binning=False.",
+        )
+
+    def test_mixture_components(self):
+        """Test that the mixture_components parameter is correctly stored."""
+        encoder = DistributionAwareEncoder(
+            name="encoder_mixture",
+            num_bins=1000,
+            epsilon=1e-6,
+            detect_periodicity=False,
+            handle_sparsity=True,
+            adaptive_binning=True,
+            mixture_components=5,
+            trainable=True,
+        )
+        self.assertEqual(
+            encoder.mixture_components,
+            5,
+            "The mixture_components parameter should be correctly set to 5.",
+        )
+
+    def test_trainable_flag(self):
+        """Test that setting the trainable flag correctly updates the layer's trainability."""
+        encoder_trainable = DistributionAwareEncoder(
+            name="encoder_trainable_true",
+            num_bins=1000,
+            epsilon=1e-6,
+            detect_periodicity=False,
+            handle_sparsity=True,
+            adaptive_binning=True,
+            mixture_components=3,
+            trainable=True,
+        )
+        encoder_non_trainable = DistributionAwareEncoder(
+            name="encoder_trainable_false",
+            num_bins=1000,
+            epsilon=1e-6,
+            detect_periodicity=False,
+            handle_sparsity=True,
+            adaptive_binning=True,
+            mixture_components=3,
+            trainable=False,
+        )
+        self.assertTrue(
+            encoder_trainable.trainable,
+            "Encoder should be trainable when trainable=True.",
+        )
+        self.assertFalse(
+            encoder_non_trainable.trainable,
+            "Encoder should not be trainable when trainable=False.",
+        )
+
+    def test_num_bins_parameter(self):
+        """Test that the num_bins parameter is correctly set and stored."""
+        encoder = DistributionAwareEncoder(
+            name="encoder_num_bins",
+            num_bins=500,
+            epsilon=1e-6,
+            detect_periodicity=False,
+            handle_sparsity=True,
+            adaptive_binning=True,
+            mixture_components=3,
+            trainable=True,
+        )
+        self.assertEqual(
+            encoder.num_bins, 500, "The num_bins parameter should be set to 500."
+        )
+
+
 if __name__ == "__main__":
     tf.test.main()
