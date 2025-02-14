@@ -1,5 +1,11 @@
 # project plugin
-from kdp.features import CategoricalFeature, DateFeature, FeatureType, NumericalFeature, TextFeature
+from kdp.features import (
+    CategoricalFeature,
+    DateFeature,
+    FeatureType,
+    NumericalFeature,
+    TextFeature,
+)
 from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.pipeline import FeaturePreprocessor, Pipeline, ProcessingStep
 from kdp.processor import (
