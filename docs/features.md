@@ -13,7 +13,7 @@ Explore various methods to define numerical features tailored to your needs:
         "feat1": "float",
         "feat2": "FLOAT",
         "feat3": "FLOAT_NORMALIZED",
-        "feat3": "FLOAT_RESCALED",
+        "feat4": "FLOAT_RESCALED",
         ...
     }
     ```
@@ -50,7 +50,7 @@ Explore various methods to define numerical features tailored to your needs:
         "feat3": NumericalFeature(
             name="feat3",
             feature_type=FeatureType.FLOAT_DISCRETIZED,
-            bin_boundaries=[(1, 10)],
+            bin_boundaries=[0.0, 1.0, 2.0],
         ),
         "feat4": NumericalFeature(
             name="feat4",
@@ -59,6 +59,10 @@ Explore various methods to define numerical features tailored to your needs:
         ...
     }
     ```
+
+### 📊 **Distribution-Aware Encoding**
+
+Enhance your numerical feature processing by leveraging the **Distribution-Aware Encoder**. This allows automatic or manual detection of data distributions, applying appropriate transformations to preserve the integrity and statistical properties of your data.
 
 Here's how the numeric preprocessing pipeline looks:
 

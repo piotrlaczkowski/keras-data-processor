@@ -1,7 +1,7 @@
 # Distribution-Aware Encoder
 
 ## Overview
-The Distribution-Aware Encoder is an advanced preprocessing layer that automatically detects and handles various types of data distributions. It uses TensorFlow Probability (tfp) for accurate modeling and applies specialized transformations while preserving the statistical properties of the data.
+The **Distribution-Aware Encoder** is an advanced preprocessing layer that automatically detects and handles various types of data distributions. It leverages TensorFlow Probability (tfp) for accurate modeling and applies specialized transformations while preserving the statistical properties of the data.
 
 ## Features
 
@@ -80,7 +80,7 @@ The Distribution-Aware Encoder is an advanced preprocessing layer that automatic
 
 ### Basic Usage
 
-The capability only works with numerical features!
+The Distribution-Aware Encoder works seamlessly (and only) with numerical features. Enable it by setting `use_distribution_aware=True` in the `PreprocessingModel`.
 
 ```python
 from kdp.processor import PreprocessingModel

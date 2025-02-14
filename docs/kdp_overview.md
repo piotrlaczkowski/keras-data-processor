@@ -33,6 +33,17 @@ KDP (Keras Data Processor) is a powerful preprocessing library designed to strea
   - Dynamic feature filtering
   - Interpretable weights
 
+### 4. 📈 **Distribution-Aware Encoder**
+- **Automatic Distribution Detection**
+  - Identifies underlying data distributions (e.g., Normal, Heavy-Tailed, Multimodal, etc.)
+  - Applies specialized transformations to preserve statistical properties
+- **Adaptive Transformations**
+  - Learns optimal parameters during training
+  - Adjusts to data distribution changes dynamically
+- **Robust Handling**
+  - Manages sparse and periodic data effectively
+  - Ensures numerical stability across transformations
+
 ## 🏗️ Architecture Overview
 
 ```mermaid
