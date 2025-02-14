@@ -5,24 +5,6 @@ default_stages: [pre-commit]
 default_install_hook_types: [pre-commit, commit-msg]
 
 repos:
-  # Temporarily disabled isort as it conflicts with ruff-format
-  # - repo: https://github.com/timothycrosley/isort
-  #   rev: 5.12.0
-  #   hooks:
-  #     - id: isort
-  #       args:
-  #         [
-  #           "--profile=black",
-  #           "--py=311",
-  #           "--line-length=120",
-  #           "--multi-line=3",
-  #           "--trailing-comma",
-  #           "--force-grid-wrap=0",
-  #           "--use-parentheses",
-  #           "--ensure-newline-before-comments",
-  #           "--project=CORE,src,config,preprocess,train,transform,main,model",
-  #         ]
-
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.1.11
