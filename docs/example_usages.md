@@ -298,6 +298,8 @@ However we can also manually set the prefered distribution for each numerical fe
 ```python
 from kdp.features import NumericalFeature, FeatureType
 from kdp.processor import PreprocessingModel, OutputModeOptions
+from kdp.custom_layers import DistributionAwareEncoder
+
 
 # Define features
 features = {
@@ -321,6 +323,7 @@ features = {
         preprocessors=[
             tf.keras.layers.Rescaling,
             tf.keras.layers.Normalization,
+            DistributionAwareEncoder,
         ],
         bin_boundaries=[0.0, 1.0, 2.0],
         mean=0.0,
