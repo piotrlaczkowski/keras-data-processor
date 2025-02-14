@@ -4,6 +4,7 @@ import tensorflow as tf
 from loguru import logger
 
 from kdp.layers_factory import PreprocessorLayerFactory
+from kdp.dynamic_pipeline import DynamicPreprocessingPipeline
 
 
 class ProcessingStep:
@@ -87,19 +88,28 @@ class Pipeline:
 
 
 class FeaturePreprocessor:
-    def __init__(self, name: str) -> None:
-        """Initialize a feature preprocessor.
+    def __init__(self, name: str, use_dynamic: bool = False) -> None:
+        """
+        Initializes a feature preprocessor.
 
         Args:
             name (str): The name of the feature preprocessor.
+            use_dynamic (bool): Whether to use the dynamic preprocessing pipeline.
         """
         self.name = name
-        self.pipeline = Pipeline(name=name)
+        self.use_dynamic = use_dynamic
+        if not self.use_dynamic:
+            self.pipeline = Pipeline(name=name)
+        else:
+            self.layers = []  # for dynamic pipeline
 
     def add_processing_step(
         self, layer_creator: Callable[..., tf.keras.layers.Layer] = None, **layer_kwargs
     ) -> None:
-        """Add a processing step to the feature preprocessor.
+        """
+        Add a preprocessing layer to the feature preprocessor pipeline.
+        If using the standard pipeline, a ProcessingStep is added.
+        Otherwise, the layer is added to a list for dynamic handling.
 
         Args:
             layer_creator (Callable[..., tf.keras.layers.Layer]): A callable that creates a layer.
@@ -107,19 +117,36 @@ class FeaturePreprocessor:
             **layer_kwargs: Additional keyword arguments for the layer creator.
         """
         layer_creator = layer_creator or PreprocessorLayerFactory.create_layer
-        step = ProcessingStep(layer_creator=layer_creator, **layer_kwargs)
-        self.pipeline.add_step(step=step)
+        if self.use_dynamic:
+            layer = layer_creator(**layer_kwargs)
+            logger.info(f"Adding {layer.name} to dynamic preprocessing pipeline")
+            self.layers.append(layer)
+        else:
+            step = ProcessingStep(layer_creator=layer_creator, **layer_kwargs)
+            self.pipeline.add_step(step=step)
 
     def chain(self, input_layer) -> tf.keras.layers.Layer:
-        """Chain the preprocessor's pipeline steps starting from the input layer.
-
-        Args:
-            input_layer: The input layer to start the chain from.
         """
-        return self.pipeline.chain(input_layer)
+        Chains the processing steps starting from the given input_layer.
+
+        For a static pipeline, this delegates to the internal Pipeline's chain() method.
+        For the dynamic pipeline, it constructs the dynamic pipeline on the fly.
+        """
+        if not self.use_dynamic:
+            return self.pipeline.chain(input_layer)
+        else:
+            dynamic_pipeline = DynamicPreprocessingPipeline(self.layers)
+            # In the dynamic case, we use a dict for the input.
+            output_dict = dynamic_pipeline.initialize_and_transform(
+                {"input": input_layer}
+            )
+            # Return the transformed data at key "input" (or adjust as needed).
+            return output_dict.get("input", input_layer)
 
     def transform(self, input_data: tf.Tensor) -> tf.Tensor:
-        """Apply the feature preprocessor to the input data.
+        """
+        Process the input data through the pipeline.
+        For the dynamic pipeline, wrap input in a dictionary and extract final output.
 
         Args:
             input_data: The input data to process.
@@ -127,4 +154,11 @@ class FeaturePreprocessor:
         Returns:
             tf.Tensor: The processed data.
         """
-        return self.pipeline.transform(input_data)
+        if not self.use_dynamic:
+            return self.pipeline.transform(input_data)
+        else:
+            dynamic_pipeline = DynamicPreprocessingPipeline(self.layers)
+            output_dict = dynamic_pipeline.initialize_and_transform(
+                {"input": input_data}
+            )
+            return output_dict.get("input", input_data)
