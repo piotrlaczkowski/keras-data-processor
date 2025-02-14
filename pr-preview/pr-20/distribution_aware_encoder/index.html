@@ -12,7 +12,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.2">
     
     
       
@@ -20,7 +20,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.a40c8224.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.d7758b05.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
@@ -799,6 +799,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#manual-usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      Manual Usage
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#advanced-configuration" class="md-nav__link">
     <span class="md-ellipsis">
       Advanced Configuration
@@ -972,58 +981,7 @@
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#example-use-cases" class="md-nav__link">
-    <span class="md-ellipsis">
-      Example Use Cases
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Example Use Cases">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-financial-data" class="md-nav__link">
-    <span class="md-ellipsis">
-      1. Financial Data
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-temporal-data" class="md-nav__link">
-    <span class="md-ellipsis">
-      2. Temporal Data
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-sparse-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      3. Sparse Features
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#monitoring-and-debugging" class="md-nav__link">
-    <span class="md-ellipsis">
-      Monitoring and Debugging
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Monitoring and Debugging">
+    <nav class="md-nav" aria-label="Best Practices">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -1169,14 +1127,6 @@
 </ul>
 </li>
 <li>
-<p><strong>Weibull Distribution</strong></p>
-<ul>
-<li>For lifetime/failure data</li>
-<li>Handled via Weibull CDF</li>
-<li>Detection: Shape and scale analysis</li>
-</ul>
-</li>
-<li>
 <p><strong>Cauchy Distribution</strong></p>
 <ul>
 <li>For extremely heavy-tailed data</li>
@@ -1192,31 +1142,52 @@
 <li>Detection: Zero proportion analysis</li>
 </ul>
 </li>
-<li>
-<p><strong>Bounded Distribution</strong></p>
-<ul>
-<li>For data with known bounds</li>
-<li>Handled via scaled beta transformation</li>
-<li>Detection: Value range analysis</li>
-</ul>
-</li>
-<li>
-<p><strong>Ordinal Distribution</strong></p>
-<ul>
-<li>For ordered categorical data</li>
-<li>Handled via learned mapping</li>
-<li>Detection: Discrete ordered values</li>
-</ul>
-</li>
 </ol>
 <h2 id="usage">Usage</h2>
 <h3 id="basic-usage">Basic Usage</h3>
+<p>The capability only works with numerical features!</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreprocessingModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">NumericalFeature</span>
 
-<span class="n">preprocessor</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span>
-    <span class="n">features_stats</span><span class="o">=</span><span class="n">stats</span><span class="p">,</span>
-    <span class="n">features_specs</span><span class="o">=</span><span class="n">specs</span><span class="p">,</span>
+<span class="c1"># Define features</span>
+<span class="n">features</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># Numerical features</span>
+    <span class="s2">&quot;feature1&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(),</span>
+    <span class="s2">&quot;feature2&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(),</span>
+    <span class="c1"># etc ..</span>
+<span class="p">}</span>
+
+<span class="c1"># Initialize the model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span> <span class="c1"># here</span>
+    <span class="n">features</span><span class="o">=</span><span class="n">features</span><span class="p">,</span>
     <span class="n">use_distribution_aware</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+</code></pre></div>
+<h3 id="manual-usage">Manual Usage</h3>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreprocessingModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">NumericalFeature</span>
+
+<span class="c1"># Define features</span>
+<span class="n">features</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># Numerical features</span>
+    <span class="c1"># Numerical features</span>
+    <span class="s2">&quot;feature1&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feature1&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_NORMALIZED</span>
+    <span class="p">),</span>
+    <span class="s2">&quot;feature2&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;feature2&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_RESCALED</span>
+        <span class="n">prefered_distribution</span><span class="o">=</span><span class="s2">&quot;log_normal&quot;</span> <span class="c1"># here we could specify a prefered distribution (normal, periodic, etc)</span>
+    <span class="p">)</span>
+    <span class="c1"># etc ..</span>
+<span class="p">}</span>
+
+<span class="c1"># Initialize the model</span>
+<span class="n">model</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span> <span class="c1"># here</span>
+    <span class="n">features</span><span class="o">=</span><span class="n">features</span><span class="p">,</span>
+    <span class="n">use_distribution_aware</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">distribution_aware_bins</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="c1"># 1000 is the default value, but you can change it for finer data</span>
 <span class="p">)</span>
 </code></pre></div>
 <h3 id="advanced-configuration">Advanced Configuration</h3>
@@ -1445,32 +1416,6 @@
 <li>Enable caching for repeated processing</li>
 <li>Adjust mixture components based on data</li>
 </ol>
-<h2 id="example-use-cases">Example Use Cases</h2>
-<h3 id="1-financial-data">1. Financial Data</h3>
-<div class="highlight"><pre><span></span><code><span class="c1"># Handle heavy-tailed return distributions</span>
-<span class="n">preprocessor</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span>
-    <span class="n">use_distribution_aware</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">handle_sparsity</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-    <span class="n">mixture_components</span><span class="o">=</span><span class="mi">2</span>
-<span class="p">)</span>
-</code></pre></div>
-<h3 id="2-temporal-data">2. Temporal Data</h3>
-<div class="highlight"><pre><span></span><code><span class="c1"># Handle periodic patterns</span>
-<span class="n">preprocessor</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span>
-    <span class="n">use_distribution_aware</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">detect_periodicity</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">adaptive_binning</span><span class="o">=</span><span class="kc">True</span>
-<span class="p">)</span>
-</code></pre></div>
-<h3 id="3-sparse-features">3. Sparse Features</h3>
-<div class="highlight"><pre><span></span><code><span class="c1"># Handle sparse categorical data</span>
-<span class="n">preprocessor</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span>
-    <span class="n">use_distribution_aware</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">handle_sparsity</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="n">mixture_components</span><span class="o">=</span><span class="mi">1</span>
-<span class="p">)</span>
-</code></pre></div>
-<h2 id="monitoring-and-debugging">Monitoring and Debugging</h2>
 <h3 id="distribution-detection">Distribution Detection</h3>
 <div class="highlight"><pre><span></span><code><span class="c1"># Access distribution information</span>
 <span class="n">dist_info</span> <span class="o">=</span> <span class="n">encoder</span><span class="o">.</span><span class="n">_estimate_distribution</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
@@ -1532,7 +1477,7 @@
     <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.5090c770.min.js"></script>
+      <script src="../assets/javascripts/bundle.f13b1293.min.js"></script>
       
     
   </body>

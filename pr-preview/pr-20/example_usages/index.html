@@ -12,7 +12,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.2">
     
     
       
@@ -20,7 +20,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.a40c8224.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.d7758b05.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
@@ -773,6 +773,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#example-4-numerical-features-with-distribution-aware-encoder" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example 4: Numerical features with distribution aware encoder
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1063,6 +1072,72 @@ Here is the plot of the model:
 </code></pre></div>
 <p>Here is the plot of the model:
 <img alt="Complex Model" src="../imgs/complex_model.png" /></p>
+<h2 id="example-4-numerical-features-with-distribution-aware-encoder">Example 4: Numerical features with distribution aware encoder</h2>
+<p>Normally the distribution aware encoder works well in automatic mode, once use_distribution_aware=True is set.
+However we can also manually set the prefered distribution for each numerical feature if we would like to.</p>
+<p><div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kdp.features</span><span class="w"> </span><span class="kn">import</span> <span class="n">NumericalFeature</span><span class="p">,</span> <span class="n">FeatureType</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kdp.processor</span><span class="w"> </span><span class="kn">import</span> <span class="n">PreprocessingModel</span><span class="p">,</span> <span class="n">OutputModeOptions</span>
+
+<span class="c1"># Define features</span>
+<span class="n">features</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="c1"># 1. Default automatic distribution detection</span>
+    <span class="s2">&quot;basic_float&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;basic_float&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+    <span class="p">),</span>
+
+    <span class="c1"># 2. Manually setting a gamma distribution</span>
+    <span class="s2">&quot;rescaled_float&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;rescaled_float&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT_RESCALED</span><span class="p">,</span>
+        <span class="n">scale</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
+        <span class="n">prefered_distribution</span><span class="o">=</span><span class="s2">&quot;gamma&quot;</span>
+    <span class="p">),</span>
+    <span class="c1"># 3. Custom preprocessing pipeline with a custom set normal distribution</span>
+    <span class="s2">&quot;custom_float&quot;</span><span class="p">:</span> <span class="n">NumericalFeature</span><span class="p">(</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;custom_float&quot;</span><span class="p">,</span>
+        <span class="n">feature_type</span><span class="o">=</span><span class="n">FeatureType</span><span class="o">.</span><span class="n">FLOAT</span><span class="p">,</span>
+        <span class="n">preprocessors</span><span class="o">=</span><span class="p">[</span>
+            <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Rescaling</span><span class="p">,</span>
+            <span class="n">tf</span><span class="o">.</span><span class="n">keras</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">Normalization</span><span class="p">,</span>
+        <span class="p">],</span>
+        <span class="n">bin_boundaries</span><span class="o">=</span><span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span>
+        <span class="n">mean</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+        <span class="n">variance</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+        <span class="n">scale</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
+        <span class="n">prefered_distribution</span><span class="o">=</span><span class="s2">&quot;normal&quot;</span>
+    <span class="p">),</span>
+<span class="p">}</span>
+
+<span class="c1"># Now we can create a preprocessing model with the features</span>
+<span class="n">ppr</span> <span class="o">=</span> <span class="n">PreprocessingModel</span><span class="p">(</span>
+    <span class="n">path_data</span><span class="o">=</span><span class="s2">&quot;sample_data.csv&quot;</span><span class="p">,</span>
+    <span class="n">features_specs</span><span class="o">=</span><span class="n">features</span><span class="p">,</span>
+    <span class="n">features_stats_path</span><span class="o">=</span><span class="s2">&quot;features_stats.json&quot;</span><span class="p">,</span>
+    <span class="n">overwrite_stats</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">output_mode</span><span class="o">=</span><span class="n">OutputModeOptions</span><span class="o">.</span><span class="n">CONCAT</span><span class="p">,</span>
+
+    <span class="c1"># Add feature selection to get the most important features</span>
+    <span class="n">feature_selection_placement</span><span class="o">=</span><span class="s2">&quot;numeric&quot;</span><span class="p">,</span> <span class="c1"># Choose between (all_features|numeric|categorical)</span>
+
+    <span class="c1"># Add tabular attention to check for feature interactions</span>
+    <span class="n">tabular_attention</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+
+    <span class="c1"># Add distribution aware encoder</span>
+    <span class="n">use_distribution_aware</span><span class="o">=</span><span class="kc">True</span>
+<span class="p">)</span>
+
+<span class="c1"># Build the preprocessor</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">ppr</span><span class="o">.</span><span class="n">build_preprocessor</span><span class="p">()</span>
+
+<span class="c1"># Transform data using direct model prediction</span>
+<span class="n">transformed_data</span> <span class="o">=</span> <span class="n">ppr</span><span class="o">.</span><span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">test_batch</span><span class="p">)</span>
+
+<span class="c1"># Get feature importances</span>
+<span class="n">feature_importances</span> <span class="o">=</span> <span class="n">ppr</span><span class="o">.</span><span class="n">get_feature_importances</span><span class="p">()</span>
+</code></pre></div>
+Here is the plot of the model:
+<img alt="Complex Model" src="../imgs/numerical_example_model_with_distribution_aware.png" /></p>
 
 
 
@@ -1112,7 +1187,7 @@ Here is the plot of the model:
     <script id="__config" type="application/json">{"base": "..", "features": [], "search": "../assets/javascripts/workers/search.f8cc74c7.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.5090c770.min.js"></script>
+      <script src="../assets/javascripts/bundle.f13b1293.min.js"></script>
       
     
   </body>
