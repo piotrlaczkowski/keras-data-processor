@@ -76,7 +76,9 @@ class FeatureSpaceConverter:
         self.text_features = []
         self.date_features = []
 
-    def _init_features_specs(self, features_specs: dict[str, FeatureType | str]) -> dict[str, Feature]:
+    def _init_features_specs(
+        self, features_specs: dict[str, FeatureType | str]
+    ) -> dict[str, Feature]:
         """Format the features space into a dictionary.
 
         Args:
@@ -89,7 +91,9 @@ class FeatureSpaceConverter:
         """
         for name, spec in features_specs.items():
             # Direct instance check for standard pipelines
-            if isinstance(spec, NumericalFeature | CategoricalFeature | TextFeature | DateFeature):
+            if isinstance(
+                spec, NumericalFeature | CategoricalFeature | TextFeature | DateFeature
+            ):
                 feature_instance = spec
             else:
                 # handling custom features pipelines
@@ -97,7 +101,9 @@ class FeatureSpaceConverter:
                     feature_type = spec.feature_type
                 else:
                     # Convert string to FeatureType if necessary
-                    feature_type = FeatureType[spec.upper()] if isinstance(spec, str) else spec
+                    feature_type = (
+                        FeatureType[spec.upper()] if isinstance(spec, str) else spec
+                    )
 
                 # Creating feature objects based on type
                 if feature_type in {
@@ -106,19 +112,38 @@ class FeatureSpaceConverter:
                     FeatureType.FLOAT_RESCALED,
                     FeatureType.FLOAT_DISCRETIZED,
                 }:
-                    feature_instance = NumericalFeature(name=name, feature_type=feature_type)
-                elif feature_type in {FeatureType.INTEGER_CATEGORICAL, FeatureType.STRING_CATEGORICAL}:
-                    feature_instance = CategoricalFeature(name=name, feature_type=feature_type)
+                    # Get preferred_distribution from kwargs if provided
+                    preferred_distribution = (
+                        spec.kwargs.get("preferred_distribution")
+                        if isinstance(spec, Feature)
+                        else None
+                    )
+                    feature_instance = NumericalFeature(
+                        name=name,
+                        feature_type=feature_type,
+                        preferred_distribution=preferred_distribution,
+                    )
+                elif feature_type in {
+                    FeatureType.INTEGER_CATEGORICAL,
+                    FeatureType.STRING_CATEGORICAL,
+                }:
+                    feature_instance = CategoricalFeature(
+                        name=name, feature_type=feature_type
+                    )
                 elif feature_type == FeatureType.TEXT:
                     feature_instance = TextFeature(name=name, feature_type=feature_type)
                 elif feature_type == FeatureType.DATE:
                     feature_instance = DateFeature(name=name, feature_type=feature_type)
                 else:
-                    raise ValueError(f"Unsupported feature type for feature '{name}': {spec}")
+                    raise ValueError(
+                        f"Unsupported feature type for feature '{name}': {spec}"
+                    )
 
             # Adding custom pipelines
             if isinstance(spec, Feature):
-                logger.info(f"Adding custom preprocessors to the object: {spec.preprocessors}")
+                logger.info(
+                    f"Adding custom preprocessors to the object: {spec.preprocessors}"
+                )
                 feature_instance.preprocessors = spec.preprocessors
                 feature_instance.kwargs = spec.kwargs
 
@@ -276,13 +301,19 @@ class PreprocessingModel:
             """
             start_time = time.time()
             start_memory = (
-                tf.config.experimental.get_memory_info("GPU:0")["current"] if tf.test.is_gpu_available() else 0
+                tf.config.experimental.get_memory_info("GPU:0")["current"]
+                if tf.test.is_gpu_available()
+                else 0
             )
 
             result = func(self, *args, **kwargs)
 
             end_time = time.time()
-            end_memory = tf.config.experimental.get_memory_info("GPU:0")["current"] if tf.test.is_gpu_available() else 0
+            end_memory = (
+                tf.config.experimental.get_memory_info("GPU:0")["current"]
+                if tf.test.is_gpu_available()
+                else 0
+            )
 
             execution_time = end_time - start_time
             memory_used = end_memory - start_memory
@@ -296,7 +327,9 @@ class PreprocessingModel:
 
         return wrapper
 
-    def _init_features_specs(self, features_specs: dict[str, FeatureType | str]) -> None:
+    def _init_features_specs(
+        self, features_specs: dict[str, FeatureType | str]
+    ) -> None:
         """Format the features space into a dictionary.
 
         Args:
@@ -390,7 +423,9 @@ class PreprocessingModel:
         # getting feature object
         _feature = self.features_specs[feature_name]
         for preprocessor_step in feature.preprocessors:
-            logger.info(f"Adding custom {preprocessor =} for {feature_name =}, {_feature.kwargs =}")
+            logger.info(
+                f"Adding custom {preprocessor =} for {feature_name =}, {_feature.kwargs =}"
+            )
             preprocessor.add_processing_step(
                 layer_class=preprocessor_step,
                 name=f"{preprocessor_step.__name__}_{feature_name}",
@@ -399,7 +434,9 @@ class PreprocessingModel:
         return preprocessor
 
     @_monitor_performance
-    def _get_cached_or_process(self, feature_name: str, processor_fn, *args: Any, **kwargs: Any) -> tf.Tensor:
+    def _get_cached_or_process(
+        self, feature_name: str, processor_fn, *args: Any, **kwargs: Any
+    ) -> tf.Tensor:
         """Get cached preprocessed feature or process it.
 
         Args:
@@ -418,7 +455,9 @@ class PreprocessingModel:
             return processed
         return self._preprocessed_cache[feature_name]
 
-    def _process_feature_batch(self, batch: list[tuple[str, dict]], feature_type: str) -> None:
+    def _process_feature_batch(
+        self, batch: list[tuple[str, dict]], feature_type: str
+    ) -> None:
         """Process a batch of features in parallel.
 
         Args:
@@ -526,7 +565,9 @@ class PreprocessingModel:
                 self._process_feature_batch(features, feature_type)
 
     @_monitor_performance
-    def _add_pipeline_numeric(self, feature_name: str, input_layer, stats: dict) -> None:
+    def _add_pipeline_numeric(
+        self, feature_name: str, input_layer, stats: dict
+    ) -> None:
         """Add a numeric preprocessing step to the pipeline.
 
         Args:
@@ -564,15 +605,27 @@ class PreprocessingModel:
                     layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
                     name=f"pre_dist_cast_to_float_{feature_name}",
                 )
+                # Check if manually specified distribution is provided
+                _prefered_distribution = _feature.kwargs.get("prefered_distribution")
+                if _prefered_distribution is not None:
+                    logger.info(
+                        f"Using manually specified distribution for {feature_name}"
+                    )
+                else:
+                    logger.info(
+                        f"Using automatic distribution detection for {feature_name}"
+                    )
+
                 # Apply distribution-aware encoding
                 preprocessor.add_processing_step(
                     layer_creator=PreprocessorLayerFactory.distribution_aware_encoder,
-                    name=f"distribution_aware_{feature_name}",
+                    name=f"distribution_aware_layer_{feature_name}",
                     num_bins=self.distribution_aware_bins,
                     detect_periodicity=True,
                     handle_sparsity=True,
                     adaptive_binning=True,
                     mixture_components=3,
+                    prefered_distribution=_prefered_distribution,
                 )
                 # Cast to float32 after distribution-aware encoding
                 preprocessor.add_processing_step(
@@ -591,7 +644,9 @@ class PreprocessingModel:
                     )
                 elif _feature.feature_type == FeatureType.FLOAT_RESCALED:
                     logger.debug("Adding Float Rescaled Feature")
-                    rescaling_scale = _feature.kwargs.get("scale", 1.0)  # Default scale is 1.0 if not specified
+                    rescaling_scale = _feature.kwargs.get(
+                        "scale", 1.0
+                    )  # Default scale is 1.0 if not specified
                     preprocessor.add_processing_step(
                         layer_class="Rescaling",
                         scale=rescaling_scale,
@@ -627,7 +682,8 @@ class PreprocessingModel:
         # Apply feature selection if enabled for numeric features
         if (
             self.feature_selection_placement == FeatureSelectionPlacementOptions.NUMERIC
-            or self.feature_selection_placement == FeatureSelectionPlacementOptions.ALL_FEATURES
+            or self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.ALL_FEATURES
         ):
             feature_selector = PreprocessorLayerFactory.variable_selection_layer(
                 name=f"{feature_name}_feature_selection",
@@ -641,7 +697,9 @@ class PreprocessingModel:
         self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
-    def _add_pipeline_categorical(self, feature_name: str, input_layer, stats: dict) -> None:
+    def _add_pipeline_categorical(
+        self, feature_name: str, input_layer, stats: dict
+    ) -> None:
         """Add a categorical preprocessing step to the pipeline.
 
         Args:
@@ -691,7 +749,9 @@ class PreprocessingModel:
             _custom_embedding_size = _feature.kwargs.get("embedding_size")
             _vocab_size = len(vocab) + 1
             logger.debug(f"{_custom_embedding_size = }, {_vocab_size = }")
-            emb_size = _custom_embedding_size or _feature._embedding_size_rule(nr_categories=_vocab_size)
+            emb_size = _custom_embedding_size or _feature._embedding_size_rule(
+                nr_categories=_vocab_size
+            )
             logger.debug(f"{feature_name = }, {emb_size = }")
             preprocessor.add_processing_step(
                 layer_class="Embedding",
@@ -724,8 +784,10 @@ class PreprocessingModel:
 
         # Apply feature selection if enabled for categorical features
         if (
-            self.feature_selection_placement == FeatureSelectionPlacementOptions.CATEGORICAL
-            or self.feature_selection_placement == FeatureSelectionPlacementOptions.ALL_FEATURES
+            self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.CATEGORICAL
+            or self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.ALL_FEATURES
         ):
             feature_selector = PreprocessorLayerFactory.variable_selection_layer(
                 name=f"{feature_name}_feature_selection",
@@ -820,7 +882,9 @@ class PreprocessingModel:
             # Default behavior if no specific preprocessing is defined
             if _feature.feature_type == FeatureType.DATE:
                 logger.debug("Adding Date Parsing layer")
-                date_format = _feature.kwargs.get("format", "YYYY-MM-DD")  # Default format if not specified
+                date_format = _feature.kwargs.get(
+                    "format", "YYYY-MM-DD"
+                )  # Default format if not specified
                 preprocessor.add_processing_step(
                     layer_creator=PreprocessorLayerFactory.date_parsing_layer,
                     date_format=date_format,
@@ -912,13 +976,21 @@ class PreprocessingModel:
                 # Add to appropriate list based on feature type
                 feature_spec = self.features_specs.get(feature_name)
                 if feature_spec is None:
-                    logger.warning(f"No feature spec found for {feature_name}, skipping")
+                    logger.warning(
+                        f"No feature spec found for {feature_name}, skipping"
+                    )
                     continue
 
-                if feature_name in self.numeric_features or feature_name in self.date_features:
+                if (
+                    feature_name in self.numeric_features
+                    or feature_name in self.date_features
+                ):
                     logger.debug(f"Adding {feature_name} to numeric features")
                     numeric_features.append(feature)
-                elif feature_name in self.categorical_features or feature_name in self.text_features:
+                elif (
+                    feature_name in self.categorical_features
+                    or feature_name in self.text_features
+                ):
                     logger.debug(f"Adding {feature_name} to categorical features")
                     categorical_features.append(feature)
                 else:
@@ -957,7 +1029,10 @@ class PreprocessingModel:
 
             # Add tabular attention if specified
             if self.tabular_attention:
-                if self.tabular_attention_placement == TabularAttentionPlacementOptions.MULTI_RESOLUTION:
+                if (
+                    self.tabular_attention_placement
+                    == TabularAttentionPlacementOptions.MULTI_RESOLUTION
+                ):
                     logger.info("Adding multi-resolution tabular attention")
                     if concat_num is not None and concat_cat is not None:
                         # Reshape numeric features to 3D tensor
@@ -972,7 +1047,10 @@ class PreprocessingModel:
                             name="reshape_categorical_3d",
                         )(concat_cat)
 
-                        num_output, cat_output = PreprocessorLayerFactory.multi_resolution_attention_layer(
+                        (
+                            num_output,
+                            cat_output,
+                        ) = PreprocessorLayerFactory.multi_resolution_attention_layer(
                             num_heads=self.tabular_attention_heads,
                             d_model=self.tabular_attention_dim,
                             embedding_dim=self.tabular_attention_embedding_dim,
@@ -996,14 +1074,19 @@ class PreprocessingModel:
                             axis=-1,
                         )([num_output, cat_output])
                     else:
-                        logger.warning("Multi-resolution attention requires both numerical and categorical features")
+                        logger.warning(
+                            "Multi-resolution attention requires both numerical and categorical features"
+                        )
                         if concat_num is not None:
                             self.concat_all = concat_num
                         elif concat_cat is not None:
                             self.concat_all = concat_cat
                 else:
                     # Original tabular attention logic with 3D tensor support
-                    if self.tabular_attention_placement == TabularAttentionPlacementOptions.ALL_FEATURES:
+                    if (
+                        self.tabular_attention_placement
+                        == TabularAttentionPlacementOptions.ALL_FEATURES
+                    ):
                         logger.info("Adding tabular attention to all features")
                         # Reshape to 3D tensor (batch_size, 1, features)
                         features_3d = tf.keras.layers.Reshape(
@@ -1011,12 +1094,14 @@ class PreprocessingModel:
                             name="reshape_features_3d",
                         )(self.concat_all)
 
-                        attention_output = PreprocessorLayerFactory.tabular_attention_layer(
-                            num_heads=self.tabular_attention_heads,
-                            d_model=self.tabular_attention_dim,
-                            dropout_rate=self.tabular_attention_dropout,
-                            name="tabular_attention",
-                        )(features_3d)
+                        attention_output = (
+                            PreprocessorLayerFactory.tabular_attention_layer(
+                                num_heads=self.tabular_attention_heads,
+                                d_model=self.tabular_attention_dim,
+                                dropout_rate=self.tabular_attention_dropout,
+                                name="tabular_attention",
+                            )(features_3d)
+                        )
 
                         # Reshape back to 2D
                         self.concat_all = tf.keras.layers.Reshape(
@@ -1024,7 +1109,10 @@ class PreprocessingModel:
                             name="reshape_attention_2d",
                         )(attention_output)
 
-                    elif self.tabular_attention_placement == TabularAttentionPlacementOptions.NUMERIC:
+                    elif (
+                        self.tabular_attention_placement
+                        == TabularAttentionPlacementOptions.NUMERIC
+                    ):
                         logger.info("Adding tabular attention to numeric features")
                         if concat_num is not None:
                             # Reshape numeric features to 3D
@@ -1033,12 +1121,14 @@ class PreprocessingModel:
                                 name="reshape_numeric_3d",
                             )(concat_num)
 
-                            attention_output = PreprocessorLayerFactory.tabular_attention_layer(
-                                num_heads=self.tabular_attention_heads,
-                                d_model=self.tabular_attention_dim,
-                                dropout_rate=self.tabular_attention_dropout,
-                                name="tabular_attention_numeric",
-                            )(num_features_3d)
+                            attention_output = (
+                                PreprocessorLayerFactory.tabular_attention_layer(
+                                    num_heads=self.tabular_attention_heads,
+                                    d_model=self.tabular_attention_dim,
+                                    dropout_rate=self.tabular_attention_dropout,
+                                    name="tabular_attention_numeric",
+                                )(num_features_3d)
+                            )
 
                             # Reshape back to 2D
                             concat_num = tf.keras.layers.Reshape(
@@ -1053,7 +1143,10 @@ class PreprocessingModel:
                             )([concat_num, concat_cat])
                         else:
                             self.concat_all = concat_num
-                    elif self.tabular_attention_placement == TabularAttentionPlacementOptions.CATEGORICAL:
+                    elif (
+                        self.tabular_attention_placement
+                        == TabularAttentionPlacementOptions.CATEGORICAL
+                    ):
                         logger.info("Adding tabular attention to categorical features")
                         if concat_cat is not None:
                             # Reshape categorical features to 3D
@@ -1062,12 +1155,14 @@ class PreprocessingModel:
                                 name="reshape_categorical_3d",
                             )(concat_cat)
 
-                            attention_output = PreprocessorLayerFactory.tabular_attention_layer(
-                                num_heads=self.tabular_attention_heads,
-                                d_model=self.tabular_attention_dim,
-                                dropout_rate=self.tabular_attention_dropout,
-                                name="tabular_attention_categorical",
-                            )(cat_features_3d)
+                            attention_output = (
+                                PreprocessorLayerFactory.tabular_attention_layer(
+                                    num_heads=self.tabular_attention_heads,
+                                    d_model=self.tabular_attention_dim,
+                                    dropout_rate=self.tabular_attention_dropout,
+                                    name="tabular_attention_categorical",
+                                )(cat_features_3d)
+                            )
 
                             # Reshape back to 2D
                             concat_cat = tf.keras.layers.Reshape(
@@ -1085,8 +1180,14 @@ class PreprocessingModel:
 
             # Add transformer blocks if specified
             if self.transfo_nr_blocks:
-                if self.transfo_placement == TransformerBlockPlacementOptions.CATEGORICAL and concat_cat is not None:
-                    logger.info(f"Adding transformer blocks to categorical features: #{self.transfo_nr_blocks}")
+                if (
+                    self.transfo_placement
+                    == TransformerBlockPlacementOptions.CATEGORICAL
+                    and concat_cat is not None
+                ):
+                    logger.info(
+                        f"Adding transformer blocks to categorical features: #{self.transfo_nr_blocks}"
+                    )
                     transformed = concat_cat
                     for block_idx in range(self.transfo_nr_blocks):
                         transformed = PreprocessorLayerFactory.transformer_block_layer(
@@ -1111,8 +1212,13 @@ class PreprocessingModel:
                     else:
                         self.concat_all = transformed
 
-                elif self.transfo_placement == TransformerBlockPlacementOptions.ALL_FEATURES:
-                    logger.info(f"Adding transformer blocks to all features: #{self.transfo_nr_blocks}")
+                elif (
+                    self.transfo_placement
+                    == TransformerBlockPlacementOptions.ALL_FEATURES
+                ):
+                    logger.info(
+                        f"Adding transformer blocks to all features: #{self.transfo_nr_blocks}"
+                    )
                     for block_idx in range(self.transfo_nr_blocks):
                         self.concat_all = PreprocessorLayerFactory.transformer_block_layer(
                             dim_model=self.concat_all.shape[-1],
@@ -1125,7 +1231,9 @@ class PreprocessingModel:
             logger.info("Concatenating outputs mode enabled")
         else:
             # Dictionary mode
-            outputs = OrderedDict([(k, None) for k in self.inputs if k in self.processed_features])
+            outputs = OrderedDict(
+                [(k, None) for k in self.inputs if k in self.processed_features]
+            )
             outputs.update(OrderedDict(self.processed_features))
             self.outputs = outputs
             logger.info("OrderedDict outputs mode enabled")
@@ -1168,13 +1276,17 @@ class PreprocessingModel:
         try:
             # Validate inputs
             if not self.features_specs:
-                raise ValueError("No features specified. Please provide features_specs.")
+                raise ValueError(
+                    "No features specified. Please provide features_specs."
+                )
 
             # preparing statistics if they do not exist
             if not self.features_stats or self.overwrite_stats:
                 logger.info("No input features_stats detected !")
                 if not hasattr(self, "stats_instance"):
-                    raise ValueError("stats_instance not initialized. Cannot calculate features stats.")
+                    raise ValueError(
+                        "stats_instance not initialized. Cannot calculate features stats."
+                    )
                 self.features_stats = self.stats_instance.main()
                 logger.debug(f"Features Stats were calculated: {self.features_stats}")
 
@@ -1237,7 +1349,9 @@ class PreprocessingModel:
             logger.info("Building preprocessor Model")
             if self.output_mode == OutputModeOptions.CONCAT.value:
                 if self.concat_all is None:
-                    raise ValueError("No features were concatenated. Check if features were properly processed.")
+                    raise ValueError(
+                        "No features were concatenated. Check if features were properly processed."
+                    )
                 self.model = tf.keras.Model(
                     inputs=self.inputs,
                     outputs=self.concat_all,  # Use concat_all for CONCAT mode
@@ -1246,7 +1360,9 @@ class PreprocessingModel:
                 _output_dims = self.model.output_shape[1]
             else:  # DICT mode
                 if not self.outputs:
-                    raise ValueError("No outputs were created. Check if features were properly processed.")
+                    raise ValueError(
+                        "No outputs were created. Check if features were properly processed."
+                    )
                 self.model = tf.keras.Model(
                     inputs=self.inputs,
                     outputs=self.outputs,  # Use outputs dict for DICT mode
@@ -1283,7 +1399,9 @@ class PreprocessingModel:
             logger.error(f"Error building preprocessor model: {str(e)}")
             raise
 
-    def _predict_batch_parallel(self, batches: list[tf.Tensor], model: tf.keras.Model) -> list[tf.Tensor]:
+    def _predict_batch_parallel(
+        self, batches: list[tf.Tensor], model: tf.keras.Model
+    ) -> list[tf.Tensor]:
         """Predict multiple batches in parallel.
 
         Args:

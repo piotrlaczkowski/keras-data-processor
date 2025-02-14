@@ -94,14 +94,20 @@ class CategoricalAccumulator:
             updated_values = tf.unique(tf.concat([self.values, new_values], axis=0))[0]
             self.values.assign(updated_values)
         elif new_values.dtype == tf.int32:
-            updated_values = tf.unique(tf.concat([self.int_values, new_values], axis=0))[0]
+            updated_values = tf.unique(
+                tf.concat([self.int_values, new_values], axis=0)
+            )[0]
             self.int_values.assign(updated_values)
         else:
-            raise ValueError(f"Unsupported data type for categorical features: {new_values.dtype}")
+            raise ValueError(
+                f"Unsupported data type for categorical features: {new_values.dtype}"
+            )
 
     def get_unique_values(self) -> list:
         """Returns the unique categorical values accumulated so far."""
-        all_values = tf.concat([self.values, tf.strings.as_string(self.int_values)], axis=0)
+        all_values = tf.concat(
+            [self.values, tf.strings.as_string(self.int_values)], axis=0
+        )
         return tf.unique(all_values)[0].numpy().tolist()
 
 
@@ -132,7 +138,9 @@ class TextAccumulator:
             ValueError: If the input tensor is not of dtype tf.string.
         """
         if new_texts.dtype != tf.string:
-            raise ValueError(f"Unsupported data type for text features: {new_texts.dtype}")
+            raise ValueError(
+                f"Unsupported data type for text features: {new_texts.dtype}"
+            )
 
         # Split each string into words and flatten the list
         new_texts = tf.strings.regex_replace(new_texts, r"\s+", " ")
@@ -251,8 +259,12 @@ class DatasetStatistics:
         self.batch_size = batch_size
 
         # Initializing placeholders for statistics
-        self.numeric_stats = {col: WelfordAccumulator() for col in self.numeric_features}
-        self.categorical_stats = {col: CategoricalAccumulator() for col in self.categorical_features}
+        self.numeric_stats = {
+            col: WelfordAccumulator() for col in self.numeric_features
+        }
+        self.categorical_stats = {
+            col: CategoricalAccumulator() for col in self.categorical_features
+        }
         self.text_stats = {col: TextAccumulator() for col in self.text_features}
         self.date_stats = {col: DateAccumulator() for col in self.date_features}
 
@@ -368,7 +380,9 @@ class DatasetStatistics:
                     logger.error(f"Error processing feature: {str(e)}")
                     raise
 
-    def _compute_feature_stats_parallel(self, feature_type: str, features: list[str]) -> dict[str, Any]:
+    def _compute_feature_stats_parallel(
+        self, feature_type: str, features: list[str]
+    ) -> dict[str, Any]:
         """Compute statistics for a group of features in parallel.
 
         Args:
@@ -406,11 +420,16 @@ class DatasetStatistics:
             elif feature_type == "categorical":
                 _dtype = self.features_specs[feature].dtype
                 if _dtype == tf.int32:
-                    unique_values = [int(_byte) for _byte in self.categorical_stats[feature].get_unique_values()]
+                    unique_values = [
+                        int(_byte)
+                        for _byte in self.categorical_stats[feature].get_unique_values()
+                    ]
                     unique_values.sort()
                 else:
                     _unique_values = self.categorical_stats[feature].get_unique_values()
-                    unique_values = [(_byte).decode("utf-8") for _byte in _unique_values]
+                    unique_values = [
+                        (_byte).decode("utf-8") for _byte in _unique_values
+                    ]
                 return feature, {
                     "size": len(unique_values),
                     "vocab": unique_values,
@@ -439,7 +458,10 @@ class DatasetStatistics:
         stats = {}
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             # Submit all tasks to the executor
-            future_to_feature = {executor.submit(compute_feature_stats, feature): feature for feature in features}
+            future_to_feature = {
+                executor.submit(compute_feature_stats, feature): feature
+                for feature in features
+            }
 
             # Collect results as they complete
             for future in as_completed(future_to_feature):
@@ -544,15 +566,21 @@ class DatasetStatistics:
 
         stats_path = Path(self.features_stats_path)
         if stats_path.is_file():
-            logger.info(f"Found columns statistics, loading as features_stats: {self.features_stats_path}")
+            logger.info(
+                f"Found columns statistics, loading as features_stats: {self.features_stats_path}"
+            )
             with stats_path.open() as f:
                 self.features_stats = json.load(f)
 
             # Convert dtype strings back to TensorFlow dtype objects
-            for stats_type in self.features_stats.values():  # 'numeric_stats' and 'categorical_stats'
+            for stats_type in (
+                self.features_stats.values()
+            ):  # 'numeric_stats' and 'categorical_stats'
                 for _, feature_stats in stats_type.items():
                     if "dtype" in feature_stats:
-                        feature_stats["dtype"] = tf.dtypes.as_dtype(feature_stats["dtype"])
+                        feature_stats["dtype"] = tf.dtypes.as_dtype(
+                            feature_stats["dtype"]
+                        )
             logger.info("features_stats loaded ")
         else:
             logger.info("No serialized features stats were detected ...")

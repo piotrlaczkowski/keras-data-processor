@@ -34,6 +34,28 @@ class FeatureType(Enum):
     DATE = auto()
 
 
+class DistributionType(str, Enum):
+    """Supported distribution types for feature encoding."""
+
+    NORMAL = "normal"
+    HEAVY_TAILED = "heavy_tailed"
+    MULTIMODAL = "multimodal"
+    UNIFORM = "uniform"
+    EXPONENTIAL = "exponential"
+    LOG_NORMAL = "log_normal"
+    DISCRETE = "discrete"
+    PERIODIC = "periodic"
+    SPARSE = "sparse"
+    BETA = "beta"
+    GAMMA = "gamma"
+    POISSON = "poisson"
+    WEIBULL = "weibull"
+    CAUCHY = "cauchy"
+    ZERO_INFLATED = "zero_inflated"
+    BOUNDED = "bounded"
+    ORDINAL = "ordinal"
+
+
 class Feature:
     """Base class for features with support for dynamic kwargs."""
 
@@ -53,7 +75,11 @@ class Feature:
             **kwargs: Additional keyword arguments for the feature.
         """
         self.name = name
-        self.feature_type = FeatureType.from_string(feature_type) if isinstance(feature_type, str) else feature_type
+        self.feature_type = (
+            FeatureType.from_string(feature_type)
+            if isinstance(feature_type, str)
+            else feature_type
+        )
         self.preprocessors = preprocessors or []
         self.kwargs = kwargs
 
@@ -93,17 +119,24 @@ class Feature:
 class NumericalFeature(Feature):
     """NumericalFeature with dynamic kwargs passing."""
 
-    def __init__(self, name: str, feature_type: FeatureType = FeatureType.FLOAT, **kwargs) -> None:
+    def __init__(
+        self,
+        name: str,
+        feature_type: FeatureType = FeatureType.FLOAT_NORMALIZED,
+        preferred_distribution: DistributionType | None = None,
+        **kwargs,
+    ) -> None:
         """Initializes a NumericalFeature instance.
 
         Args:
             name (str): The name of the feature.
             feature_type (FeatureType): The type of the feature.
+            preferred_distribution (DistributionType | None): The preferred distribution type for the feature.
             **kwargs: Additional keyword arguments for the feature.
         """
         super().__init__(name, feature_type, **kwargs)
         self.dtype = tf.float32
-        self.kwargs = kwargs
+        self.preferred_distribution = preferred_distribution
 
 
 class CategoricalFeature(Feature):
@@ -126,7 +159,9 @@ class CategoricalFeature(Feature):
         """
         super().__init__(name, feature_type, **kwargs)
         self.category_encoding = category_encoding
-        self.dtype = tf.int32 if feature_type == FeatureType.INTEGER_CATEGORICAL else tf.string
+        self.dtype = (
+            tf.int32 if feature_type == FeatureType.INTEGER_CATEGORICAL else tf.string
+        )
         self.kwargs = kwargs
 
     def _embedding_size_rule(self, nr_categories: int) -> int:
@@ -144,7 +179,9 @@ class CategoricalFeature(Feature):
 class TextFeature(Feature):
     """TextFeature with dynamic kwargs passing."""
 
-    def __init__(self, name: str, feature_type: FeatureType = FeatureType.TEXT, **kwargs) -> None:
+    def __init__(
+        self, name: str, feature_type: FeatureType = FeatureType.TEXT, **kwargs
+    ) -> None:
         """Initializes a TextFeature instance.
 
         Args:
@@ -160,7 +197,9 @@ class TextFeature(Feature):
 class DateFeature(Feature):
     """TextFeature with dynamic kwargs passing."""
 
-    def __init__(self, name: str, feature_type: FeatureType = FeatureType.DATE, **kwargs) -> None:
+    def __init__(
+        self, name: str, feature_type: FeatureType = FeatureType.DATE, **kwargs
+    ) -> None:
         """Initializes a DateFeature instance.
 
         Args:

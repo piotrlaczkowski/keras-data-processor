@@ -1,5 +1,3 @@
-"""Tests for feature selection in the preprocessor model."""
-
 import os
 import tempfile
 
@@ -7,7 +5,14 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from kdp.features import CategoricalFeature, DateFeature, Feature, FeatureType, NumericalFeature, TextFeature
+from kdp.features import (
+    CategoricalFeature,
+    DateFeature,
+    Feature,
+    FeatureType,
+    NumericalFeature,
+    TextFeature,
+)
 from kdp.processor import PreprocessingModel
 
 
@@ -30,8 +35,12 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             if isinstance(spec, Feature):
                 feature_type = spec.feature_type
             elif isinstance(spec, str):
-                feature_type = FeatureType[spec.upper()] if isinstance(spec, str) else spec
-            elif isinstance(spec, (NumericalFeature, CategoricalFeature, TextFeature, DateFeature)):
+                feature_type = (
+                    FeatureType[spec.upper()] if isinstance(spec, str) else spec
+                )
+            elif isinstance(
+                spec, (NumericalFeature, CategoricalFeature, TextFeature, DateFeature)
+            ):
                 feature_type = spec.feature_type
             else:
                 feature_type = spec
@@ -49,7 +58,10 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
                 categories = ["cat", "dog", "fish", "bird"]
                 data[feature] = np.random.choice(categories, size=num_rows)
             elif feature_type == FeatureType.TEXT:
-                sentences = ["I like birds with feathers and tails.", "My dog is white and kind."]
+                sentences = [
+                    "I like birds with feathers and tails.",
+                    "My dog is white and kind.",
+                ]
                 data[feature] = np.random.choice(sentences, size=num_rows)
             elif feature_type == FeatureType.DATE:
                 start_date = pd.Timestamp("2020-01-01")
@@ -60,7 +72,9 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
 
         return pd.DataFrame(data)
 
-    def _verify_feature_weights(self, feature_weights: dict, features: dict, placement: str = "all_features"):
+    def _verify_feature_weights(
+        self, feature_weights: dict, features: dict, placement: str = "all_features"
+    ):
         """Helper method to verify feature weight properties.
 
         Args:
@@ -108,17 +122,20 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             stats_path = os.path.join(test_dir, "stats.json")
 
             features = {
-                "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+                "num1": NumericalFeature(
+                    name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "num2": NumericalFeature(
+                    name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "cat1": CategoricalFeature(
+                    name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+                ),
             }
 
             # Generate and save test data
             df = self.generate_fake_data(features, num_rows=100)
             df.to_csv(data_path, index=False)
-
-            # Create dataset
-            dataset = tf.data.Dataset.from_tensor_slices(dict(df)).batch(32)
 
             ppr = PreprocessingModel(
                 path_data=data_path,
@@ -131,7 +148,7 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             )
 
             # Build the preprocessor
-            result = ppr.build_preprocessor()
+            ppr.build_preprocessor()
 
             # Get feature importances
             feature_importances = ppr.get_feature_importances()
@@ -151,9 +168,15 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             stats_path = os.path.join(test_dir, "stats.json")
 
             features = {
-                "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+                "num1": NumericalFeature(
+                    name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "num2": NumericalFeature(
+                    name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "cat1": CategoricalFeature(
+                    name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+                ),
             }
 
             df = self.generate_fake_data(features, num_rows=100)
@@ -175,7 +198,7 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
                 tabular_attention_dropout=0.1,
             )
 
-            result = ppr.build_preprocessor()
+            ppr.build_preprocessor()
             feature_importances = ppr.get_feature_importances()
 
             self._verify_feature_weights(feature_importances, features)
@@ -187,9 +210,15 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             stats_path = os.path.join(test_dir, "stats.json")
 
             features = {
-                "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+                "num1": NumericalFeature(
+                    name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "num2": NumericalFeature(
+                    name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "cat1": CategoricalFeature(
+                    name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+                ),
             }
 
             df = self.generate_fake_data(features, num_rows=100)
@@ -212,7 +241,7 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
                 transfo_placement="all_features",
             )
 
-            result = ppr.build_preprocessor()
+            ppr.build_preprocessor()
             feature_importances = ppr.get_feature_importances()
 
             self._verify_feature_weights(feature_importances, features)
@@ -224,9 +253,15 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             stats_path = os.path.join(test_dir, "stats.json")
 
             features = {
-                "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+                "num1": NumericalFeature(
+                    name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "num2": NumericalFeature(
+                    name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "cat1": CategoricalFeature(
+                    name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+                ),
             }
 
             df = self.generate_fake_data(features, num_rows=100)
@@ -255,7 +290,7 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
                 transfo_placement="all_features",
             )
 
-            result = ppr.build_preprocessor()
+            ppr.build_preprocessor()
             feature_importances = ppr.get_feature_importances()
 
             self._verify_feature_weights(feature_importances, features)
@@ -267,9 +302,15 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             stats_path = os.path.join(test_dir, "stats.json")
 
             features = {
-                "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+                "num1": NumericalFeature(
+                    name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "num2": NumericalFeature(
+                    name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "cat1": CategoricalFeature(
+                    name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+                ),
             }
 
             # Generate data for training
@@ -299,10 +340,12 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
                 transfo_placement="all_features",
             )
 
-            result = ppr.build_preprocessor()
+            ppr.build_preprocessor()
             feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_importances, features, placement="numeric")
+            self._verify_feature_weights(
+                feature_importances, features, placement="numeric"
+            )
 
     def test_feature_selection_with_both_mixed_placement_v2(self):
         """Test feature selection with both tabular attention and transformer blocks."""
@@ -311,9 +354,15 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             stats_path = os.path.join(test_dir, "stats.json")
 
             features = {
-                "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+                "num1": NumericalFeature(
+                    name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "num2": NumericalFeature(
+                    name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "cat1": CategoricalFeature(
+                    name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+                ),
             }
 
             # Generate data for training
@@ -343,10 +392,12 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
                 transfo_placement="all_features",
             )
 
-            result = ppr.build_preprocessor()
+            ppr.build_preprocessor()
             feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_importances, features, placement="categorical")
+            self._verify_feature_weights(
+                feature_importances, features, placement="categorical"
+            )
 
     def test_feature_selection_with_both_mixed_placement_v3(self):
         """Test feature selection with both tabular attention and transformer blocks."""
@@ -355,9 +406,15 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             stats_path = os.path.join(test_dir, "stats.json")
 
             features = {
-                "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+                "num1": NumericalFeature(
+                    name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "num2": NumericalFeature(
+                    name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "cat1": CategoricalFeature(
+                    name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+                ),
             }
 
             # Generate data for training
@@ -387,10 +444,12 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
                 transfo_placement="all_features",
             )
 
-            result = ppr.build_preprocessor()
+            ppr.build_preprocessor()
             feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_importances, features, placement="numeric")
+            self._verify_feature_weights(
+                feature_importances, features, placement="numeric"
+            )
 
     def test_feature_selection_with_both_mixed_placement_v4(self):
         """Test feature selection with mixed placement configuration.
@@ -406,9 +465,15 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
             stats_path = os.path.join(test_dir, "stats.json")
 
             features = {
-                "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-                "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+                "num1": NumericalFeature(
+                    name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "num2": NumericalFeature(
+                    name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+                ),
+                "cat1": CategoricalFeature(
+                    name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+                ),
             }
 
             # Generate data for training
@@ -438,7 +503,9 @@ class TestFeatureSelectionPreprocessor(tf.test.TestCase):
                 transfo_placement="categorical",
             )
 
-            result = ppr.build_preprocessor()
+            ppr.build_preprocessor()
             feature_importances = ppr.get_feature_importances()
 
-            self._verify_feature_weights(feature_importances, features, placement="categorical")
+            self._verify_feature_weights(
+                feature_importances, features, placement="categorical"
+            )

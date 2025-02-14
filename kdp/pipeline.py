@@ -7,7 +7,9 @@ from kdp.layers_factory import PreprocessorLayerFactory
 
 
 class ProcessingStep:
-    def __init__(self, layer_creator: Callable[..., tf.keras.layers.Layer], **layer_kwargs) -> None:
+    def __init__(
+        self, layer_creator: Callable[..., tf.keras.layers.Layer], **layer_kwargs
+    ) -> None:
         """Initialize a processing step.
 
         Args:
@@ -94,7 +96,9 @@ class FeaturePreprocessor:
         self.name = name
         self.pipeline = Pipeline(name=name)
 
-    def add_processing_step(self, layer_creator: Callable[..., tf.keras.layers.Layer] = None, **layer_kwargs) -> None:
+    def add_processing_step(
+        self, layer_creator: Callable[..., tf.keras.layers.Layer] = None, **layer_kwargs
+    ) -> None:
         """Add a processing step to the feature preprocessor.
 
         Args:

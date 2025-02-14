@@ -1,7 +1,6 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -65,8 +64,14 @@ class TestCategoricalAccumulator(unittest.TestCase):
     def test_update_string_values(self):
         """Test updating the accumulator with string values."""
         self.accumulator.update(tf.constant(["apple", "banana"]))
-        self.assertIn("apple", [_bytes.decode("utf-8") for _bytes in self.accumulator.get_unique_values()])
-        self.assertIn("banana", [_bytes.decode("utf-8") for _bytes in self.accumulator.get_unique_values()])
+        self.assertIn(
+            "apple",
+            [_bytes.decode("utf-8") for _bytes in self.accumulator.get_unique_values()],
+        )
+        self.assertIn(
+            "banana",
+            [_bytes.decode("utf-8") for _bytes in self.accumulator.get_unique_values()],
+        )
 
     def test_update_int_values(self):
         """Test updating the accumulator with integer values."""
@@ -212,12 +217,24 @@ class TestDatasetStatisticsPandasComparison(unittest.TestCase):
         for feature, spec in features_scope.items():
             _feat_type = spec.feature_type
             if _feat_type in {FeatureType.FLOAT, FeatureType.FLOAT.value}:
-                data[feature] = np.random.randn(num_rows)  # Normal distribution for floats
-            elif _feat_type in {FeatureType.INTEGER_CATEGORICAL, FeatureType.INTEGER_CATEGORICAL.value}:
-                data[feature] = np.random.randint(0, 5, size=num_rows)  # Integer categories from 0 to 4
-            elif _feat_type in {FeatureType.STRING_CATEGORICAL, FeatureType.STRING_CATEGORICAL.value}:
+                data[feature] = np.random.randn(
+                    num_rows
+                )  # Normal distribution for floats
+            elif _feat_type in {
+                FeatureType.INTEGER_CATEGORICAL,
+                FeatureType.INTEGER_CATEGORICAL.value,
+            }:
+                data[feature] = np.random.randint(
+                    0, 5, size=num_rows
+                )  # Integer categories from 0 to 4
+            elif _feat_type in {
+                FeatureType.STRING_CATEGORICAL,
+                FeatureType.STRING_CATEGORICAL.value,
+            }:
                 categories = ["cat", "dog", "fish", "bird"]
-                data[feature] = np.random.choice(categories, size=num_rows)  # Randomly chosen string categories
+                data[feature] = np.random.choice(
+                    categories, size=num_rows
+                )  # Randomly chosen string categories
         # Create the DataFrame
         df = pd.DataFrame(data)
         return df
@@ -238,8 +255,12 @@ class TestDatasetStatisticsPandasComparison(unittest.TestCase):
         # so when it arrives to the stats module, it is already normalized this way
         cls.features_scope = {
             "feat_a": NumericalFeature(name="feat_a", feature_type=FeatureType.FLOAT),
-            "feat_b": CategoricalFeature(name="feat_b", feature_type=FeatureType.INTEGER_CATEGORICAL),
-            "feat_c": CategoricalFeature(name="feat_c", feature_type=FeatureType.STRING_CATEGORICAL),
+            "feat_b": CategoricalFeature(
+                name="feat_b", feature_type=FeatureType.INTEGER_CATEGORICAL
+            ),
+            "feat_c": CategoricalFeature(
+                name="feat_c", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
         }
         cls.numeric_features = ["feat_a"]
         cls.categorical_features = ["feat_b", "feat_c"]
@@ -269,11 +290,20 @@ class TestDatasetStatisticsPandasComparison(unittest.TestCase):
         stats = _data_stats.main()
         print(f"{stats=}")
         # numerical stats comparison
-        self.assertAlmostEqual(self.df["feat_a"].mean(), stats["numeric_stats"]["feat_a"]["mean"], places=5)
-        self.assertAlmostEqual(self.df["feat_a"].var(), stats["numeric_stats"]["feat_a"]["var"], places=5)
+        self.assertAlmostEqual(
+            self.df["feat_a"].mean(), stats["numeric_stats"]["feat_a"]["mean"], places=5
+        )
+        self.assertAlmostEqual(
+            self.df["feat_a"].var(), stats["numeric_stats"]["feat_a"]["var"], places=5
+        )
         # categorical data comparison
-        self.assertEqual(self.df["feat_b"].nunique(), stats["categorical_stats"]["feat_b"]["size"])
-        self.assertEqual(list(np.unique(self.df["feat_b"])), stats["categorical_stats"]["feat_b"]["vocab"])
+        self.assertEqual(
+            self.df["feat_b"].nunique(), stats["categorical_stats"]["feat_b"]["size"]
+        )
+        self.assertEqual(
+            list(np.unique(self.df["feat_b"])),
+            stats["categorical_stats"]["feat_b"]["vocab"],
+        )
 
 
 # ============= NEW TESTS ==============
