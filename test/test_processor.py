@@ -7,15 +7,20 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from kdp.custom_layers import MultiResolutionTabularAttention, TabularAttention
-from kdp.features import CategoricalFeature, DateFeature, Feature, FeatureType, NumericalFeature, TextFeature
-from kdp.processor import (
-    FeatureSpaceConverter,
-    OutputModeOptions,
-    PreprocessingModel,
-    PreprocessorLayerFactory,
-    TabularAttentionPlacementOptions,
+from kdp.custom_layers import (
+    DistributionType,
+    MultiResolutionTabularAttention,
+    TabularAttention,
 )
+from kdp.features import (
+    CategoricalFeature,
+    DateFeature,
+    Feature,
+    FeatureType,
+    NumericalFeature,
+    TextFeature,
+)
+from kdp.processor import FeatureSpaceConverter, OutputModeOptions, PreprocessingModel
 
 
 def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame:
@@ -50,7 +55,9 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
             feature_type = spec.feature_type
         elif isinstance(spec, str):
             feature_type = FeatureType[spec.upper()] if isinstance(spec, str) else spec
-        elif isinstance(spec, (NumericalFeature, CategoricalFeature, TextFeature, DateFeature)):
+        elif isinstance(
+            spec, (NumericalFeature, CategoricalFeature, TextFeature, DateFeature)
+        ):
             feature_type = spec.feature_type
         else:
             feature_type = spec
@@ -68,7 +75,10 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
             categories = ["cat", "dog", "fish", "bird"]
             data[feature] = np.random.choice(categories, size=num_rows)
         elif feature_type == FeatureType.TEXT:
-            sentences = ["I like birds with feathers and tails.", "My dog is white and kind."]
+            sentences = [
+                "I like birds with feathers and tails.",
+                "My dog is white and kind.",
+            ]
             data[feature] = np.random.choice(sentences, size=num_rows)
         elif feature_type == FeatureType.DATE:
             # Generate dates and convert them to string format
@@ -98,10 +108,17 @@ class TestFeatureSpaceConverter(unittest.TestCase):
         """Test _init_features_specs with direct class instances."""
         features_specs = {
             "height": NumericalFeature(name="height", feature_type=FeatureType.FLOAT),
-            "category": CategoricalFeature(name="category", feature_type=FeatureType.STRING_CATEGORICAL),
-            "description": TextFeature(name="description", feature_type=FeatureType.TEXT),
+            "category": CategoricalFeature(
+                name="category", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "description": TextFeature(
+                name="description", feature_type=FeatureType.TEXT
+            ),
             "birthdate": DateFeature(
-                name="birthdate", feature_type=FeatureType.DATE, date_format="%Y-%m-%d", output_format="year"
+                name="birthdate",
+                feature_type=FeatureType.DATE,
+                date_format="%Y-%m-%d",
+                output_format="year",
             ),
         }
         self.converter._init_features_specs(features_specs)
@@ -138,13 +155,13 @@ class TestFeatureSpaceConverter(unittest.TestCase):
         self.assertEqual(len(self.converter.numeric_features), 0)
         self.assertEqual(len(self.converter.categorical_features), 0)
         self.assertEqual(len(self.converter.text_features), 0)
-        self.assertEqual(len(self.converter.date_features), 0)  # Check date_features
+        self.assertEqual(len(self.converter.date_features), 0)
 
     def test_init_features_specs_with_duplicates(self):
         """Test _init_features_specs with duplicate feature names."""
         features_specs = {
-            "feature": "float",
-            "feature": "text",  # Duplicate, should overwrite the previous
+            "feature": "float",  # noqa: F601 duplicate key intentional for testing duplicates
+            "feature": "text",  # noqa: F601 duplicate key intentional for testing duplicates
         }
         self.converter._init_features_specs(features_specs)
         self.assertNotIn("feature", self.converter.numeric_features)
@@ -172,7 +189,9 @@ class TestFeatureSpaceConverter(unittest.TestCase):
         """Test _init_features_specs with FeatureType enums and class instances."""
         features_specs = {
             "height": FeatureType.FLOAT,
-            "category": CategoricalFeature(name="category", feature_type=FeatureType.STRING_CATEGORICAL),
+            "category": CategoricalFeature(
+                name="category", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
             "birthdate": DateFeature(
                 name="birthdate",
                 feature_type=FeatureType.DATE,
@@ -180,7 +199,9 @@ class TestFeatureSpaceConverter(unittest.TestCase):
                 output_format="year",
             ),
         }
-        with patch.object(FeatureSpaceConverter, "_init_features_specs", return_value=None) as mock_method:
+        with patch.object(
+            FeatureSpaceConverter, "_init_features_specs", return_value=None
+        ) as mock_method:
             self.converter._init_features_specs(features_specs)
             mock_method.assert_called()
 
@@ -197,7 +218,9 @@ class TestFeatureSpaceConverter(unittest.TestCase):
             "feat1": FeatureType.FLOAT_NORMALIZED,
             "feat2": FeatureType.FLOAT_RESCALED,
             "feat3": NumericalFeature(
-                name="feat3", feature_type=FeatureType.FLOAT_DISCRETIZED, bin_boundaries=[(1, 10)]
+                name="feat3",
+                feature_type=FeatureType.FLOAT_DISCRETIZED,
+                bin_boundaries=[(1, 10)],
             ),
             "feat4": NumericalFeature(name="feat4", feature_type=FeatureType.FLOAT),
             "feat5": "float",
@@ -207,7 +230,9 @@ class TestFeatureSpaceConverter(unittest.TestCase):
                 feature_type=FeatureType.INTEGER_CATEGORICAL,
                 embedding_size=100,
             ),
-            "feat8": TextFeature(name="feat8", max_tokens=100, stop_words=["stop", "next"]),
+            "feat8": TextFeature(
+                name="feat8", max_tokens=100, stop_words=["stop", "next"]
+            ),
             "feat9": DateFeature(
                 name="feat9",
                 feature_type=FeatureType.DATE,
@@ -224,10 +249,16 @@ class TestFeatureSpaceConverter(unittest.TestCase):
         expected_text_features = {"feat8"}
         expected_date_features = {"feat9"}
 
-        self.assertTrue(set(self.converter.numeric_features) == expected_numeric_features)
-        self.assertTrue(set(self.converter.categorical_features) == expected_categorical_features)
+        self.assertTrue(
+            set(self.converter.numeric_features) == expected_numeric_features
+        )
+        self.assertTrue(
+            set(self.converter.categorical_features) == expected_categorical_features
+        )
         self.assertTrue(set(self.converter.text_features) == expected_text_features)
-        self.assertTrue(set(self.converter.date_features) == expected_date_features)  # Check date_features
+        self.assertTrue(
+            set(self.converter.date_features) == expected_date_features
+        )  # Check date_features
 
         feat3_instance = self.converter.features_space["feat3"]
         feat7_instance = self.converter.features_space["feat7"]
@@ -375,8 +406,12 @@ class TestPreprocessingModel(unittest.TestCase):
         """Test building preprocessor with transformer blocks enabled."""
         # Use simpler feature specs that work well with transformers
         features_specs = {
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.STRING_CATEGORICAL),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "cat2": CategoricalFeature(
+                name="cat2", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
             "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT),
         }
 
@@ -402,7 +437,9 @@ class TestPreprocessingModel(unittest.TestCase):
 
         # Verify transformer blocks were added
         self.assertIsNotNone(result["model"])
-        self.assertTrue(any("transformer" in layer.name.lower() for layer in result["model"].layers))
+        self.assertTrue(
+            any("transformer" in layer.name.lower() for layer in result["model"].layers)
+        )
 
         # Test different transformer placement
         model_all_features = PreprocessingModel(
@@ -422,10 +459,16 @@ class TestPreprocessingModel(unittest.TestCase):
         # Use only date features to avoid dependency on other features
         features_specs = {
             "date1": DateFeature(
-                name="date1", feature_type=FeatureType.DATE, date_format="%Y-%m-%d", output_format="year"
+                name="date1",
+                feature_type=FeatureType.DATE,
+                date_format="%Y-%m-%d",
+                output_format="year",
             ),
             "date2": DateFeature(
-                name="date2", feature_type=FeatureType.DATE, date_format="%Y-%m-%d %H:%M:%S", output_format="month"
+                name="date2",
+                feature_type=FeatureType.DATE,
+                date_format="%Y-%m-%d %H:%M:%S",
+                output_format="month",
             ),
         }
 
@@ -446,7 +489,9 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertIsNotNone(result["model"])
 
         # Test different date formats
-        test_data = pd.DataFrame({"date1": ["2023-01-15"], "date2": ["2023-01-15 10:30:00"]})
+        test_data = pd.DataFrame(
+            {"date1": ["2023-01-15"], "date2": ["2023-01-15 10:30:00"]}
+        )
         test_data.to_csv(self._path_data, index=False)
 
         # Verify preprocessing works
@@ -459,7 +504,9 @@ class TestPreprocessingModel(unittest.TestCase):
         # Use simpler feature specs to avoid shape issues
         features_specs = {
             "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
         }
 
         # Generate and preprocess data
@@ -477,7 +524,7 @@ class TestPreprocessingModel(unittest.TestCase):
         )
 
         # Build preprocessor and process data
-        result = model_with_cache.build_preprocessor()
+        model_with_cache.build_preprocessor()
         self.assertIsNotNone(model_with_cache._preprocessed_cache)
 
         # Test with caching disabled
@@ -498,7 +545,9 @@ class TestPreprocessingModel(unittest.TestCase):
                 "features": {
                     "num1": FeatureType.FLOAT_NORMALIZED,
                     "num2": FeatureType.FLOAT_RESCALED,
-                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                    "date1": DateFeature(
+                        name="date1", feature_type=FeatureType.DATE, add_season=True
+                    ),
                 },
             },
             {
@@ -506,7 +555,9 @@ class TestPreprocessingModel(unittest.TestCase):
                 "features": {
                     "num1": FeatureType.FLOAT_NORMALIZED,
                     "cat1": FeatureType.STRING_CATEGORICAL,
-                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                    "date1": DateFeature(
+                        name="date1", feature_type=FeatureType.DATE, add_season=True
+                    ),
                 },
             },
             {
@@ -514,7 +565,9 @@ class TestPreprocessingModel(unittest.TestCase):
                 "features": {
                     "cat1": FeatureType.STRING_CATEGORICAL,
                     "cat2": FeatureType.INTEGER_CATEGORICAL,
-                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                    "date1": DateFeature(
+                        name="date1", feature_type=FeatureType.DATE, add_season=True
+                    ),
                 },
             },
             {
@@ -524,7 +577,9 @@ class TestPreprocessingModel(unittest.TestCase):
                         name="text1",
                         max_tokens=100,
                     ),
-                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                    "date1": DateFeature(
+                        name="date1", feature_type=FeatureType.DATE, add_season=True
+                    ),
                 },
             },
             {
@@ -533,16 +588,28 @@ class TestPreprocessingModel(unittest.TestCase):
                     "num1": FeatureType.FLOAT_NORMALIZED,
                     "cat1": FeatureType.STRING_CATEGORICAL,
                     "text1": TextFeature(name="text1", max_tokens=100),
-                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+                    "date1": DateFeature(
+                        name="date1", feature_type=FeatureType.DATE, add_season=True
+                    ),
                 },
                 "use_transformer": True,
             },
             {
                 "name": "multiple_dates",
                 "features": {
-                    "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
-                    "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, output_format="year"),
-                    "date3": DateFeature(name="date3", feature_type=FeatureType.DATE, output_format="month"),
+                    "date1": DateFeature(
+                        name="date1", feature_type=FeatureType.DATE, add_season=True
+                    ),
+                    "date2": DateFeature(
+                        name="date2",
+                        feature_type=FeatureType.DATE,
+                        output_format="year",
+                    ),
+                    "date3": DateFeature(
+                        name="date3",
+                        feature_type=FeatureType.DATE,
+                        output_format="month",
+                    ),
                 },
             },
         ]
@@ -584,11 +651,18 @@ class TestPreprocessingModel(unittest.TestCase):
                     date_feature = test_case["features"]["date1"]
                     if getattr(date_feature, "add_season", False):
                         # Check if output shape includes seasonal encoding
-                        self.assertGreaterEqual(preprocessed.shape[-1], 4)  # At least 4 dims for season
+                        self.assertGreaterEqual(
+                            preprocessed.shape[-1], 4
+                        )  # At least 4 dims for season
 
                 if test_case.get("use_transformer"):
                     # Verify transformer layers are present
-                    self.assertTrue(any("transformer" in layer.name.lower() for layer in result["model"].layers))
+                    self.assertTrue(
+                        any(
+                            "transformer" in layer.name.lower()
+                            for layer in result["model"].layers
+                        )
+                    )
 
     def test_date_feature_variations(self):
         """Test different date feature configurations."""
@@ -603,15 +677,21 @@ class TestPreprocessingModel(unittest.TestCase):
             },
             {
                 "name": "date_with_season",
-                "config": DateFeature(name="date", feature_type=FeatureType.DATE, add_season=True),
+                "config": DateFeature(
+                    name="date", feature_type=FeatureType.DATE, add_season=True
+                ),
             },
             {
                 "name": "custom_format_date",
-                "config": DateFeature(name="date", feature_type=FeatureType.DATE, date_format="%m/%d/%Y"),
+                "config": DateFeature(
+                    name="date", feature_type=FeatureType.DATE, date_format="%m/%d/%Y"
+                ),
             },
             {
                 "name": "date_year_only",
-                "config": DateFeature(name="date", feature_type=FeatureType.DATE, output_format="year"),
+                "config": DateFeature(
+                    name="date", feature_type=FeatureType.DATE, output_format="year"
+                ),
             },
         ]
 
@@ -647,10 +727,18 @@ class TestPreprocessingModel(unittest.TestCase):
     def test_preprocessor_with_tabular_attention(self):
         """Test end-to-end preprocessing with TabularAttention."""
         features_specs = {
-            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_RESCALED),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "num2": NumericalFeature(
+                name="num2", feature_type=FeatureType.FLOAT_RESCALED
+            ),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "date1": DateFeature(
+                name="date1", feature_type=FeatureType.DATE, add_season=True
+            ),
         }
 
         # Generate fake data
@@ -678,7 +766,9 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertIsInstance(result["model"], tf.keras.Model)
 
         # Verify TabularAttention layer is present
-        self.assertTrue(any(isinstance(layer, TabularAttention) for layer in result["model"].layers))
+        self.assertTrue(
+            any(isinstance(layer, TabularAttention) for layer in result["model"].layers)
+        )
 
         # Test with a small batch
         test_data = generate_fake_data(features_specs, num_rows=5)
@@ -694,11 +784,21 @@ class TestPreprocessingModel(unittest.TestCase):
     def test_preprocessor_with_multi_resolution_attention(self):
         """Test end-to-end preprocessing with MultiResolutionTabularAttention."""
         features_specs = {
-            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_RESCALED),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "num2": NumericalFeature(
+                name="num2", feature_type=FeatureType.FLOAT_RESCALED
+            ),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "cat2": CategoricalFeature(
+                name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL
+            ),
+            "date1": DateFeature(
+                name="date1", feature_type=FeatureType.DATE, add_season=True
+            ),
         }
 
         # Generate fake data
@@ -725,7 +825,12 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertIsInstance(result["model"], tf.keras.Model)
 
         # Verify MultiResolutionTabularAttention layer is present
-        self.assertTrue(any(isinstance(layer, MultiResolutionTabularAttention) for layer in result["model"].layers))
+        self.assertTrue(
+            any(
+                isinstance(layer, MultiResolutionTabularAttention)
+                for layer in result["model"].layers
+            )
+        )
 
         # Test with a small batch
         test_data = generate_fake_data(features_specs, num_rows=5)
@@ -744,8 +849,12 @@ class TestPreprocessingModel(unittest.TestCase):
         features_specs = {
             "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT),
             "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.STRING_CATEGORICAL),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "cat2": CategoricalFeature(
+                name="cat2", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
         }
 
         # Generate fake data
@@ -785,8 +894,12 @@ class TestPreprocessingModel(unittest.TestCase):
     def test_preprocessor_numeric_with_attention(self):
         """Test numeric features with attention."""
         features = {
-            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_RESCALED),
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "num2": NumericalFeature(
+                name="num2", feature_type=FeatureType.FLOAT_RESCALED
+            ),
         }
 
         # Generate fake data
@@ -824,8 +937,12 @@ class TestPreprocessingModel(unittest.TestCase):
     def test_preprocessor_categorical_with_transformer(self):
         """Test categorical features with transformer."""
         features = {
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "cat2": CategoricalFeature(
+                name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL
+            ),
         }
 
         # Generate fake data
@@ -863,8 +980,12 @@ class TestPreprocessingModel(unittest.TestCase):
     def test_preprocessor_dates_with_attention_and_transformer(self):
         """Test date features with both attention and transformer."""
         features = {
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
-            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, output_format="year"),
+            "date1": DateFeature(
+                name="date1", feature_type=FeatureType.DATE, add_season=True
+            ),
+            "date2": DateFeature(
+                name="date2", feature_type=FeatureType.DATE, output_format="year"
+            ),
         }
 
         # Generate fake data
@@ -902,11 +1023,17 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
         self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
 
-    def test_preprocessor_dates_with_attention_and_transformer_test_for_false_tabular_attention(self):
+    def test_preprocessor_dates_with_attention_and_transformer_test_for_false_tabular_attention(
+        self,
+    ):
         """Test date features with both attention and transformer."""
         features = {
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
-            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, output_format="year"),
+            "date1": DateFeature(
+                name="date1", feature_type=FeatureType.DATE, add_season=True
+            ),
+            "date2": DateFeature(
+                name="date2", feature_type=FeatureType.DATE, output_format="year"
+            ),
         }
 
         # Generate fake data
@@ -947,9 +1074,15 @@ class TestPreprocessingModel(unittest.TestCase):
     def test_preprocessor_mixed_features_with_attention(self):
         """Test mixed feature types with attention."""
         features = {
-            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "date1": DateFeature(
+                name="date1", feature_type=FeatureType.DATE, add_season=True
+            ),
         }
 
         # Generate fake data
@@ -984,12 +1117,24 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
         self.assertEqual(preprocessed.shape[-1], 64)  # Example dimension
 
-    def test_preprocessor_all_features_with_transformer_and_attention(self):
+    def test_preprocessor_all_features_with_transformer_and_attention_with_distribution_aware_v1(
+        self,
+    ):
         """Test all feature types with both transformer and attention."""
         features = {
-            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_NORMALIZED),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
+            "num1": NumericalFeature(
+                name="num1",
+                feature_type=FeatureType.FLOAT_NORMALIZED,
+                prefered_distribution="periodic",
+            ),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "date1": DateFeature(
+                name="date1",
+                feature_type=FeatureType.DATE,
+                add_season=True,
+            ),
         }
 
         # Generate fake data
@@ -1010,6 +1155,7 @@ class TestPreprocessingModel(unittest.TestCase):
             transfo_nr_blocks=2,
             transfo_nr_heads=4,
             transfo_ff_units=32,
+            use_distribution_aware=True,
         )
 
         # Build and verify preprocessor
@@ -1026,18 +1172,38 @@ class TestPreprocessingModel(unittest.TestCase):
 
         # Check output dimensions
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
-        self.assertEqual(preprocessed.shape[-1], 1 + 4 + 12)  # The dimensions for num1, cat1, date1
+        self.assertEqual(
+            preprocessed.shape[-1], 2 + 4 + 12
+        )  # The dimensions for num1, cat1, date1
 
-    def test_preprocessor_all_features_with_transformer_and_attention_v2(self):
+    def test_preprocessor_all_features_with_transformer_and_attention_with_distribution_aware_v2(
+        self,
+    ):
         """Test all feature types with both transformer and attention."""
         features = {
-            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_RESCALED),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
-            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "num1": NumericalFeature(
+                name="num1",
+                feature_type=FeatureType.FLOAT_RESCALED,
+                prefered_distribution="multimodal",
+            ),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "date1": DateFeature(
+                name="date1", feature_type=FeatureType.DATE, add_season=True
+            ),
+            "num2": NumericalFeature(
+                name="num2",
+                feature_type=FeatureType.FLOAT_NORMALIZED,
+                prefered_distribution="beta",
+            ),
+            "cat2": CategoricalFeature(
+                name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL
+            ),
             "text1": TextFeature(name="text1", feature_type=FeatureType.TEXT),
-            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, add_season=False),
+            "date2": DateFeature(
+                name="date2", feature_type=FeatureType.DATE, add_season=False
+            ),
         }
 
         # Generate fake data
@@ -1058,6 +1224,8 @@ class TestPreprocessingModel(unittest.TestCase):
             transfo_nr_blocks=2,
             transfo_nr_heads=4,
             transfo_ff_units=32,
+            use_distribution_aware=False,
+            distribution_aware_bins=5000,
         )
 
         # Build and verify preprocessor
@@ -1076,16 +1244,32 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
         self.assertEqual(preprocessed.shape[-1], 65)  # Example dimension
 
-    def test_preprocessor_all_features_with_transformer_and_attention_v3(self):
+    def test_preprocessor_all_features_with_transformer_and_attention_with_distribution_aware_v3(
+        self,
+    ):
         """Test all feature types with both transformer and attention."""
         features = {
-            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_RESCALED),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
-            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "num1": NumericalFeature(
+                name="num1",
+                feature_type=FeatureType.FLOAT_RESCALED,
+                prefered_distribution="log_normal",
+            ),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "date1": DateFeature(
+                name="date1", feature_type=FeatureType.DATE, add_season=True
+            ),
+            "num2": NumericalFeature(
+                name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "cat2": CategoricalFeature(
+                name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL
+            ),
             "text1": TextFeature(name="text1", feature_type=FeatureType.TEXT),
-            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, add_season=False),
+            "date2": DateFeature(
+                name="date2", feature_type=FeatureType.DATE, add_season=False
+            ),
         }
 
         # Generate fake data
@@ -1109,6 +1293,8 @@ class TestPreprocessingModel(unittest.TestCase):
             transfo_nr_heads=2,
             transfo_ff_units=19,
             transfo_placement="all_features",
+            use_distribution_aware=True,
+            distribution_aware_bins=500,
         )
 
         # Build and verify preprocessor
@@ -1127,16 +1313,30 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertEqual(len(preprocessed.shape), 3)  # (batch_size, d_model)
         self.assertEqual(preprocessed.shape[-1], 23)  # Example dimension
 
-    def test_preprocessor_all_features_with_transformer_and_attention_v4(self):
+    def test_preprocessor_all_features_with_transformer_and_attention_with_distribution_aware_v4(
+        self,
+    ):
         """Test all feature types with both transformer and attention."""
         features = {
-            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_RESCALED),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
-            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_RESCALED
+            ),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "date1": DateFeature(
+                name="date1", feature_type=FeatureType.DATE, add_season=True
+            ),
+            "num2": NumericalFeature(
+                name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "cat2": CategoricalFeature(
+                name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL
+            ),
             "text1": TextFeature(name="text1", feature_type=FeatureType.TEXT),
-            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, add_season=False),
+            "date2": DateFeature(
+                name="date2", feature_type=FeatureType.DATE, add_season=False
+            ),
         }
 
         # Generate fake data
@@ -1155,6 +1355,8 @@ class TestPreprocessingModel(unittest.TestCase):
             transfo_nr_blocks=2,
             transfo_nr_heads=2,
             transfo_ff_units=16,
+            use_distribution_aware=True,
+            distribution_aware_bins=500,
         )
 
         # Build and verify preprocessor
@@ -1176,13 +1378,25 @@ class TestPreprocessingModel(unittest.TestCase):
     def test_preprocessor_all_features_minimal_params(self):
         """Test all feature types with minimal parameters (False/0 where possible)."""
         features = {
-            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_RESCALED),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=False),
-            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_RESCALED
+            ),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "date1": DateFeature(
+                name="date1", feature_type=FeatureType.DATE, add_season=False
+            ),
+            "num2": NumericalFeature(
+                name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "cat2": CategoricalFeature(
+                name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL
+            ),
             "text1": TextFeature(name="text1", feature_type=FeatureType.TEXT),
-            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, add_season=False),
+            "date2": DateFeature(
+                name="date2", feature_type=FeatureType.DATE, add_season=False
+            ),
         }
 
         # Generate fake data
@@ -1226,10 +1440,151 @@ class TestPreprocessingModel(unittest.TestCase):
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
         # Note: The output dimension will depend on the base feature dimensions
         # since we're not using any attention or transformer layers
-        self.assertGreater(preprocessed.shape[-1], 0)  # Should have at least some features
+        self.assertGreater(
+            preprocessed.shape[-1], 0
+        )  # Should have at least some features
+
+    def test_preprocessor_all_features_with_basic_distribution_aware_encoder(self):
+        """Test all feature types with distribution-aware encoder."""
+        features = {
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_RESCALED
+            ),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            use_distribution_aware=True,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 1)  # Example dimension
+
+    def test_preprocessor_all_features_with_complex_distribution_aware_encoder(self):
+        """Test all feature types with distribution-aware encoder."""
+        features = {
+            "num1": NumericalFeature(
+                name="num1",
+                feature_type=FeatureType.FLOAT_RESCALED,
+                prefered_distribution="log_normal",
+            ),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            use_distribution_aware=True,
+            distribution_aware_bins=1118,
+        )
+
+        # Build and verify preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create a small batch of test data
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test preprocessing
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed)
+
+        # Check output dimensions
+        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+        self.assertEqual(preprocessed.shape[-1], 1)  # Example dimension
+
+    def test_preprocessor_all_features_with_distribution_types(self):
+        """Test all feature types with different distribution types."""
+        # Define all distribution types to test
+        distribution_types = [
+            DistributionType.SPARSE,
+            DistributionType.PERIODIC,
+            DistributionType.UNIFORM,
+            DistributionType.ZERO_INFLATED,
+            DistributionType.NORMAL,
+            DistributionType.HEAVY_TAILED,
+            DistributionType.LOG_NORMAL,
+            DistributionType.POISSON,
+            DistributionType.BETA,
+            DistributionType.EXPONENTIAL,
+            DistributionType.GAMMA,
+            DistributionType.CAUCHY,
+            DistributionType.MULTIMODAL,
+        ]
+
+        for dist_type in distribution_types:
+            with self.subTest(distribution_type=dist_type):
+                features = {
+                    "num1": NumericalFeature(
+                        name="num1",
+                        feature_type=FeatureType.FLOAT_RESCALED,
+                        prefered_distribution=dist_type,
+                    ),
+                }
+
+                # Generate fake data
+                df = generate_fake_data(features, num_rows=100)
+                df.to_csv(self._path_data, index=False)
+
+                # Create preprocessor
+                ppr = PreprocessingModel(
+                    path_data=str(self._path_data),
+                    features_specs=features,
+                    features_stats_path=self.features_stats_path,
+                    overwrite_stats=True,
+                    use_distribution_aware=True,
+                    distribution_aware_bins=1234,
+                )
+
+                # Build and verify preprocessor
+                result = ppr.build_preprocessor()
+                self.assertIsNotNone(result["model"])
+
+                # Create a small batch of test data
+                test_data = generate_fake_data(features, num_rows=5)
+                dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+                # Test preprocessing
+                preprocessed = result["model"].predict(dataset)
+                self.assertIsNotNone(preprocessed)
+
+                # Check output dimensions
+                self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
+                self.assertEqual(
+                    preprocessed.shape[-1],
+                    2 if dist_type == DistributionType.PERIODIC else 1,
+                )  # Example dimension
 
 
-class TestPreprocessingModelCombinations(unittest.TestCase):
+class TestPreprocessingModel_Combinations(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp_dir = tempfile.TemporaryDirectory()
@@ -1247,13 +1602,25 @@ class TestPreprocessingModelCombinations(unittest.TestCase):
 
     def test_preprocessor_parameter_combinations(self):
         features = {
-            "num1": NumericalFeature(name="num1", feature_type=FeatureType.FLOAT_RESCALED),
-            "cat1": CategoricalFeature(name="cat1", feature_type=FeatureType.STRING_CATEGORICAL),
-            "date1": DateFeature(name="date1", feature_type=FeatureType.DATE, add_season=True),
-            "num2": NumericalFeature(name="num2", feature_type=FeatureType.FLOAT_NORMALIZED),
-            "cat2": CategoricalFeature(name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL),
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_RESCALED
+            ),
+            "cat1": CategoricalFeature(
+                name="cat1", feature_type=FeatureType.STRING_CATEGORICAL
+            ),
+            "date1": DateFeature(
+                name="date1", feature_type=FeatureType.DATE, add_season=True
+            ),
+            "num2": NumericalFeature(
+                name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "cat2": CategoricalFeature(
+                name="cat2", feature_type=FeatureType.INTEGER_CATEGORICAL
+            ),
             "text1": TextFeature(name="text1", feature_type=FeatureType.TEXT),
-            "date2": DateFeature(name="date2", feature_type=FeatureType.DATE, add_season=False),
+            "date2": DateFeature(
+                name="date2", feature_type=FeatureType.DATE, add_season=False
+            ),
         }
 
         # Generate fake data
@@ -1338,7 +1705,9 @@ class TestPreprocessingModelCombinations(unittest.TestCase):
                     overwrite_stats=True,
                     output_mode=test_case["output_mode"],
                     tabular_attention=test_case["tabular_attention"],
-                    tabular_attention_placement=test_case["tabular_attention_placement"],
+                    tabular_attention_placement=test_case[
+                        "tabular_attention_placement"
+                    ],
                     tabular_attention_heads=test_case["tabular_attention_heads"],
                     tabular_attention_dim=test_case["tabular_attention_dim"],
                     tabular_attention_dropout=test_case["tabular_attention_dropout"],
@@ -1364,18 +1733,28 @@ class TestPreprocessingModelCombinations(unittest.TestCase):
                 print("TEST_FOR_LEN:", test_case["transfo_ff_units"])
 
                 if test_case["output_mode"] == OutputModeOptions.CONCAT:
-                    if test_case["tabular_attention"] == True:
+                    if test_case["tabular_attention"]:
                         # Check output dimensions for concatenated output with attention
-                        self.assertEqual(len(preprocessed.shape), 3)  # (batch_size, d_model)
-                        self.assertEqual(preprocessed.shape[-1], test_case["tabular_attention_dim"])
+                        self.assertEqual(
+                            len(preprocessed.shape), 3
+                        )  # (batch_size, d_model)
+                        self.assertEqual(
+                            preprocessed.shape[-1], test_case["tabular_attention_dim"]
+                        )
                     else:
                         # Check output dimensions for concatenated output without attention
-                        self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
-                        self.assertEqual(preprocessed.shape[-1], 65)  # Base feature dimension
+                        self.assertEqual(
+                            len(preprocessed.shape), 2
+                        )  # (batch_size, d_model)
+                        self.assertEqual(
+                            preprocessed.shape[-1], 65
+                        )  # Base feature dimension
                 else:
                     # Check output dimensions for dictionary output
                     for key, tensor in preprocessed.items():
-                        self.assertEqual(len(tensor.shape), 2)  # (batch_size, feature_dim)
+                        self.assertEqual(
+                            len(tensor.shape), 2
+                        )  # (batch_size, feature_dim)
                         # You can add more specific checks for each feature if needed
 
 

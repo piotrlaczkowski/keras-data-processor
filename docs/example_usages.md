@@ -288,3 +288,74 @@ print("Feature importances:", feature_importances)
 
 Here is the plot of the model:
 ![Complex Model](imgs/complex_model.png)
+
+
+## Example 4: Numerical features with distribution aware encoder
+
+Normally the distribution aware encoder works well in automatic mode, once use_distribution_aware=True is set.
+However we can also manually set the prefered distribution for each numerical feature if we would like to.
+
+```python
+from kdp.features import NumericalFeature, FeatureType
+from kdp.processor import PreprocessingModel, OutputModeOptions
+
+# Define features
+features = {
+    # 1. Default automatic distribution detection
+    "basic_float": NumericalFeature(
+        name="basic_float",
+        feature_type=FeatureType.FLOAT,
+    ),
+
+    # 2. Manually setting a gamma distribution
+    "rescaled_float": NumericalFeature(
+        name="rescaled_float",
+        feature_type=FeatureType.FLOAT_RESCALED,
+        scale=2.0,
+        prefered_distribution="gamma"
+    ),
+    # 3. Custom preprocessing pipeline with a custom set normal distribution
+    "custom_float": NumericalFeature(
+        name="custom_float",
+        feature_type=FeatureType.FLOAT,
+        preprocessors=[
+            tf.keras.layers.Rescaling,
+            tf.keras.layers.Normalization,
+        ],
+        bin_boundaries=[0.0, 1.0, 2.0],
+        mean=0.0,
+        variance=1.0,
+        scale=4.0,
+        prefered_distribution="normal"
+    ),
+}
+
+# Now we can create a preprocessing model with the features
+ppr = PreprocessingModel(
+    path_data="sample_data.csv",
+    features_specs=features,
+    features_stats_path="features_stats.json",
+    overwrite_stats=True,
+    output_mode=OutputModeOptions.CONCAT,
+
+    # Add feature selection to get the most important features
+    feature_selection_placement="numeric", # Choose between (all_features|numeric|categorical)
+
+    # Add tabular attention to check for feature interactions
+    tabular_attention=True,
+
+    # Add distribution aware encoder
+    use_distribution_aware=True
+)
+
+# Build the preprocessor
+result = ppr.build_preprocessor()
+
+# Transform data using direct model prediction
+transformed_data = ppr.model.predict(test_batch)
+
+# Get feature importances
+feature_importances = ppr.get_feature_importances()
+```
+Here is the plot of the model:
+![Complex Model](imgs/numerical_example_model_with_distribution_aware.png)

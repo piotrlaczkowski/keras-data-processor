@@ -2,22 +2,26 @@ import inspect
 
 import tensorflow as tf
 
-from kdp.custom_layers import VariableSelection  # Add VariableSelection to the import list
 from kdp.custom_layers import (
     CastToFloat32Layer,
     DateEncodingLayer,
     DateParsingLayer,
+    DistributionAwareEncoder,
+    DistributionType,
     MultiResolutionTabularAttention,
     SeasonLayer,
     TabularAttention,
     TextPreprocessingLayer,
     TransformerBlock,
+    VariableSelection,
 )
 
 
 class PreprocessorLayerFactory:
     @staticmethod
-    def create_layer(layer_class: str | object, name: str = None, **kwargs) -> tf.keras.layers.Layer:
+    def create_layer(
+        layer_class: str | object, name: str = None, **kwargs
+    ) -> tf.keras.layers.Layer:
         """Create a layer using the layer class name, automatically filtering kwargs based on the layer class.
 
         Args:
@@ -38,7 +42,9 @@ class PreprocessorLayerFactory:
         constructor_params = inspect.signature(layer_class.__init__).parameters
 
         # Filter kwargs to only include those that the constructor can accept
-        filtered_kwargs = {key: value for key, value in kwargs.items() if key in constructor_params}
+        filtered_kwargs = {
+            key: value for key, value in kwargs.items() if key in constructor_params
+        }
 
         # Add the 'name' argument if provided else default the class name lowercase option
         if name:
@@ -48,7 +54,49 @@ class PreprocessorLayerFactory:
         return layer_class(**filtered_kwargs)
 
     @staticmethod
-    def text_preprocessing_layer(name: str = "text_preprocessing", **kwargs: dict) -> tf.keras.layers.Layer:
+    def distribution_aware_encoder(
+        name: str = "distribution_aware",
+        num_bins: int = 1000,
+        epsilon: float = 1e-6,
+        detect_periodicity: bool = True,
+        handle_sparsity: bool = True,
+        adaptive_binning: bool = True,
+        mixture_components: int = 3,
+        prefered_distribution: "DistributionType" = None,
+        **kwargs,
+    ) -> tf.keras.layers.Layer:
+        """Create a DistributionAwareEncoder layer.
+
+        Args:
+            name (str): Name of the layer
+            num_bins (int): Number of bins for quantile encoding
+            epsilon (float): Small value for numerical stability
+            detect_periodicity (bool): Whether to detect and handle periodic patterns
+            handle_sparsity (bool): Whether to handle sparse data specially
+            adaptive_binning (bool): Whether to use adaptive binning
+            mixture_components (int): Number of components for mixture modeling
+            specified_distribution (DistributionType): Optional specific distribution type to use
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            DistributionAwareEncoder layer
+        """
+        return DistributionAwareEncoder(
+            name=name,
+            num_bins=num_bins,
+            epsilon=epsilon,
+            detect_periodicity=detect_periodicity,
+            handle_sparsity=handle_sparsity,
+            adaptive_binning=adaptive_binning,
+            mixture_components=mixture_components,
+            prefered_distribution=prefered_distribution,
+            **kwargs,
+        )
+
+    @staticmethod
+    def text_preprocessing_layer(
+        name: str = "text_preprocessing", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a TextPreprocessingLayer layer.
 
         Args:
@@ -65,7 +113,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def cast_to_float32_layer(name: str = "cast_to_float32", **kwargs: dict) -> tf.keras.layers.Layer:
+    def cast_to_float32_layer(
+        name: str = "cast_to_float32", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a CastToFloat32Layer layer.
 
         Args:
@@ -82,7 +132,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def date_parsing_layer(name: str = "date_parsing_layer", **kwargs: dict) -> tf.keras.layers.Layer:
+    def date_parsing_layer(
+        name: str = "date_parsing_layer", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a DateParsingLayer layer.
 
         Args:
@@ -99,7 +151,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def date_encoding_layer(name: str = "date_encoding_layer", **kwargs: dict) -> tf.keras.layers.Layer:
+    def date_encoding_layer(
+        name: str = "date_encoding_layer", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a DateEncodingLayer layer.
 
         Args:
@@ -116,7 +170,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def date_season_layer(name: str = "date_season_layer", **kwargs: dict) -> tf.keras.layers.Layer:
+    def date_season_layer(
+        name: str = "date_season_layer", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a SeasonLayer layer.
 
         Args:
@@ -133,7 +189,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def transformer_block_layer(name: str = "transformer", **kwargs: dict) -> tf.keras.layers.Layer:
+    def transformer_block_layer(
+        name: str = "transformer", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a TransformerBlock layer.
 
         Args:
@@ -203,7 +261,9 @@ class PreprocessorLayerFactory:
         )
 
     @staticmethod
-    def variable_selection_layer(name: str = "variable_selection", **kwargs: dict) -> tf.keras.layers.Layer:
+    def variable_selection_layer(
+        name: str = "variable_selection", **kwargs: dict
+    ) -> tf.keras.layers.Layer:
         """Create a VariableSelection layer.
 
         Args:

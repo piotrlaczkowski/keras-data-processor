@@ -31,6 +31,7 @@ model = PreprocessingModel(
     features=features,
     tabular_attention=True,  # Enable attention mechanism
     feature_selection=True   # Enable feature selection
+    use_distribution_aware=True # Enable distribution aware encoder
 )
 ```
 
