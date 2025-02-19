@@ -2133,35 +2133,3 @@ class AdvancedNumericalEmbedding(layers.Layer):
             }
         )
         return config
-
-
-if __name__ == "__main__":
-    tf.random.set_seed(42)
-    logger.info("Testing AdvancedNumericalEmbedding with multi-feature input.")
-    # Multi-feature test: 32 samples, 3 features.
-    x_multi = tf.random.normal((32, 3))
-    layer_multi = AdvancedNumericalEmbedding(
-        embedding_dim=8,
-        mlp_hidden_units=16,
-        num_bins=10,
-        init_min=[-3.0, -2.0, -4.0],
-        init_max=[3.0, 2.0, 4.0],
-        dropout_rate=0.1,
-        use_batch_norm=True,
-    )
-    y_multi = layer_multi(x_multi)
-    logger.info("Multi-feature output shape: {}", y_multi.shape)
-
-    # Single-feature test: 32 samples, 1 feature.
-    x_single = tf.random.normal((32, 1))
-    layer_single = AdvancedNumericalEmbedding(
-        embedding_dim=8,
-        mlp_hidden_units=16,
-        num_bins=10,
-        init_min=-3.0,
-        init_max=3.0,
-        dropout_rate=0.1,
-        use_batch_norm=True,
-    )
-    y_single = layer_single(x_single)
-    logger.info("Single-feature output shape: {}", y_single.shape)

@@ -1758,5 +1758,161 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
                         # You can add more specific checks for each feature if needed
 
 
+class TestPreprocessingModel_AdvancedNumericalEmbedding(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.temp_file = Path(cls.temp_dir.name)
+        cls._path_data = cls.temp_file / "data.csv"
+        cls.features_stats_path = cls.temp_file / "features_stats.json"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.temp_dir.cleanup()
+
+    def setUp(self):
+        if self.features_stats_path.exists():
+            self.features_stats_path.unlink()
+
+    def test_preprocessor_with_advanced_numerical_embedding(self):
+        """
+        Test that when advanced numerical embedding is enabled, the preprocessor model is
+        built successfully and produces an output with the expected 3D shape:
+         (batch_size, num_features, embedding_dim)
+        """
+        # Define a numerical feature. (No special flag is needed on the feature, as the model-level
+        # configuration controls the use of advanced numerical embedding.)
+        features = {
+            "num1": NumericalFeature(
+                name="num1",
+                feature_type=FeatureType.FLOAT_NORMALIZED,
+            )
+        }
+        # Generate fake data for training statistics.
+        df = generate_fake_data(features, num_rows=50)
+        df.to_csv(self._path_data, index=False)
+
+        # Build the PreprocessingModel with advanced numerical embedding turned on.
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            use_advanced_numerical_embedding=True,
+            embedding_dim=8,
+            mlp_hidden_units=16,
+            num_bins=10,
+            init_min=-3.0,
+            init_max=3.0,
+            dropout_rate=0.1,
+            use_batch_norm=True,
+            output_mode=OutputModeOptions.CONCAT,
+        )
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"], "Preprocessor model should be built")
+
+        # Create a small batch of test data.
+        test_data = generate_fake_data(features, num_rows=5)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+        preprocessed = result["model"].predict(dataset)
+        self.assertIsNotNone(preprocessed, "Preprocessed output should not be None")
+
+        # Check that advanced numerical embedding produces a 3D output
+        # (batch_size, num_features, embedding_dim)
+        self.assertEqual(
+            len(preprocessed.shape),
+            3,
+            "Expected output shape to be 3D with advanced numerical embedding",
+        )
+        self.assertEqual(
+            preprocessed.shape[-1],
+            8,
+            "The output's last dimension (embedding_dim) should match the provided value (8)",
+        )
+
+    def test_advanced_embedding_if_false(self):
+        """
+        Test that the advanced numerical embedding is not used if the flag is set to False.
+        """
+        features = {
+            "num1": NumericalFeature(
+                name="num1",
+                feature_type=FeatureType.FLOAT_NORMALIZED,
+            )
+        }
+        df = generate_fake_data(features, num_rows=20)
+        df.to_csv(self._path_data, index=False)
+
+        # Build the model with advanced embedding.
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            use_advanced_numerical_embedding=False,
+            output_mode=OutputModeOptions.CONCAT,
+        )
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Get the configuration from the built model.
+        config = result["model"].get_config()
+        # Iterate the layer configurations.
+        layers_config = config.get("layers", [])
+        found = any(
+            layer.get("class_name", "") == "AdvancedNumericalEmbedding"
+            for layer in layers_config
+        )
+        self.assertFalse(
+            found,
+            "The model config should not include an AdvancedNumericalEmbedding layer when disabled.",
+        )
+
+    def test_advanced_embedding_config_preservation(self):
+        """
+        Ensure that the advanced numerical embedding's configuration is properly saved and can be
+        reloaded with get_config/from_config.
+        """
+        features = {
+            "num1": NumericalFeature(
+                name="num1",
+                feature_type=FeatureType.FLOAT_NORMALIZED,
+            )
+        }
+        df = generate_fake_data(features, num_rows=20)
+        df.to_csv(self._path_data, index=False)
+
+        # Build the model with advanced embedding.
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            use_advanced_numerical_embedding=True,
+            embedding_dim=8,
+            mlp_hidden_units=16,
+            num_bins=10,
+            init_min=-3.0,
+            init_max=3.0,
+            dropout_rate=0.1,
+            use_batch_norm=True,
+            output_mode=OutputModeOptions.CONCAT,
+        )
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Get the configuration from the built model.
+        config = result["model"].get_config()
+        # Iterate the layer configurations.
+        layers_config = config.get("layers", [])
+        found = any(
+            layer.get("class_name", "") == "AdvancedNumericalEmbedding"
+            for layer in layers_config
+        )
+        self.assertTrue(
+            found,
+            "The model config should include an AdvancedNumericalEmbedding layer when enabled.",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
