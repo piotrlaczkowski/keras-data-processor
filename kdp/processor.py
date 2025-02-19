@@ -192,6 +192,14 @@ class PreprocessingModel:
         distribution_aware_bins: int = 1000,
         feature_selection_units: int = 32,
         feature_selection_dropout: float = 0.2,
+        use_advanced_numerical_embedding: bool = False,
+        embedding_dim: int = 8,
+        mlp_hidden_units: int = 16,
+        num_bins: int = 10,
+        init_min: float = -3.0,
+        init_max: float = 3.0,
+        dropout_rate: float = 0.1,
+        use_batch_norm: bool = True,
     ) -> None:
         """Initialize a preprocessing model.
 
@@ -225,6 +233,12 @@ class PreprocessingModel:
             feature_selection_dropout (float): Dropout rate for feature selection.
             use_distribution_aware (bool): Whether to use distribution-aware encoding for features.
             distribution_aware_bins (int): Number of bins to use for distribution-aware encoding.
+            use_advanced_numerical_embedding (bool): Whether to use advanced numerical embedding.
+            embedding_dim (int): Dimension of the embedding for advanced numerical embedding.
+            mlp_hidden_units (int): Number of units for the MLP in advanced numerical embedding.
+            num_bins (int): Number of bins for discretization in advanced numerical embedding.
+            init_min (float): Minimum value for the embedding in advanced numerical embedding.
+            init_max (float): Maximum value for the embedding in advanced numerical embedding.
         """
         self.path_data = path_data
         self.batch_size = batch_size or 50_000
@@ -257,6 +271,16 @@ class PreprocessingModel:
         self.use_distribution_aware = use_distribution_aware
         self.distribution_aware_bins = distribution_aware_bins
         self.feature_selection_dropout = feature_selection_dropout
+
+        # advanced numerical embedding control
+        self.use_advanced_numerical_embedding = use_advanced_numerical_embedding
+        self.embedding_dim = embedding_dim
+        self.mlp_hidden_units = mlp_hidden_units
+        self.num_bins = num_bins
+        self.init_min = init_min
+        self.init_max = init_max
+        self.dropout_rate = dropout_rate
+        self.use_batch_norm = use_batch_norm
 
         # PLACEHOLDERS
         self.preprocessors = {}
@@ -576,13 +600,13 @@ class PreprocessingModel:
             stats (dict): A dictionary containing the metadata of the feature, including
                 the mean and variance of the feature.
         """
-        # getting feature object
+        # Get the feature specifications
         _feature = self.features_specs[feature_name]
 
-        # initializing preprocessor
+        # Initialize preprocessor
         preprocessor = FeaturePreprocessor(name=feature_name)
 
-        # Add cast to float32 first for all numeric features
+        # First, cast to float32 is applied to all numeric features.
         preprocessor.add_processing_step(
             layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
             name=f"cast_to_float_{feature_name}",
@@ -676,10 +700,30 @@ class PreprocessingModel:
                         name=f"norm_{feature_name}",
                     )
 
+        # Check for advanced numerical embedding.
+        if self.use_advanced_numerical_embedding:
+            logger.info(f"Using AdvancedNumericalEmbedding for {feature_name}")
+            # Obtain the embedding layer.
+            embedding_layer = _feature.get_embedding_layer(
+                input_shape=input_layer.shape
+            )
+            preprocessor.add_processing_step(
+                layer_creator=lambda **kwargs: embedding_layer,
+                layer_class="AdvancedNumericalEmbedding",
+                name=f"advanced_embedding_{feature_name}",
+                embedding_dim=self.embedding_dim,
+                mlp_hidden_units=self.mlp_hidden_units,
+                num_bins=self.num_bins,
+                init_min=self.init_min,
+                init_max=self.init_max,
+                dropout_rate=self.dropout_rate,
+                use_batch_norm=self.use_batch_norm,
+            )
+
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
 
-        # Apply feature selection if enabled for numeric features
+        # Optionally, apply feature selection for numeric features.
         if (
             self.feature_selection_placement == FeatureSelectionPlacementOptions.NUMERIC
             or self.feature_selection_placement

@@ -117,13 +117,16 @@ class Feature:
 
 
 class NumericalFeature(Feature):
-    """NumericalFeature with dynamic kwargs passing."""
+    """NumericalFeature with dynamic kwargs passing and embedding support."""
 
     def __init__(
         self,
         name: str,
         feature_type: FeatureType = FeatureType.FLOAT_NORMALIZED,
         preferred_distribution: DistributionType | None = None,
+        use_embedding: bool = False,
+        embedding_dim: int = 8,
+        num_bins: int = 10,
         **kwargs,
     ) -> None:
         """Initializes a NumericalFeature instance.
@@ -131,12 +134,35 @@ class NumericalFeature(Feature):
         Args:
             name (str): The name of the feature.
             feature_type (FeatureType): The type of the feature.
-            preferred_distribution (DistributionType | None): The preferred distribution type for the feature.
+            preferred_distribution (DistributionType | None): The preferred distribution type.
+            use_embedding (bool): Whether to use advanced numerical embedding.
+            embedding_dim (int): Dimension of the embedding space.
+            num_bins (int): Number of bins for discretization.
             **kwargs: Additional keyword arguments for the feature.
         """
         super().__init__(name, feature_type, **kwargs)
         self.dtype = tf.float32
         self.preferred_distribution = preferred_distribution
+        self.use_embedding = use_embedding
+        self.embedding_dim = embedding_dim
+        self.num_bins = num_bins
+
+    def get_embedding_layer(self, input_shape: tuple) -> tf.keras.layers.Layer:
+        """Creates and returns an AdvancedNumericalEmbedding layer configured for this feature."""
+        from kdp.custom_layers import (
+            AdvancedNumericalEmbedding,
+        )  # Avoid circular import
+
+        return AdvancedNumericalEmbedding(
+            embedding_dim=self.embedding_dim,
+            mlp_hidden_units=max(16, self.embedding_dim * 2),
+            num_bins=self.num_bins,
+            init_min=self.kwargs.get("init_min", -3.0),
+            init_max=self.kwargs.get("init_max", 3.0),
+            dropout_rate=self.kwargs.get("dropout_rate", 0.1),
+            use_batch_norm=self.kwargs.get("use_batch_norm", True),
+            name=f"{self.name}_embedding",
+        )
 
 
 class CategoricalFeature(Feature):
