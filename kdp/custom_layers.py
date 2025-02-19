@@ -6,6 +6,9 @@ from enum import Enum
 import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
+from tensorflow.keras import layers
+
+from loguru import logger
 
 
 class TextPreprocessingLayer(tf.keras.layers.Layer):
@@ -1945,3 +1948,220 @@ class VariableSelection(tf.keras.layers.Layer):
             VariableSelection: A new instance of the layer.
         """
         return cls(**config)
+
+
+class AdvancedNumericalEmbedding(layers.Layer):
+    """Advanced numerical embedding layer for continuous features.
+
+    This layer embeds each continuous numerical feature into a higher-dimensional space by
+    combining two branches:
+
+      1. Continuous Branch: Each feature is processed via a small MLP (using TimeDistributed layers).
+      2. Discrete Branch: Each feature is discretized into bins using learnable min/max boundaries
+         and then an embedding is looked up for its bin.
+
+    A learnable gate (of shape (num_features, embedding_dim)) combines the two branch outputs
+    per feature and per embedding dimension. Additionally, the continuous branch uses a residual
+    connection and optional batch normalization to improve training stability.
+
+    The layer supports inputs of shape (batch, num_features) for any number of features and returns
+    outputs of shape (batch, num_features, embedding_dim).
+
+    Args:
+        embedding_dim (int): Output embedding dimension per feature.
+        mlp_hidden_units (int): Hidden units for the continuous branch MLP.
+        num_bins (int): Number of bins for discretization.
+        init_min (float or list): Initial minimum values for discretization boundaries. If a scalar is
+            provided, it is applied to all features.
+        init_max (float or list): Initial maximum values for discretization boundaries.
+        dropout_rate (float): Dropout rate applied to the continuous branch.
+        use_batch_norm (bool): Whether to apply batch normalization to the continuous branch.
+
+    """
+
+    def __init__(
+        self,
+        embedding_dim: int,
+        mlp_hidden_units: int,
+        num_bins: int,
+        init_min,
+        init_max,
+        dropout_rate: float = 0.0,
+        use_batch_norm: bool = False,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.embedding_dim = embedding_dim
+        self.mlp_hidden_units = mlp_hidden_units
+        self.num_bins = num_bins
+        self.dropout_rate = dropout_rate
+        self.use_batch_norm = use_batch_norm
+        self.init_min = init_min
+        self.init_max = init_max
+
+        if self.num_bins is None:
+            raise ValueError(
+                "num_bins must be provided to activate the discrete branch."
+            )
+
+    def build(self, input_shape):
+        # input_shape: (batch, num_features)
+        self.num_features = input_shape[-1]
+        # Continuous branch: process each feature independently using TimeDistributed MLP.
+        self.cont_mlp = tf.keras.Sequential(
+            [
+                layers.TimeDistributed(
+                    layers.Dense(self.mlp_hidden_units, activation="relu")
+                ),
+                layers.TimeDistributed(layers.Dense(self.embedding_dim)),
+            ],
+            name="cont_mlp",
+        )
+        self.dropout = (
+            layers.Dropout(self.dropout_rate)
+            if self.dropout_rate > 0
+            else lambda x, training: x
+        )
+        if self.use_batch_norm:
+            self.batch_norm = layers.TimeDistributed(
+                layers.BatchNormalization(), name="cont_batch_norm"
+            )
+        # Residual projection to match embedding_dim.
+        self.residual_proj = layers.TimeDistributed(
+            layers.Dense(self.embedding_dim, activation=None), name="residual_proj"
+        )
+        # Discrete branch: Create one Embedding layer per feature.
+        self.bin_embeddings = []
+        for i in range(self.num_features):
+            embed_layer = layers.Embedding(
+                input_dim=self.num_bins,
+                output_dim=self.embedding_dim,
+                name=f"bin_embed_{i}",
+            )
+            self.bin_embeddings.append(embed_layer)
+        # Learned bin boundaries for each feature, shape: (num_features,)
+        init_min_tensor = tf.convert_to_tensor(self.init_min, dtype=tf.float32)
+        init_max_tensor = tf.convert_to_tensor(self.init_max, dtype=tf.float32)
+        if init_min_tensor.shape.ndims == 0:
+            init_min_tensor = tf.fill([self.num_features], init_min_tensor)
+        if init_max_tensor.shape.ndims == 0:
+            init_max_tensor = tf.fill([self.num_features], init_max_tensor)
+        # Convert tensors to numpy arrays, which are acceptable by tf.constant_initializer.
+        init_min_value = (
+            init_min_tensor.numpy()
+            if hasattr(init_min_tensor, "numpy")
+            else init_min_tensor
+        )
+        init_max_value = (
+            init_max_tensor.numpy()
+            if hasattr(init_max_tensor, "numpy")
+            else init_max_tensor
+        )
+
+        self.learned_min = self.add_weight(
+            name="learned_min",
+            shape=(self.num_features,),
+            initializer=tf.constant_initializer(init_min_value),
+            trainable=True,
+        )
+        self.learned_max = self.add_weight(
+            name="learned_max",
+            shape=(self.num_features,),
+            initializer=tf.constant_initializer(init_max_value),
+            trainable=True,
+        )
+        # Gate to combine continuous and discrete branches, shape: (num_features, embedding_dim)
+        self.gate = self.add_weight(
+            name="gate",
+            shape=(self.num_features, self.embedding_dim),
+            initializer="zeros",
+            trainable=True,
+        )
+        logger.debug(
+            "AdvancedNumericalEmbedding built for {} features with embedding_dim={}",
+            self.num_features,
+            self.embedding_dim,
+        )
+        super().build(input_shape)
+
+    def call(self, inputs: tf.Tensor, training: bool = False) -> tf.Tensor:
+        # Continuous branch.
+        inputs_expanded = tf.expand_dims(inputs, axis=-1)  # (batch, num_features, 1)
+        cont = self.cont_mlp(inputs_expanded)
+        cont = self.dropout(cont, training=training)
+        if self.use_batch_norm:
+            cont = self.batch_norm(cont, training=training)
+        # Residual connection.
+        cont_res = self.residual_proj(inputs_expanded)
+        cont = cont + cont_res  # (batch, num_features, embedding_dim)
+
+        # Discrete branch.
+        inputs_float = tf.cast(inputs, tf.float32)
+        # Use learned min and max for scaling.
+        scaled = (inputs_float - self.learned_min) / (
+            self.learned_max - self.learned_min + 1e-6
+        )
+        # Compute bin indices.
+        bin_indices = tf.floor(scaled * self.num_bins)
+        bin_indices = tf.cast(bin_indices, tf.int32)
+        bin_indices = tf.clip_by_value(bin_indices, 0, self.num_bins - 1)
+        disc_embeddings = []
+        for i in range(self.num_features):
+            feat_bins = bin_indices[:, i]  # (batch,)
+            feat_embed = self.bin_embeddings[i](
+                feat_bins
+            )  # i is a Python integer here.
+            disc_embeddings.append(feat_embed)
+        disc = tf.stack(disc_embeddings, axis=1)  # (batch, num_features, embedding_dim)
+
+        # Combine branches via a per-feature, per-dimension gate.
+        gate = tf.nn.sigmoid(self.gate)  # (num_features, embedding_dim)
+        output = gate * cont + (1 - gate) * disc  # (batch, num_features, embedding_dim)
+        return output
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "embedding_dim": self.embedding_dim,
+                "mlp_hidden_units": self.mlp_hidden_units,
+                "num_bins": self.num_bins,
+                "init_min": self.init_min,
+                "init_max": self.init_max,
+                "dropout_rate": self.dropout_rate,
+                "use_batch_norm": self.use_batch_norm,
+            }
+        )
+        return config
+
+
+if __name__ == "__main__":
+    tf.random.set_seed(42)
+    logger.info("Testing AdvancedNumericalEmbedding with multi-feature input.")
+    # Multi-feature test: 32 samples, 3 features.
+    x_multi = tf.random.normal((32, 3))
+    layer_multi = AdvancedNumericalEmbedding(
+        embedding_dim=8,
+        mlp_hidden_units=16,
+        num_bins=10,
+        init_min=[-3.0, -2.0, -4.0],
+        init_max=[3.0, 2.0, 4.0],
+        dropout_rate=0.1,
+        use_batch_norm=True,
+    )
+    y_multi = layer_multi(x_multi)
+    logger.info("Multi-feature output shape: {}", y_multi.shape)
+
+    # Single-feature test: 32 samples, 1 feature.
+    x_single = tf.random.normal((32, 1))
+    layer_single = AdvancedNumericalEmbedding(
+        embedding_dim=8,
+        mlp_hidden_units=16,
+        num_bins=10,
+        init_min=-3.0,
+        init_max=3.0,
+        dropout_rate=0.1,
+        use_batch_norm=True,
+    )
+    y_single = layer_single(x_single)
+    logger.info("Single-feature output shape: {}", y_single.shape)

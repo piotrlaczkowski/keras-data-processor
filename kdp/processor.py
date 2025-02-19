@@ -192,6 +192,7 @@ class PreprocessingModel:
         distribution_aware_bins: int = 1000,
         feature_selection_units: int = 32,
         feature_selection_dropout: float = 0.2,
+        use_advanced_numerical_embedding: bool = False,
     ) -> None:
         """Initialize a preprocessing model.
 
@@ -257,6 +258,9 @@ class PreprocessingModel:
         self.use_distribution_aware = use_distribution_aware
         self.distribution_aware_bins = distribution_aware_bins
         self.feature_selection_dropout = feature_selection_dropout
+
+        # advanced numerical embedding control
+        self.use_advanced_numerical_embedding = use_advanced_numerical_embedding
 
         # PLACEHOLDERS
         self.preprocessors = {}
@@ -576,13 +580,13 @@ class PreprocessingModel:
             stats (dict): A dictionary containing the metadata of the feature, including
                 the mean and variance of the feature.
         """
-        # getting feature object
+        # Get the feature specifications
         _feature = self.features_specs[feature_name]
 
-        # initializing preprocessor
+        # Initialize preprocessor
         preprocessor = FeaturePreprocessor(name=feature_name)
 
-        # Add cast to float32 first for all numeric features
+        # First, cast to float32 is applied to all numeric features.
         preprocessor.add_processing_step(
             layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
             name=f"cast_to_float_{feature_name}",
@@ -676,10 +680,23 @@ class PreprocessingModel:
                         name=f"norm_{feature_name}",
                     )
 
+        # Check for advanced numerical embedding.
+        if self.use_advanced_numerical_embedding:
+            logger.info(f"Using AdvancedNumericalEmbedding for {feature_name}")
+            # Obtain the embedding layer.
+            embedding_layer = _feature.get_embedding_layer(
+                input_shape=input_layer.shape
+            )
+            preprocessor.add_processing_step(
+                layer_creator=lambda **kwargs: embedding_layer,
+                layer_class="AdvancedNumericalEmbedding",
+                name=f"advanced_embedding_{feature_name}",
+            )
+
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
 
-        # Apply feature selection if enabled for numeric features
+        # Optionally, apply feature selection for numeric features.
         if (
             self.feature_selection_placement == FeatureSelectionPlacementOptions.NUMERIC
             or self.feature_selection_placement
