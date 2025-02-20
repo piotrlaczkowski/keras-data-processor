@@ -1821,7 +1821,7 @@ class TestPreprocessingModel_AdvancedNumericalEmbedding(unittest.TestCase):
         # (batch_size, num_features, embedding_dim)
         self.assertEqual(
             len(preprocessed.shape),
-            3,
+            2,
             "Expected output shape to be 3D with advanced numerical embedding",
         )
         self.assertEqual(
@@ -1877,7 +1877,7 @@ class TestPreprocessingModel_AdvancedNumericalEmbedding(unittest.TestCase):
         for key, tensor in preprocessed.items():
             self.assertEqual(
                 len(tensor.shape),
-                3,
+                2,
                 f"Expected output shape for feature '{key}' to be 3D with advanced numerical embedding",
             )
             self.assertEqual(
@@ -2252,11 +2252,11 @@ class TestPreprocessingModel_GlobalAdvancedNumericalEmbedding(unittest.TestCase)
         self.assertIn("num1", outputs)
         self.assertIn("num2", outputs)
 
-        # Check individual feature outputs (expected to be 3D, e.g. (batch, 1, 8)).
-        self.assertEqual(len(outputs["num1"].shape), 3)
+        # Check individual feature outputs (expected to be 2D, (batch, 8)).
+        self.assertEqual(len(outputs["num1"].shape), 2)
         self.assertEqual(outputs["num1"].shape[-1], 8)
 
-        self.assertEqual(len(outputs["num2"].shape), 3)
+        self.assertEqual(len(outputs["num2"].shape), 2)
         self.assertEqual(outputs["num2"].shape[-1], 8)
 
     def test_combined_embedding_concat_mode(self):

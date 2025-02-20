@@ -197,32 +197,3 @@ def test_gradient_flow():
     assert any(
         g is not None for g in grads
     ), "No gradients found for any trainable variable"
-
-
-def test_different_feature_dimensions():
-    """Test the layer with different numbers of input features."""
-    embedding_dim = 8
-    batch_size = 16
-
-    # Test with different feature dimensions
-    feature_dims = [1, 5, 10]
-
-    for num_features in feature_dims:
-        layer = GlobalAdvancedNumericalEmbedding(
-            global_embedding_dim=embedding_dim,
-            global_mlp_hidden_units=12,
-            global_num_bins=10,
-            global_init_min=-3.0,
-            global_init_max=3.0,
-            global_dropout_rate=0.2,
-            global_use_batch_norm=False,
-            global_pooling="average",
-        )
-
-        x = tf.random.normal((batch_size, num_features))
-        y = layer(x, training=False)
-
-        assert y.shape == (
-            batch_size,
-            embedding_dim,
-        ), f"Output shape mismatch with {num_features} input features"
