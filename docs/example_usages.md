@@ -362,3 +362,66 @@ feature_importances = ppr.get_feature_importances()
 ```
 Here is the plot of the model:
 ![Complex Model](imgs/numerical_example_model_with_distribution_aware.png)
+
+
+## Example 5: Numerical features with numerical embedding
+
+Numerical embedding is a technique that allows us to embed numerical features into a higher dimensional space.
+This can be useful for capturing non-linear relationships within/between numerical feature/s.
+
+```python
+from kdp.features import NumericalFeature, FeatureType
+from kdp.processor import PreprocessingModel, OutputModeOptions
+
+
+# Define features
+features = {
+    "basic_float": NumericalFeature(
+        name="basic_float",
+        feature_type=FeatureType.FLOAT,
+    ),
+
+    "rescaled_float": NumericalFeature(
+        name="rescaled_float",
+        feature_type=FeatureType.FLOAT_RESCALED,
+        scale=2.0,
+    ),
+
+    "custom_float": NumericalFeature(
+        name="custom_float",
+        feature_type=FeatureType.FLOAT,
+        preprocessors=[
+            tf.keras.layers.Rescaling,
+            tf.keras.layers.Normalization,
+            DistributionAwareEncoder,
+        ],
+    ),
+}
+
+# Now we can create a preprocessing model with the features
+ppr = PreprocessingModel(
+    path_data="sample_data.csv",
+    features_specs=features,
+    features_stats_path="features_stats.json",
+    overwrite_stats=True,
+
+    # Add numerical embedding
+    # Use advanced numerical embedding for individual features
+    use_advanced_numerical_embedding=True,
+    # Use global numerical embedding for all features
+    use_global_numerical_embedding=True,
+
+    output_mode=OutputModeOptions.CONCAT,
+)
+
+# Build the preprocessor
+result = ppr.build_preprocessor()
+
+# Transform data using direct model prediction
+transformed_data = ppr.model.predict(test_batch)
+
+# Get feature importances
+feature_importances = ppr.get_feature_importances()
+```
+Here is the plot of the model:
+![Complex Model](imgs/numerical_example_model_with_advanced_numerical_embedding.png)

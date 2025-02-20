@@ -12,6 +12,7 @@ import numpy as np
 import tensorflow as tf
 from loguru import logger
 
+from kdp.custom_layers import GlobalAdvancedNumericalEmbedding
 from kdp.features import (
     CategoricalFeature,
     CategoryEncodingOptions,
@@ -200,6 +201,15 @@ class PreprocessingModel:
         init_max: float = 3.0,
         dropout_rate: float = 0.1,
         use_batch_norm: bool = True,
+        use_global_numerical_embedding: bool = False,
+        global_embedding_dim: int = 8,
+        global_mlp_hidden_units: int = 16,
+        global_num_bins: int = 10,
+        global_init_min: float = -3.0,
+        global_init_max: float = 3.0,
+        global_dropout_rate: float = 0.1,
+        global_use_batch_norm: bool = True,
+        global_pooling: str = "average",
     ) -> None:
         """Initialize a preprocessing model.
 
@@ -281,6 +291,17 @@ class PreprocessingModel:
         self.init_max = init_max
         self.dropout_rate = dropout_rate
         self.use_batch_norm = use_batch_norm
+
+        # advanced global numerical embedding control
+        self.use_global_numerical_embedding = use_global_numerical_embedding
+        self.global_embedding_dim = global_embedding_dim
+        self.global_mlp_hidden_units = global_mlp_hidden_units
+        self.global_num_bins = global_num_bins
+        self.global_init_min = global_init_min
+        self.global_init_max = global_init_max
+        self.global_dropout_rate = global_dropout_rate
+        self.global_use_batch_norm = global_use_batch_norm
+        self.global_pooling = global_pooling
 
         # PLACEHOLDERS
         self.preprocessors = {}
@@ -678,8 +699,9 @@ class PreprocessingModel:
                     )
                 elif _feature.feature_type == FeatureType.FLOAT_DISCRETIZED:
                     logger.debug("Adding Float Discretized Feature")
-                    # output dimensions will be > 1
-                    _out_dims = len(_feature.kwargs.get("bin_boundaries", 1.0)) + 1
+                    # Use an empty list as the default value instead of 1.0.
+                    boundaries = _feature.kwargs.get("bin_boundaries", [])
+                    _out_dims = len(boundaries) + 1
                     preprocessor.add_processing_step(
                         layer_class="Discretization",
                         **_feature.kwargs,
@@ -1046,6 +1068,17 @@ class PreprocessingModel:
                     name="ConcatenateNumeric",
                     axis=-1,
                 )(numeric_features)
+                if self.use_global_numerical_embedding:
+                    concat_num = GlobalAdvancedNumericalEmbedding(
+                        global_embedding_dim=self.global_embedding_dim,
+                        global_mlp_hidden_units=self.global_mlp_hidden_units,
+                        global_num_bins=self.global_num_bins,
+                        global_init_min=self.global_init_min,
+                        global_init_max=self.global_init_max,
+                        global_dropout_rate=self.global_dropout_rate,
+                        global_use_batch_norm=self.global_use_batch_norm,
+                        global_pooling=self.global_pooling,
+                    )(concat_num)
             else:
                 concat_num = None
 
