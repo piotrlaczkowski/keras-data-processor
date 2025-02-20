@@ -699,8 +699,9 @@ class PreprocessingModel:
                     )
                 elif _feature.feature_type == FeatureType.FLOAT_DISCRETIZED:
                     logger.debug("Adding Float Discretized Feature")
-                    # output dimensions will be > 1
-                    _out_dims = len(_feature.kwargs.get("bin_boundaries", 1.0)) + 1
+                    # Use an empty list as the default value instead of 1.0.
+                    boundaries = _feature.kwargs.get("bin_boundaries", [])
+                    _out_dims = len(boundaries) + 1
                     preprocessor.add_processing_step(
                         layer_class="Discretization",
                         **_feature.kwargs,
