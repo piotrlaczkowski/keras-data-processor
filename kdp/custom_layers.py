@@ -2122,6 +2122,9 @@ class AdvancedNumericalEmbedding(layers.Layer):
         # Combine branches via a per-feature, per-dimension gate.
         gate = tf.nn.sigmoid(self.gate)  # (num_features, embedding_dim)
         output = gate * cont + (1 - gate) * disc  # (batch, num_features, embedding_dim)
+        # If only one feature is provided, squeeze the features axis.
+        if self.num_features == 1:
+            return tf.squeeze(output, axis=1)  # New shape: (batch, embedding_dim)
         return output
 
     def get_config(self):
