@@ -65,6 +65,8 @@ class FeatureSelectionPlacementOptions(str, Enum):
     NONE = "none"
     NUMERIC = "numeric"
     CATEGORICAL = "categorical"
+    TEXT = "text"
+    DATE = "date"
     ALL_FEATURES = "all_features"
 
 
@@ -645,11 +647,6 @@ class PreprocessingModel:
             # Check if distribution-aware encoding is enabled
             if self.use_distribution_aware:
                 logger.info(f"Using distribution-aware encoding for {feature_name}")
-                # Cast to float32 before distribution-aware encoding
-                preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
-                    name=f"pre_dist_cast_to_float_{feature_name}",
-                )
                 # Check if manually specified distribution is provided
                 _prefered_distribution = _feature.kwargs.get("prefered_distribution")
                 if _prefered_distribution is not None:
@@ -920,6 +917,22 @@ class PreprocessingModel:
             )
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
+
+        # Apply feature selection if enabled for categorical features
+        if (
+            self.feature_selection_placement == FeatureSelectionPlacementOptions.TEXT
+            or self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.ALL_FEATURES
+        ):
+            feature_selector = PreprocessorLayerFactory.variable_selection_layer(
+                name=f"{feature_name}_feature_selection",
+                nr_features=1,  # Single feature for now
+                units=self.feature_selection_units,
+                dropout_rate=self.feature_selection_dropout,
+            )
+            _output_pipeline, feature_weights = feature_selector([_output_pipeline])
+            self.processed_features[f"{feature_name}_weights"] = feature_weights
+
         self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
@@ -981,6 +994,22 @@ class PreprocessingModel:
 
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
+
+        # Apply feature selection if enabled for categorical features
+        if (
+            self.feature_selection_placement == FeatureSelectionPlacementOptions.DATE
+            or self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.ALL_FEATURES
+        ):
+            feature_selector = PreprocessorLayerFactory.variable_selection_layer(
+                name=f"{feature_name}_feature_selection",
+                nr_features=1,  # Single feature for now
+                units=self.feature_selection_units,
+                dropout_rate=self.feature_selection_dropout,
+            )
+            _output_pipeline, feature_weights = feature_selector([_output_pipeline])
+            self.processed_features[f"{feature_name}_weights"] = feature_weights
+
         self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
