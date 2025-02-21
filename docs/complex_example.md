@@ -123,6 +123,27 @@ ppr = PreprocessingModel(
     # Distribution aware configuration
     use_distribution_aware=True, # here we activate the distribution aware encoder
     distribution_aware_bins=1000, # thats the default value, but you can change it for finer data
+
+    # Add advanced numerical embedding
+    use_advanced_numerical_embedding=True,
+    embedding_dim=32,  # Match embedding size with categorical features
+    mlp_hidden_units=16,
+    num_bins=10,
+    init_min=-3.0,
+    init_max=3.0,
+    dropout_rate=0.1,
+    use_batch_norm=True,
+
+    # Add global numerical embedding
+    use_global_numerical_embedding=True,
+    global_embedding_dim=32,  # Match embedding dimensions
+    global_mlp_hidden_units=16,
+    global_num_bins=10,
+    global_init_min=-3.0,
+    global_init_max=3.0,
+    global_dropout_rate=0.1,
+    global_use_batch_norm=True,
+    global_pooling="average",
 )
 
 # Build the preprocessor

@@ -1981,15 +1981,27 @@ class AdvancedNumericalEmbedding(layers.Layer):
 
     def __init__(
         self,
-        embedding_dim: int,
-        mlp_hidden_units: int,
-        num_bins: int,
-        init_min,
-        init_max,
-        dropout_rate: float = 0.0,
-        use_batch_norm: bool = False,
+        embedding_dim: int = 8,
+        mlp_hidden_units: int = 16,
+        num_bins: int = 10,
+        init_min: float | list[float] = -3.0,
+        init_max: float | list[float] = 3.0,
+        dropout_rate: float = 0.1,
+        use_batch_norm: bool = True,
         **kwargs,
     ):
+        """Initialize the AdvancedNumericalEmbedding layer.
+
+        Args:
+            embedding_dim: Dimension of the output embedding for each feature.
+            mlp_hidden_units: Number of hidden units in the MLP.
+            num_bins: Number of bins for discretization.
+            init_min: Minimum value(s) for initialization. Can be a single float or list of floats.
+            init_max: Maximum value(s) for initialization. Can be a single float or list of floats.
+            dropout_rate: Dropout rate for regularization.
+            use_batch_norm: Whether to use batch normalization.
+            **kwargs: Additional layer arguments.
+        """
         super().__init__(**kwargs)
         self.embedding_dim = embedding_dim
         self.mlp_hidden_units = mlp_hidden_units
@@ -2046,17 +2058,22 @@ class AdvancedNumericalEmbedding(layers.Layer):
             init_min_tensor = tf.fill([self.num_features], init_min_tensor)
         if init_max_tensor.shape.ndims == 0:
             init_max_tensor = tf.fill([self.num_features], init_max_tensor)
-        # Convert tensors to numpy arrays, which are acceptable by tf.constant_initializer.
-        init_min_value = (
-            init_min_tensor.numpy()
-            if hasattr(init_min_tensor, "numpy")
-            else init_min_tensor
-        )
-        init_max_value = (
-            init_max_tensor.numpy()
-            if hasattr(init_max_tensor, "numpy")
-            else init_max_tensor
-        )
+
+        if tf.executing_eagerly():
+            init_min_value = init_min_tensor.numpy()
+            init_max_value = init_max_tensor.numpy()
+        else:
+            # Fallback: if not executing eagerly, force conversion to list
+            init_min_value = (
+                init_min_tensor.numpy().tolist()
+                if hasattr(init_min_tensor, "numpy")
+                else self.init_min
+            )
+            init_max_value = (
+                init_max_tensor.numpy().tolist()
+                if hasattr(init_max_tensor, "numpy")
+                else self.init_max
+            )
 
         self.learned_min = self.add_weight(
             name="learned_min",
@@ -2117,6 +2134,9 @@ class AdvancedNumericalEmbedding(layers.Layer):
         # Combine branches via a per-feature, per-dimension gate.
         gate = tf.nn.sigmoid(self.gate)  # (num_features, embedding_dim)
         output = gate * cont + (1 - gate) * disc  # (batch, num_features, embedding_dim)
+        # If only one feature is provided, squeeze the features axis.
+        if self.num_features == 1:
+            return tf.squeeze(output, axis=1)  # New shape: (batch, embedding_dim)
         return output
 
     def get_config(self):
@@ -2130,6 +2150,122 @@ class AdvancedNumericalEmbedding(layers.Layer):
                 "init_max": self.init_max,
                 "dropout_rate": self.dropout_rate,
                 "use_batch_norm": self.use_batch_norm,
+            }
+        )
+        return config
+
+
+class GlobalAdvancedNumericalEmbedding(tf.keras.layers.Layer):
+    """
+    Global AdvancedNumericalEmbedding processes concatenated numeric features.
+    It applies an inner AdvancedNumericalEmbedding over the flattened input and then
+    performs global pooling (average or max) to produce a compact representation.
+    """
+
+    def __init__(
+        self,
+        global_embedding_dim: int = 8,
+        global_mlp_hidden_units: int = 16,
+        global_num_bins: int = 10,
+        global_init_min: float | list[float] = -3.0,
+        global_init_max: float | list[float] = 3.0,
+        global_dropout_rate: float = 0.1,
+        global_use_batch_norm: bool = True,
+        global_pooling: str = "average",
+        **kwargs,
+    ):
+        """Initialize the GlobalAdvancedNumericalEmbedding layer.
+
+        Args:
+            global_embedding_dim: Dimension of the final global embedding.
+            global_mlp_hidden_units: Number of hidden units in the global MLP.
+            global_num_bins: Number of bins for discretization.
+            global_init_min: Minimum value(s) for initialization. Can be a single float or list of floats.
+            global_init_max: Maximum value(s) for initialization. Can be a single float or list of floats.
+            global_dropout_rate: Dropout rate for regularization.
+            global_use_batch_norm: Whether to use batch normalization.
+            global_pooling: Pooling method to use ("average" or "max").
+            **kwargs: Additional layer arguments.
+        """
+        super().__init__(**kwargs)
+        self.global_embedding_dim = global_embedding_dim
+        self.global_mlp_hidden_units = global_mlp_hidden_units
+        self.global_num_bins = global_num_bins
+
+        # Ensure initializer parameters are Python scalars, lists, or numpy arrays.
+        if not isinstance(global_init_min, (list, tuple, np.ndarray)):
+            try:
+                global_init_min = float(global_init_min)
+            except Exception:
+                raise ValueError(
+                    "init_min must be a Python scalar, list, tuple or numpy array"
+                )
+        if not isinstance(global_init_max, (list, tuple, np.ndarray)):
+            try:
+                global_init_max = float(global_init_max)
+            except Exception:
+                raise ValueError(
+                    "init_max must be a Python scalar, list, tuple or numpy array"
+                )
+        self.global_init_min = global_init_min
+        self.global_init_max = global_init_max
+        self.global_dropout_rate = global_dropout_rate
+        self.global_use_batch_norm = global_use_batch_norm
+        self.global_pooling = global_pooling
+
+        # Use the existing advanced numerical embedding block
+        self.inner_embedding = AdvancedNumericalEmbedding(
+            embedding_dim=self.global_embedding_dim,
+            mlp_hidden_units=self.global_mlp_hidden_units,
+            num_bins=self.global_num_bins,
+            init_min=self.global_init_min,
+            init_max=self.global_init_max,
+            dropout_rate=self.global_dropout_rate,
+            use_batch_norm=self.global_use_batch_norm,
+            name="global_numeric_emebedding",
+        )
+        if self.global_pooling == "average":
+            self.global_pooling_layer = tf.keras.layers.GlobalAveragePooling1D(
+                name="global_avg_pool"
+            )
+        elif self.global_pooling == "max":
+            self.global_pooling_layer = tf.keras.layers.GlobalMaxPooling1D(
+                name="global_max_pool"
+            )
+        else:
+            raise ValueError(f"Unsupported pooling method: {self.global_pooling}")
+
+    def call(self, inputs: tf.Tensor, training: bool = False) -> tf.Tensor:
+        """
+        Expects inputs with shape (batch, ...) and flattens them (except for the batch dim).
+        Then, the inner embedding produces a 3D output (batch, num_features, embedding_dim),
+        which is finally pooled to yield (batch, embedding_dim).
+        """
+        # If inputs have more than 2 dimensions, flatten them (except for batch dimension).
+        if len(inputs.shape) > 2:
+            inputs = tf.reshape(inputs, (tf.shape(inputs)[0], -1))
+        # Pass through the inner advanced embedding.
+        x_embedded = self.inner_embedding(inputs, training=training)
+        # Global pooling over numeric features axis.
+        x_pooled = self.global_pooling_layer(x_embedded)
+        return x_pooled
+
+    def compute_output_shape(self, input_shape):
+        # Regardless of the input shape, the output shape is (batch_size, embedding_dim)
+        return (input_shape[0], self.global_embedding_dim)
+
+    def get_config(self):
+        config = super().get_config()
+        config.update(
+            {
+                "global_embedding_dim": self.global_embedding_dim,
+                "global_mlp_hidden_units": self.global_mlp_hidden_units,
+                "global_num_bins": self.global_num_bins,
+                "global_init_min": self.global_init_min,
+                "global_init_max": self.global_init_max,
+                "global_dropout_rate": self.global_dropout_rate,
+                "global_use_batch_norm": self.global_use_batch_norm,
+                "global_pooling": self.global_pooling,
             }
         )
         return config
