@@ -14,7 +14,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.12"
+python = ">=3.9,<4.0"
 tensorflow = "^2.18.0"
 tensorflow-probability = "0.25.0"
 tf-keras = "^2.18.0"
