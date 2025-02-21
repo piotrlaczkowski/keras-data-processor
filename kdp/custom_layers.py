@@ -1981,15 +1981,27 @@ class AdvancedNumericalEmbedding(layers.Layer):
 
     def __init__(
         self,
-        embedding_dim: int,
-        mlp_hidden_units: int,
-        num_bins: int,
-        init_min,
-        init_max,
-        dropout_rate: float = 0.0,
-        use_batch_norm: bool = False,
+        embedding_dim: int = 8,
+        mlp_hidden_units: int = 16,
+        num_bins: int = 10,
+        init_min: float | list[float] = -3.0,
+        init_max: float | list[float] = 3.0,
+        dropout_rate: float = 0.1,
+        use_batch_norm: bool = True,
         **kwargs,
     ):
+        """Initialize the AdvancedNumericalEmbedding layer.
+
+        Args:
+            embedding_dim: Dimension of the output embedding for each feature.
+            mlp_hidden_units: Number of hidden units in the MLP.
+            num_bins: Number of bins for discretization.
+            init_min: Minimum value(s) for initialization. Can be a single float or list of floats.
+            init_max: Maximum value(s) for initialization. Can be a single float or list of floats.
+            dropout_rate: Dropout rate for regularization.
+            use_batch_norm: Whether to use batch normalization.
+            **kwargs: Additional layer arguments.
+        """
         super().__init__(**kwargs)
         self.embedding_dim = embedding_dim
         self.mlp_hidden_units = mlp_hidden_units
@@ -2152,16 +2164,29 @@ class GlobalAdvancedNumericalEmbedding(tf.keras.layers.Layer):
 
     def __init__(
         self,
-        global_embedding_dim: int,
-        global_mlp_hidden_units: int,
-        global_num_bins: int,
-        global_init_min,
-        global_init_max,
-        global_dropout_rate: float,
-        global_use_batch_norm: bool,
+        global_embedding_dim: int = 8,
+        global_mlp_hidden_units: int = 16,
+        global_num_bins: int = 10,
+        global_init_min: float | list[float] = -3.0,
+        global_init_max: float | list[float] = 3.0,
+        global_dropout_rate: float = 0.1,
+        global_use_batch_norm: bool = True,
         global_pooling: str = "average",
         **kwargs,
     ):
+        """Initialize the GlobalAdvancedNumericalEmbedding layer.
+
+        Args:
+            global_embedding_dim: Dimension of the final global embedding.
+            global_mlp_hidden_units: Number of hidden units in the global MLP.
+            global_num_bins: Number of bins for discretization.
+            global_init_min: Minimum value(s) for initialization. Can be a single float or list of floats.
+            global_init_max: Maximum value(s) for initialization. Can be a single float or list of floats.
+            global_dropout_rate: Dropout rate for regularization.
+            global_use_batch_norm: Whether to use batch normalization.
+            global_pooling: Pooling method to use ("average" or "max").
+            **kwargs: Additional layer arguments.
+        """
         super().__init__(**kwargs)
         self.global_embedding_dim = global_embedding_dim
         self.global_mlp_hidden_units = global_mlp_hidden_units
