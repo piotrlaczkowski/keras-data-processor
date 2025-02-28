@@ -884,31 +884,27 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
             ),
         )
 
-        # Need at least 2 peaks to be multimodal or periodic
-        return tf.cond(
-            tf.shape(peaks)[0] <= 1,
-            lambda: tf.constant(False),
-            lambda: tf.constant(True),
-        )
-
-        # Check regularity of peak spacing
-        peak_positions = tf.cast(peaks[:, 0], tf.float32)
+        # Check if we have at least 2 peaks for multimodality
+        has_multiple_peaks = tf.greater(tf.shape(peaks)[0], 1)
 
         # If we have 3 or more peaks, check for periodicity
-        if tf.shape(peak_positions)[0] >= 3:
-            # Calculate distances between consecutive peaks
+        def check_periodicity():
+            peak_positions = tf.cast(peaks[:, 0], tf.float32)
             peak_distances = peak_positions[1:] - peak_positions[:-1]
-
-            # Check if distances are similar (within 20% of mean)
             mean_distance = tf.reduce_mean(peak_distances)
             max_deviation = tf.reduce_max(tf.abs(peak_distances - mean_distance))
-
-            # If max deviation is less than 20% of mean distance, it's likely periodic
             is_periodic = max_deviation < (0.2 * mean_distance)
-            return not is_periodic  # Return False if periodic, True if multimodal
+            # Return False if periodic, True if multimodal
+            return tf.logical_not(is_periodic)
 
-        # If less than 3 peaks, check if at least 2 peaks for multimodality
-        return tf.shape(peaks)[0] > 1
+        # Only check periodicity if we have enough peaks
+        is_multimodal = tf.cond(
+            tf.greater_equal(tf.shape(peaks)[0], 3),
+            check_periodicity,
+            lambda: has_multiple_peaks,
+        )
+
+        return is_multimodal
 
     def _transform_distribution(self, inputs: tf.Tensor, dist_info: dict) -> tf.Tensor:
         """Apply appropriate transformation based on distribution type."""
@@ -1128,23 +1124,29 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         2. Creates evenly spaced values in [-1, 1]
         3. Handles both numeric and categorical discrete data
         """
-        # Get unique values and sort them
-        unique_values = tf.sort(tf.unique(inputs)[0])
-        num_unique = tf.shape(unique_values)[0]
+        # Get unique values and their indices
+        unique_values, indices = tf.unique(tf.reshape(inputs, [-1]))
 
-        # Create evenly spaced values between -1 and 1
-        normalized_values = tf.linspace(-1.0, 1.0, num_unique)
+        # Sort unique values
+        sorted_indices = tf.argsort(unique_values)
+        sorted_values = tf.gather(unique_values, sorted_indices)
 
-        # Create mapping from original to normalized values
-        mapping = tf.lookup.StaticHashTable(
-            tf.lookup.KeyValueTensorInitializer(
-                tf.cast(unique_values, tf.int64),  # Convert to int64 for hash table
-                normalized_values,
-            ),
-            default_value=-1.0,
-        )
+        # Create normalized values between 0 and 1
+        num_unique = tf.shape(sorted_values)[0]
+        normalized_values = tf.linspace(0.0, 1.0, num_unique)
 
-        return mapping.lookup(tf.cast(inputs, tf.int64))
+        # Create a mapping from original values to normalized values
+        # This is a workaround for StaticHashTable which might not be compatible with graph execution
+        normalized_inputs = tf.zeros_like(inputs, dtype=tf.float32)
+
+        # Use a loop to create the mapping
+        for i in range(tf.get_static_value(num_unique)):
+            value_mask = tf.equal(inputs, sorted_values[i])
+            normalized_inputs = tf.where(
+                value_mask, normalized_values[i], normalized_inputs
+            )
+
+        return normalized_inputs
 
     def _handle_periodic(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
         """Handle periodic data using Fourier features.

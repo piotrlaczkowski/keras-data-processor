@@ -38,13 +38,13 @@ The **Distribution-Aware Encoder** is an advanced preprocessing layer that autom
 
 7. **Discrete Distribution**
    - For data with finite distinct values
-   - Handled via empirical CDF-based encoding
+   - Handled via rank-based normalization
    - Detection: Unique values analysis
 
 8. **Periodic Distribution**
    - For data with cyclic patterns
    - Handled via Fourier features (sin/cos)
-   - Detection: Autocorrelation analysis
+   - Detection: Peak spacing analysis
 
 9. **Sparse Distribution**
    - For data with many zeros
@@ -105,11 +105,10 @@ model = PreprocessingModel( # here
 
 ```python
 from kdp.processor import PreprocessingModel
-from kdp.features import NumericalFeature
+from kdp.features import NumericalFeature, FeatureType
 
 # Define features
 features = {
-    # Numerical features
     # Numerical features
     "feature1": NumericalFeature(
         name="feature1",
@@ -117,7 +116,7 @@ features = {
     ),
     "feature2": NumericalFeature(
         name="feature2",
-        feature_type=FeatureType.FLOAT_RESCALED
+        feature_type=FeatureType.FLOAT_RESCALED,
         prefered_distribution="log_normal" # here we could specify a prefered distribution (normal, periodic, etc)
     )
     # etc ..
@@ -150,11 +149,12 @@ encoder = DistributionAwareEncoder(
 |-----------|------|---------|-------------|
 | num_bins | int | 1000 | Number of bins for quantile encoding |
 | epsilon | float | 1e-6 | Small value for numerical stability |
-| detect_periodicity | bool | True | Enable periodic pattern detection | Remove this parameter when having multimodal functions/distributions
+| detect_periodicity | bool | True | Enable periodic pattern detection |
 | handle_sparsity | bool | True | Enable special handling for sparse data |
 | adaptive_binning | bool | True | Enable adaptive bin boundaries |
 | mixture_components | int | 3 | Number of components for mixture models |
 | trainable | bool | True | Whether parameters are trainable |
+| prefered_distribution | DistributionType | None | Manually specify distribution type |
 
 ## Key Features
 
@@ -282,35 +282,44 @@ The DistributionAwareEncoder is integrated into the numeric feature processing p
 - Transformation: O(n)
 - GMM fitting: O(n * mixture_components)
 
-## Best Practices
+## Testing and Validation
 
-1. **Data Preparation**
-   - Clean outliers if not meaningful
-   - Handle missing values before encoding
-   - Ensure numeric data type
+For information on how we test and validate the Distribution-Aware Encoder, see the [Distribution-Aware Encoder Testing](distribution_aware_encoder_testing.md) documentation.
 
-2. **Configuration**
-   - Start with default parameters
-   - Adjust based on data characteristics
-   - Monitor distribution detection results
+## Example Usage in Preprocessing Pipeline
 
-3. **Performance Optimization**
-   - Use appropriate batch sizes
-   - Enable caching for repeated processing
-   - Adjust mixture components based on data
-
-### Distribution Detection
 ```python
-# Access distribution information
-dist_info = encoder._estimate_distribution(inputs)
-print(f"Detected distribution: {dist_info['type']}")
-print(f"Statistics: {dist_info['stats']}")
-```
+# Example with automatic distribution detection
+from kdp.processor import PreprocessingModel
+from kdp.features import NumericalFeature, FeatureType
 
-### Transformation Quality
-```python
-# Monitor transformed output statistics
-transformed = encoder(inputs)
-print(f"Output mean: {tf.reduce_mean(transformed)}")
-print(f"Output variance: {tf.math.reduce_variance(transformed)}")
+# Define features
+features = {
+    # Default automatic distribution detection
+    "basic_float": NumericalFeature(
+        name="basic_float",
+        feature_type=FeatureType.FLOAT,
+    ),
+
+    # Manually setting a gamma distribution
+    "rescaled_float": NumericalFeature(
+        name="rescaled_float",
+        feature_type=FeatureType.FLOAT_RESCALED,
+        scale=2.0,
+        prefered_distribution="gamma"
+    ),
+}
+
+# Create preprocessing model with distribution-aware encoding
+ppr = PreprocessingModel(
+    path_data="sample_data.csv",
+    features_specs=features,
+    features_stats_path="features_stats.json",
+    overwrite_stats=True,
+    output_mode="concat",
+    use_distribution_aware=True
+)
+
+# Build the preprocessor
+result = ppr.build_preprocessor()
 ```
