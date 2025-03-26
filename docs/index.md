@@ -64,7 +64,7 @@ features_specs = {
 # INSTANTIATE THE PREPROCESSING MODEL with your data
 ppr = PreprocessingModel(
     path_data="data/my_data.csv",
-    features_specs=features_spec,
+    features_specs=features_specs,
     use_distribution_aware=True,  # Enable Distribution-Aware Encoding
     distribution_aware_bins=1000, # Set number of bins for finer data encoding
 )

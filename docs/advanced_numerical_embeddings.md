@@ -4,7 +4,7 @@ Keras Data Processor (KDP) now provides advanced numerical embedding techniques 
 
 ---
 
-## AdvancedNumericalEmbedding
+## NumericalEmbedding
 
 **Purpose:**
 Processes individual numerical features with tailored embedding layers. This layer performs adaptive binning, applies MLP transformations per feature, and can incorporate dropout and batch normalization.
@@ -19,10 +19,10 @@ Processes individual numerical features with tailored embedding layers. This lay
 
 **Usage Example:**
 ```python
-from kdp.custom_layers import AdvancedNumericalEmbedding
+from kdp.layers.numerical_embedding_layer import NumericalEmbedding
 import tensorflow as tf
 
-layer = AdvancedNumericalEmbedding(
+layer = NumericalEmbedding(
     embedding_dim=8,
     mlp_hidden_units=16,
     num_bins=10,
@@ -40,7 +40,7 @@ output = layer(x, training=False)
 
 ---
 
-## GlobalAdvancedNumericalEmbedding
+## GlobalNumericalEmbedding
 
 **Purpose:**
 Combines a set of numerical features into a single, compact representation. It does so by applying an internal advanced numerical embedding on the concatenated input and then performing a global pooling over all features.
@@ -56,10 +56,10 @@ Combines a set of numerical features into a single, compact representation. It d
 
 **Usage Example:**
 ```python
-from kdp.custom_layers import GlobalAdvancedNumericalEmbedding
+from kdp.layers.global_numerical_embedding_layer import GlobalNumericalEmbedding
 import tensorflow as tf
 
-global_layer = GlobalAdvancedNumericalEmbedding(
+global_layer = GlobalNumericalEmbedding(
     global_embedding_dim=8,
     global_mlp_hidden_units=16,
     global_num_bins=10,
@@ -80,10 +80,10 @@ global_output = global_layer(x, training=False)
 
 ## When to Use Which?
 
-- **AdvancedNumericalEmbedding:**
+- **NumericalEmbedding:**
   Use this when you need to process each numerical feature individually, preserving their distinct characteristics via per-feature embeddings.
 
-- **GlobalAdvancedNumericalEmbedding:**
+- **GlobalNumericalEmbedding:**
   Choose this option when you want to merge multiple numerical features into a unified global embedding using a pooling mechanism. This is particularly useful when the overall interaction across features is more important than the individual feature details.
 
 ## Advanced Configuration

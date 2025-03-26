@@ -12,7 +12,7 @@ import numpy as np
 import tensorflow as tf
 from loguru import logger
 
-from kdp.custom_layers import GlobalAdvancedNumericalEmbedding
+from kdp.layers.global_numerical_embedding_layer import GlobalNumericalEmbedding
 from kdp.features import (
     CategoricalFeature,
     CategoryEncodingOptions,
@@ -721,14 +721,14 @@ class PreprocessingModel:
 
         # Check for advanced numerical embedding.
         if self.use_advanced_numerical_embedding:
-            logger.info(f"Using AdvancedNumericalEmbedding for {feature_name}")
+            logger.info(f"Using NumericalEmbedding for {feature_name}")
             # Obtain the embedding layer.
             embedding_layer = _feature.get_embedding_layer(
                 input_shape=input_layer.shape
             )
             preprocessor.add_processing_step(
                 layer_creator=lambda **kwargs: embedding_layer,
-                layer_class="AdvancedNumericalEmbedding",
+                layer_class="NumericalEmbedding",
                 name=f"advanced_embedding_{feature_name}",
                 embedding_dim=self.embedding_dim,
                 mlp_hidden_units=self.mlp_hidden_units,
@@ -1098,7 +1098,7 @@ class PreprocessingModel:
                     axis=-1,
                 )(numeric_features)
                 if self.use_global_numerical_embedding:
-                    concat_num = GlobalAdvancedNumericalEmbedding(
+                    concat_num = GlobalNumericalEmbedding(
                         global_embedding_dim=self.global_embedding_dim,
                         global_mlp_hidden_units=self.global_mlp_hidden_units,
                         global_num_bins=self.global_num_bins,

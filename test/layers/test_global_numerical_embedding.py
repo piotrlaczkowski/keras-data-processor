@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import pytest
-from kdp.custom_layers import GlobalAdvancedNumericalEmbedding
+from kdp.layers.global_numerical_embedding_layer import GlobalNumericalEmbedding
 
 
 def test_basic_functionality():
@@ -10,7 +10,7 @@ def test_basic_functionality():
     num_features = 3
     embedding_dim = 10
 
-    layer = GlobalAdvancedNumericalEmbedding(
+    layer = GlobalNumericalEmbedding(
         global_embedding_dim=embedding_dim,
         global_mlp_hidden_units=16,
         global_num_bins=10,
@@ -42,7 +42,7 @@ def test_different_pooling_methods():
     x = tf.random.normal((batch_size, num_features))
 
     for pooling in ["average", "max"]:
-        layer = GlobalAdvancedNumericalEmbedding(
+        layer = GlobalNumericalEmbedding(
             global_embedding_dim=embedding_dim,
             global_mlp_hidden_units=16,
             global_num_bins=10,
@@ -66,7 +66,7 @@ def test_training_inference_modes():
     num_features = 3
     embedding_dim = 12
 
-    layer = GlobalAdvancedNumericalEmbedding(
+    layer = GlobalNumericalEmbedding(
         global_embedding_dim=embedding_dim,
         global_mlp_hidden_units=16,
         global_num_bins=10,
@@ -97,7 +97,7 @@ def test_different_input_ranges():
     x_small = tf.random.normal((batch_size, num_features)) * 0.1
     x_large = tf.random.normal((batch_size, num_features)) * 10.0
 
-    layer = GlobalAdvancedNumericalEmbedding(
+    layer = GlobalNumericalEmbedding(
         global_embedding_dim=embedding_dim,
         global_mlp_hidden_units=16,
         global_num_bins=10,
@@ -121,7 +121,7 @@ def test_different_input_ranges():
 
 def test_config_round_trip():
     """Test get_config and from_config round-trip functionality."""
-    original_layer = GlobalAdvancedNumericalEmbedding(
+    original_layer = GlobalNumericalEmbedding(
         global_embedding_dim=8,
         global_mlp_hidden_units=16,
         global_num_bins=10,
@@ -134,7 +134,7 @@ def test_config_round_trip():
     )
 
     config = original_layer.get_config()
-    new_layer = GlobalAdvancedNumericalEmbedding.from_config(config)
+    new_layer = GlobalNumericalEmbedding.from_config(config)
     # Test both layers with same input
     x = tf.random.normal((16, 2))
     y1 = original_layer(x, training=False)
@@ -155,7 +155,7 @@ def test_config_round_trip():
 def test_invalid_pooling():
     """Test that invalid pooling method raises ValueError."""
     with pytest.raises(ValueError):
-        GlobalAdvancedNumericalEmbedding(
+        GlobalNumericalEmbedding(
             global_embedding_dim=8,
             global_mlp_hidden_units=16,
             global_num_bins=10,
@@ -173,7 +173,7 @@ def test_gradient_flow():
     num_features = 3
     embedding_dim = 8
 
-    layer = GlobalAdvancedNumericalEmbedding(
+    layer = GlobalNumericalEmbedding(
         global_embedding_dim=embedding_dim,
         global_mlp_hidden_units=16,
         global_num_bins=10,

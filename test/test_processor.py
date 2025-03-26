@@ -9,9 +9,14 @@ import tensorflow as tf
 
 from kdp.custom_layers import (
     DistributionType,
-    MultiResolutionTabularAttention,
-    TabularAttention,
 )
+
+from kdp.layers.multi_resolution_tabular_attention_layer import (
+    MultiResolutionTabularAttention,
+)
+from kdp.layers.tabular_attention_layer import TabularAttention
+
+
 from kdp.features import (
     CategoricalFeature,
     DateFeature,
@@ -1758,7 +1763,7 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
                         # You can add more specific checks for each feature if needed
 
 
-class TestPreprocessingModel_AdvancedNumericalEmbedding(unittest.TestCase):
+class TestPreprocessingModel_åNumericalEmbedding(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp_dir = tempfile.TemporaryDirectory()
@@ -1914,13 +1919,10 @@ class TestPreprocessingModel_AdvancedNumericalEmbedding(unittest.TestCase):
         config = result["model"].get_config()
         # Iterate the layer configurations.
         layers_config = config.get("layers", [])
-        found = any(
-            layer.get("class_name", "") == "AdvancedNumericalEmbedding"
-            for layer in layers_config
-        )
+        found = any(layer.get("class_name", "") == "å" for layer in layers_config)
         self.assertFalse(
             found,
-            "The model config should not include an AdvancedNumericalEmbedding layer when disabled.",
+            "The model config should not include an NumericalEmbedding layer when disabled.",
         )
 
     def test_advanced_embedding_config_preservation(self):
@@ -1961,16 +1963,16 @@ class TestPreprocessingModel_AdvancedNumericalEmbedding(unittest.TestCase):
         # Iterate the layer configurations.
         layers_config = config.get("layers", [])
         found = any(
-            layer.get("class_name", "") == "AdvancedNumericalEmbedding"
+            layer.get("class_name", "") == "NumericalEmbedding"
             for layer in layers_config
         )
         self.assertTrue(
             found,
-            "The model config should include an AdvancedNumericalEmbedding layer when enabled.",
+            "The model config should include an NumericalEmbedding layer when enabled.",
         )
 
 
-class TestPreprocessingModel_GlobalAdvancedNumericalEmbedding(unittest.TestCase):
+class TestPreprocessingModel_GlobalNumericalEmbedding(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temp_dir = tempfile.TemporaryDirectory()
@@ -2077,12 +2079,12 @@ class TestPreprocessingModel_GlobalAdvancedNumericalEmbedding(unittest.TestCase)
         # Iterate the layer configurations.
         layers_config = config.get("layers", [])
         found = any(
-            layer.get("class_name", "") == "GlobalAdvancedNumericalEmbedding"
+            layer.get("class_name", "") == "GlobalNumericalEmbedding"
             for layer in layers_config
         )
         self.assertFalse(
             found,
-            "The model config should not include an AdvancedNumericalEmbedding layer when disabled.",
+            "The model config should not include an NumericalEmbedding layer when disabled.",
         )
 
     def test_global_advanced_embedding_config_preservation(self):
@@ -2128,12 +2130,12 @@ class TestPreprocessingModel_GlobalAdvancedNumericalEmbedding(unittest.TestCase)
         # Iterate the layer configurations.
         layers_config = config.get("layers", [])
         found = any(
-            layer.get("class_name", "") == "GlobalAdvancedNumericalEmbedding"
+            layer.get("class_name", "") == "GlobalNumericalEmbedding"
             for layer in layers_config
         )
         self.assertTrue(
             found,
-            "The model config should include an GlobalAdvancedNumericalEmbedding layer when enabled.",
+            "The model config should include an GlobalNumericalEmbedding layer when enabled.",
         )
 
     def test_preprocessor_with_global_advanced_numerical_embedding_dict_mode(self):
@@ -2318,8 +2320,8 @@ class TestPreprocessingModel_GlobalAdvancedNumericalEmbedding(unittest.TestCase)
     def test_combined_embedding_config_preservation(self):
         """
         Ensure that when both advanced and global advanced numerical embeddings are enabled,
-        the model config preserves both the AdvancedNumericalEmbedding and
-        GlobalAdvancedNumericalEmbedding components.
+        the model config preserves both the NumericalEmbedding and
+        GlobalNumericalEmbedding components.
         """
         features = {
             "num1": NumericalFeature(
@@ -2362,21 +2364,21 @@ class TestPreprocessingModel_GlobalAdvancedNumericalEmbedding(unittest.TestCase)
         layers_config = config.get("layers", [])
 
         adv_found = any(
-            "AdvancedNumericalEmbedding" in layer.get("class_name", "")
+            "NumericalEmbedding" in layer.get("class_name", "")
             for layer in layers_config
         )
         glob_found = any(
-            "GlobalAdvancedNumericalEmbedding" in layer.get("class_name", "")
+            "GlobalNumericalEmbedding" in layer.get("class_name", "")
             for layer in layers_config
         )
 
         self.assertTrue(
             adv_found,
-            "The model config should include AdvancedNumericalEmbedding when enabled.",
+            "The model config should include NumericalEmbedding when enabled.",
         )
         self.assertTrue(
             glob_found,
-            "The model config should include GlobalAdvancedNumericalEmbedding when enabled.",
+            "The model config should include GlobalNumericalEmbedding when enabled.",
         )
 
 

@@ -148,12 +148,11 @@ class NumericalFeature(Feature):
         self.num_bins = num_bins
 
     def get_embedding_layer(self, input_shape: tuple) -> tf.keras.layers.Layer:
-        """Creates and returns an AdvancedNumericalEmbedding layer configured for this feature."""
-        from kdp.custom_layers import (
-            AdvancedNumericalEmbedding,
-        )  # Avoid circular import
+        """Creates and returns an NumericalEmbedding layer configured for this feature."""
+        # TODO: check why to use input_shape ?
+        from kdp.layers.numerical_embedding_layer import NumericalEmbedding
 
-        return AdvancedNumericalEmbedding(
+        return NumericalEmbedding(
             embedding_dim=self.embedding_dim,
             mlp_hidden_units=max(16, self.embedding_dim * 2),
             num_bins=self.num_bins,

@@ -5,7 +5,9 @@ import tempfile
 
 import tensorflow as tf
 
-from kdp.custom_layers import GatedLinearUnit, GatedResidualNetwork, VariableSelection
+from kdp.layers.gated_linear_unit_layer import GatedLinearUnit
+from kdp.layers.gated_residual_network_layer import GatedResidualNetwork
+from kdp.layers.variable_selection_layer import VariableSelection
 
 
 class TestGatedLinearUnit(tf.test.TestCase):

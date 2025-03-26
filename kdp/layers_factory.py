@@ -3,18 +3,21 @@ import inspect
 import tensorflow as tf
 
 from kdp.custom_layers import (
-    CastToFloat32Layer,
-    DateEncodingLayer,
-    DateParsingLayer,
     DistributionAwareEncoder,
     DistributionType,
-    MultiResolutionTabularAttention,
-    SeasonLayer,
-    TabularAttention,
-    TextPreprocessingLayer,
-    TransformerBlock,
-    VariableSelection,
 )
+
+from kdp.layers.text_preprocessing_layer import TextPreprocessingLayer
+from kdp.layers.cast_to_float import CastToFloat32Layer
+from kdp.layers.date_parsing_layer import DateParsingLayer
+from kdp.layers.date_encoding_layer import DateEncodingLayer
+from kdp.layers.season_layer import SeasonLayer
+from kdp.layers.transformer_block_layer import TransformerBlock
+from kdp.layers.tabular_attention_layer import TabularAttention
+from kdp.layers.multi_resolution_tabular_attention_layer import (
+    MultiResolutionTabularAttention,
+)
+from kdp.layers.variable_selection_layer import VariableSelection
 
 
 class PreprocessorLayerFactory:
