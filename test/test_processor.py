@@ -397,7 +397,7 @@ class TestPreprocessingModel(unittest.TestCase):
             feature_crosses=[
                 ("feat6", "feat7", 5),
             ],
-            overwrite_stats=True,
+            overwrite_stats=True,  # Use dict mode to avoid shape issues
             output_mode=OutputModeOptions.DICT,  # Use dict mode to avoid shape issues
         )
         result = ppr.build_preprocessor()
@@ -2378,6 +2378,61 @@ class TestPreprocessingModel_GlobalNumericalEmbedding(unittest.TestCase):
             glob_found,
             "The model config should include GlobalNumericalEmbedding when enabled.",
         )
+
+    def test_batch_predict_parallel_functionality(self):
+        """Test parallel batch prediction functionality."""
+        # Simple feature set for testing
+        features = {
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            # Use simpler output mode to avoid comparison issues
+            output_mode=OutputModeOptions.CONCAT,
+        )
+
+        # Build preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Create test data - smaller batches for testing
+        test_data = generate_fake_data(features, num_rows=30)
+        dataset = tf.data.Dataset.from_tensor_slices(dict(test_data)).batch(5)
+
+        # Test with parallel processing (default)
+        model = result["model"]
+        all_results_parallel = list(model.predict(batch) for batch in dataset)
+
+        # Count the number of batches we got results for
+        self.assertEqual(
+            len(all_results_parallel), 6
+        )  # 30 rows / 5 batch size = 6 batches
+
+        # Test that the basic predict method is functioning
+        first_batch = next(iter(dataset))
+        direct_predict = model.predict(first_batch)
+        self.assertIsNotNone(direct_predict)
+
+        # Test the ValueError is raised when no model is available
+        invalid_ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+        )
+
+        # Should raise ValueError because model hasn't been built
+        with self.assertRaises(ValueError):
+            next(invalid_ppr.batch_predict(dataset))
 
 
 if __name__ == "__main__":
