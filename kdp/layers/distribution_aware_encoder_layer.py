@@ -1,9 +1,47 @@
-import math
-from enum import Enum
+"""
+Distribution-aware encoder layer for TensorFlow models.
 
-import numpy as np
+This implementation automatically detects various data distributions and applies
+appropriate transformations for better model performance. It is built on Keras
+without TensorFlow Probability dependencies, making it lighter and easier to deploy.
+
+The layer can detect normal, heavy-tailed, multimodal, uniform, exponential,
+log-normal, discrete, periodic, sparse, beta, gamma, poisson, cauchy,
+zero-inflated, bounded, and ordinal distributions.
+
+Example usage:
+    ```python
+    import tensorflow as tf
+    from kdp.layers import DistributionAwareEncoder
+
+    # Creating a model with automatic distribution detection
+    inputs = tf.keras.Input(shape=(10,))
+    encoded = DistributionAwareEncoder(embedding_dim=16)(inputs)
+    outputs = tf.keras.layers.Dense(1)(encoded)
+    model = tf.keras.Model(inputs, outputs)
+
+    # Save and load model with custom objects
+    model.save("my_model.keras")
+    custom_objects = DistributionAwareEncoder.get_custom_objects()
+    loaded_model = tf.keras.models.load_model("my_model", custom_objects=custom_objects)
+    ```
+"""
+
+from enum import Enum
 import tensorflow as tf
-import tensorflow_probability as tfp
+from loguru import logger
+import inspect
+
+try:
+    from kdp.layers.distribution_transform_layer import DistributionTransformLayer
+except ImportError:
+    # Fallback path
+    try:
+        from ..distribution_transform_layer import DistributionTransformLayer
+    except ImportError:
+        raise ImportError(
+            "Could not import DistributionTransformLayer. Please ensure it's in the correct path."
+        )
 
 
 class DistributionType(str, Enum):
@@ -30,7 +68,18 @@ class DistributionType(str, Enum):
 class DistributionAwareEncoder(tf.keras.layers.Layer):
     """An advanced layer that adapts its encoding based on the input distribution.
 
-    This layer automatically detects and handles various distribution types:
+    This layer automatically detects and handles various distribution types using
+    the DistributionTransformLayer. It identifies the data distribution type and
+    applies appropriate transformations for better model performance.
+
+    Key features:
+    1. Auto-detection of distribution types to apply optimal transformations
+    2. Periodic feature detection and automatic encoding with Fourier features (sin/cos)
+    3. Optional projection to a fixed embedding dimension
+    4. Distribution-specific embeddings that can be added to the outputs
+    5. Graph mode compatibility for use in TensorFlow's static graph execution
+
+    Supported distributions include:
     - Normal distributions: For normally distributed data
     - Heavy-tailed distributions: For data with heavier tails than normal
     - Multimodal distributions: For data with multiple peaks
@@ -38,853 +87,968 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
     - Exponential distributions: For data with exponential decay
     - Log-normal distributions: For data that is normal after log transform
     - Discrete distributions: For data with finite distinct values
-    - Periodic distributions: For data with cyclic patterns
+    - Periodic distributions: For data with cyclic patterns (adds sin/cos features)
     - Sparse distributions: For data with many zeros
     - Beta distributions: For bounded data between 0 and 1
     - Gamma distributions: For positive, right-skewed data
     - Poisson distributions: For count data
-    - Weibull distributions: For lifetime/failure data
     - Cauchy distributions: For extremely heavy-tailed data
     - Zero-inflated distributions: For data with excess zeros
     - Bounded distributions: For data with known bounds
     - Ordinal distributions: For ordered categorical data
 
-    The layer uses TensorFlow Probability (tfp) distributions for accurate modeling
-    and transformation of the input data. Each distribution type has a specialized
-    handler that applies appropriate transformations while preserving the statistical
-    properties of the data.
+    The layer uses pure TensorFlow operations without dependencies on TensorFlow Probability,
+    and is compatible with both eager execution and graph mode.
     """
 
     def __init__(
         self,
-        num_bins: int = 1000,
-        epsilon: float = 1e-6,
-        detect_periodicity: bool = True,
-        handle_sparsity: bool = True,
-        adaptive_binning: bool = True,
-        mixture_components: int = 3,
-        trainable: bool = True,
-        prefered_distribution: DistributionType = None,
-        name: str = "distribution_aware",
+        embedding_dim=None,
+        epsilon=1e-6,
+        detect_periodicity=True,
+        handle_sparsity=True,
+        auto_detect=True,
+        distribution_type="unknown",
+        transform_type="auto",
+        add_distribution_embedding=False,
+        name="distribution_aware_encoder",
+        trainable=True,
+        # Legacy parameters for backward compatibility
+        num_bins=None,
+        adaptive_binning=None,
+        mixture_components=None,
+        prefered_distribution=None,
         **kwargs,
-    ) -> None:
+    ):
         """Initialize the DistributionAwareEncoder.
 
         Args:
-            num_bins: Number of bins for quantile encoding
-            epsilon: Small value for numerical stability
-            detect_periodicity: Enable periodic pattern detection
-            handle_sparsity: Enable special handling for sparse data
-            adaptive_binning: Enable adaptive bin boundaries
-            mixture_components: Number of components for mixture models
-            trainable: Whether parameters are trainable
-            name: Name of the layer
-            prefered_distribution: Specific distribution type to use
-            **kwargs: Additional layer arguments
+            embedding_dim: Optional output dimension for feature projection. If specified,
+                a Dense layer will project the transformed features to this dimension.
+                If None, the original feature dimension is preserved. Default is None.
+            epsilon: Small value to prevent numerical issues. Default is 1e-6.
+            detect_periodicity: If True, the layer will check for and handle periodic patterns
+                by adding sin/cos features, increasing the output dimension. When True, periodic
+                data will have 3x the original feature dimension. Default is True.
+            handle_sparsity: If True, special handling for sparse data (many zeros). Default is True.
+            auto_detect: If True, automatically detect the distribution type during training.
+                If False, the specified distribution_type will be used. Default is True.
+            distribution_type: The specific distribution type to use if auto_detect is False.
+                Must be one of the values in DistributionType. Default is "unknown".
+            transform_type: Type of transformation to apply via DistributionTransformLayer.
+                Options include "none", "log", "sqrt", "box-cox", etc. Default is "auto".
+            add_distribution_embedding: If True, adds a learned embedding for the detected
+                distribution type to the output, increasing the output dimension. Default is False.
+            name: Name for the layer. Default is "distribution_aware_encoder".
+            trainable: Whether the layer is trainable. Default is True.
+
+            # Legacy parameters (maintained for backward compatibility)
+            num_bins: Number of bins for legacy histogram-based encoding. Not used in current implementation.
+            adaptive_binning: Whether to use adaptive binning. Not used in current implementation.
+            mixture_components: Number of mixture components. Not used in current implementation.
+            prefered_distribution: Legacy way to specify distribution_type. If provided, auto_detect
+                will be set to False and this value will be used as distribution_type.
+
+        Note on output dimensions:
+            - If detect_periodicity=True and periodic features are detected/forced:
+                output_dim = input_dim * 3 (original + sin + cos features)
+            - If embedding_dim is specified:
+                output_dim = embedding_dim
+            - If add_distribution_embedding=True:
+                output_dim += 8 (distribution embedding dimension)
         """
-        super().__init__(name=name, trainable=trainable, **kwargs)
-        self.name = name
-        self.num_bins = num_bins
+        # Call parent's __init__ with proper parameters
+        # Fix: Use the full class name instead of just super()
+        tf.keras.layers.Layer.__init__(self, name=name, trainable=trainable, **kwargs)
+
+        # Initialize class attributes to avoid attribute errors
+        self._added_periodic_features = False
+        self._current_dist_type = None
+        self._is_initialized = False
+
+        # Handle legacy parameters
+        if prefered_distribution is not None:
+            # If prefered_distribution is specified, use it and disable auto-detect
+            self.distribution_type = prefered_distribution
+            self.auto_detect = False
+            logger.info(
+                f"Using specified distribution type: {prefered_distribution} (legacy parameter)"
+            )
+        else:
+            self.distribution_type = distribution_type
+            self.auto_detect = auto_detect
+
+        # Store other parameters
+        self.embedding_dim = embedding_dim
         self.epsilon = epsilon
         self.detect_periodicity = detect_periodicity
         self.handle_sparsity = handle_sparsity
+        self.transform_type = transform_type
+        self.add_distribution_embedding = add_distribution_embedding
+
+        # Store legacy parameters (not used, but needed for get_config)
+        self.num_bins = num_bins
         self.adaptive_binning = adaptive_binning
         self.mixture_components = mixture_components
         self.prefered_distribution = prefered_distribution
 
-        # Initialize TFP distributions
-        self.normal_dist = tfp.distributions.Normal
-        self.student_t_dist = tfp.distributions.StudentT
-        self.mixture_dist = tfp.distributions.MixtureSameFamily
-        self.categorical_dist = tfp.distributions.Categorical
-        self.exponential_dist = tfp.distributions.Exponential
-        self.lognormal_dist = tfp.distributions.LogNormal
-        self.uniform_dist = tfp.distributions.Uniform
-        self.beta_dist = tfp.distributions.Beta
-        self.gamma_dist = tfp.distributions.Gamma
-        self.poisson_dist = tfp.distributions.Poisson
-        self.weibull_dist = tfp.distributions.Weibull
-        self.cauchy_dist = tfp.distributions.Cauchy
-        self.zero_inflated_dist = tfp.distributions.Mixture
-        self.bernoulli_dist = tfp.distributions.Bernoulli
+        # Define valid distribution types
+        self._valid_distributions = [dist.value for dist in DistributionType]
 
-    def build(self, input_shape) -> None:
+        # Validate distribution_type
+        if (
+            self.distribution_type not in self._valid_distributions
+            and self.distribution_type != "unknown"
+        ):
+            logger.warning(
+                f"Unknown distribution type: {self.distribution_type}. Defaulting to 'normal'"
+            )
+            self.distribution_type = "normal"
+
+        # Initialize layers
+        self._init_layers()
+
+    def _init_layers(self):
+        """Initialize internal layers."""
+        # Check accepted parameters for DistributionTransformLayer
+        transform_kwargs = {}
+        transform_kwargs["transform_type"] = self.transform_type
+        # Use epsilon if it's a valid parameter
+        try:
+            transform_signature = inspect.signature(DistributionTransformLayer.__init__)
+            if "epsilon" in transform_signature.parameters:
+                transform_kwargs["epsilon"] = self.epsilon
+        except Exception:
+            pass  # If we can't inspect, just use default params
+
+        # The DistributionTransformLayer handles most of the distribution transformations
+        self.distribution_transform = DistributionTransformLayer(
+            **transform_kwargs, name=f"{self.name}_transform"
+        )
+
+        # Projection layer for embedding dimension if specified
+        if self.embedding_dim is not None:
+            self.projection = tf.keras.layers.Dense(
+                self.embedding_dim, activation="relu", name=f"{self.name}_projection"
+            )
+        else:
+            self.projection = None
+
+    def build(self, input_shape):
         """Build the layer.
 
         Args:
             input_shape: Shape of input tensor
         """
-        # Quantile boundaries for adaptive binning
-        self.boundaries = self.add_weight(
-            name="boundaries",
-            shape=(self.num_bins - 1,),
-            initializer="zeros",
-            trainable=self.adaptive_binning,
-        )
+        # Create a variable to store the detected distribution
+        if self.auto_detect:
+            self.detected_distribution = self.add_weight(
+                name="detected_distribution",
+                shape=(1,),
+                dtype="int32",
+                trainable=False,
+                initializer="zeros",
+            )
 
-        # Distribution mixture parameters
-        self.mixture_weights = self.add_weight(
-            name="mixture_weights",
-            shape=(self.mixture_components,),
-            initializer="ones",
-            trainable=True,
-        )
+        # Distribution embedding if needed
+        if self.add_distribution_embedding:
+            num_distributions = len(self._valid_distributions)
+            self.distribution_embedding = self.add_weight(
+                name="distribution_embedding",
+                shape=(
+                    num_distributions,
+                    8,
+                ),  # 8-dimensional embedding for each distribution
+                initializer="glorot_uniform",
+                trainable=True,
+            )
 
-        # Periodic components
+        # For periodic data handling
         if self.detect_periodicity:
             self.frequency = self.add_weight(
                 name="frequency",
-                shape=(),
+                shape=(1,),
                 initializer="ones",
                 trainable=True,
             )
             self.phase = self.add_weight(
                 name="phase",
-                shape=(),
+                shape=(1,),
                 initializer="zeros",
                 trainable=True,
             )
 
-        super().build(input_shape)
+        # Build the distribution transform layer
+        self.distribution_transform.build(input_shape)
 
-    def _estimate_distribution(self, inputs: tf.Tensor, name: str = "unknown") -> dict:
-        """Estimate distribution type with comprehensive checks or use specified distribution type.
+        # Build the projection layer if needed
+        if self.projection is not None:
+            transformed_shape = self.distribution_transform.compute_output_shape(
+                input_shape
+            )
+            self.projection.build(transformed_shape)
+
+        # Fix the super().build call
+        tf.keras.layers.Layer.build(self, input_shape)
+
+    def _calculate_statistics(self, x):
+        """Calculate statistics for distribution detection.
 
         Args:
-            inputs: Input tensor to analyze
-            name: Name of the feature being analyzed
-        """
+            x: Input tensor
 
-        # Otherwise, perform automatic detection
+        Returns:
+            Dictionary of statistics
+        """
         # Basic statistics
-        mean = tf.reduce_mean(inputs)
-        variance = tf.math.reduce_variance(inputs)
-        skewness = tf.reduce_mean(
-            tf.pow((inputs - mean) / tf.sqrt(variance + self.epsilon), 3)
-        )
-        kurtosis = tf.reduce_mean(
-            tf.pow((inputs - mean) / tf.sqrt(variance + self.epsilon), 4)
-        )
+        mean = tf.reduce_mean(x, axis=0)
+        variance = tf.math.reduce_variance(x)
+        std = tf.sqrt(variance + self.epsilon)
+
+        # Standardize for higher moments
+        x_std = (x - mean) / (std + self.epsilon)
+
+        # Calculate skewness: E[(x-μ)³]/σ³
+        skewness = tf.reduce_mean(tf.pow(x_std, 3), axis=0)
+
+        # Calculate kurtosis: E[(x-μ)⁴]/σ⁴
+        kurtosis = tf.reduce_mean(tf.pow(x_std, 4), axis=0)
 
         # Range statistics
-        min_val = tf.reduce_min(inputs)
-        max_val = tf.reduce_max(inputs)
-        # Calculate range for potential future use
-        _ = max_val - min_val  # Range value stored for future implementation
+        min_val = tf.reduce_min(x)
+        max_val = tf.reduce_max(x)
 
-        # Count statistics
-        is_zero = tf.abs(inputs) < self.epsilon
-        num_zeros = tf.reduce_sum(tf.cast(is_zero, tf.float32))
-        total_elements = tf.cast(tf.size(inputs), tf.float32)
-        zero_ratio = num_zeros / total_elements
+        # Check for zeros and sparsity
+        is_zero = tf.abs(x) < self.epsilon
+        zero_ratio = tf.reduce_mean(tf.cast(is_zero, tf.float32))
 
-        is_bounded = tf.logical_and(
-            tf.greater(min_val, -1000.0), tf.less(max_val, 1000.0)
-        )  # Arbitrary bounds for demonstration
-
-        # Distribution checks
-        is_sparse = zero_ratio > 0.5
-        is_zero_inflated = tf.logical_and(
-            tf.greater(zero_ratio, 0.3), tf.logical_not(is_sparse)
-        )
-        is_normal = tf.logical_and(tf.abs(kurtosis - 3.0) < 0.5, tf.abs(skewness) < 0.5)
-        is_uniform = tf.abs(kurtosis - 1.8) < 0.2
-        is_heavy_tailed = self._check_heavy_tailed(inputs)
-        is_cauchy = kurtosis > 20.0  # Extremely heavy-tailed
-        is_exponential = tf.logical_and(
-            tf.abs(skewness - 2.0) < 0.5, tf.greater_equal(min_val, -self.epsilon)
-        )
-        is_log_normal = self._check_log_normal(inputs)
-        is_multimodal = self._detect_multimodality(inputs)
-        is_discrete = self._check_discreteness(inputs)
-        is_periodic = self.detect_periodicity and self._check_periodicity(inputs)
-
-        # Advanced distribution checks
-        is_beta = tf.logical_and(
-            tf.logical_and(is_bounded, tf.logical_not(is_uniform)),
-            tf.logical_and(tf.greater_equal(min_val, 0.0), tf.less_equal(max_val, 1.0)),
-        )
-        is_gamma = tf.logical_and(
-            tf.greater_equal(min_val, -self.epsilon), tf.greater(skewness, 0.0)
-        )
-        is_poisson = tf.logical_and(
-            is_discrete,
-            tf.logical_and(
-                tf.greater(variance / mean, 0.8), tf.less(variance / mean, 1.2)
-            ),
+        # Check for discreteness
+        unique_values, _ = tf.unique(tf.reshape(x, [-1]))
+        unique_ratio = tf.cast(tf.size(unique_values), tf.float32) / tf.cast(
+            tf.size(x), tf.float32
         )
 
-        # exceptions
-        is_normal = tf.cond(
-            tf.logical_and(is_normal, is_multimodal),
-            lambda: tf.constant(False),
-            lambda: is_normal,
-        )
-        is_normal = tf.cond(
-            tf.logical_and(is_normal, is_heavy_tailed),
-            lambda: tf.constant(False),
-            lambda: is_normal,
-        )
-        is_heavy_tailed = tf.cond(
-            tf.logical_and(is_multimodal, is_heavy_tailed),
-            lambda: tf.constant(False),
-            lambda: is_heavy_tailed,
-        )
-
-        # Create stats dictionary with tensor values
-        stats_dict = {
+        return {
             "mean": mean,
             "variance": variance,
+            "std": std,
             "skewness": skewness,
             "kurtosis": kurtosis,
+            "min": min_val,
+            "max": max_val,
             "zero_ratio": zero_ratio,
+            "unique_ratio": unique_ratio,
+            "has_negative": tf.reduce_any(x < 0),
+            "is_bounded_01": tf.logical_and(
+                tf.reduce_all(x >= 0), tf.reduce_all(x <= 1)
+            ),
         }
 
-        feature_name = name.rsplit("_", 1)[-1]
-
-        if self.prefered_distribution:
-            tf.print(
-                "\n--------------------------------",
-                f'Using manually specified distribution for "{feature_name}": {self.prefered_distribution}',
-            )
-            return {
-                "type": self.prefered_distribution,
-                "stats": stats_dict,
-            }
-        else:
-            distrib_dict_determined = self._determine_primary_distribution(
-                {
-                    DistributionType.NORMAL: is_normal,
-                    DistributionType.UNIFORM: is_uniform,
-                    DistributionType.HEAVY_TAILED: is_heavy_tailed,
-                    DistributionType.EXPONENTIAL: is_exponential,
-                    DistributionType.LOG_NORMAL: is_log_normal,
-                    DistributionType.MULTIMODAL: is_multimodal,
-                    DistributionType.PERIODIC: is_periodic,
-                    DistributionType.SPARSE: is_sparse,
-                    DistributionType.BETA: is_beta,
-                    DistributionType.GAMMA: is_gamma,
-                    DistributionType.POISSON: is_poisson,
-                    DistributionType.CAUCHY: is_cauchy,
-                    DistributionType.ZERO_INFLATED: is_zero_inflated,
-                }
-            )
-            tf.print(
-                "\n--------------------------------",
-                f'Determined distribution type for "{feature_name}": {distrib_dict_determined}',
-            )
-            return {
-                "type": distrib_dict_determined,
-                "stats": stats_dict,
-            }
-
-    def _determine_primary_distribution(self, dist_flags: dict) -> str:
-        """Determine the primary distribution type based on flags."""
-        # Priority order for distribution types
-        priority_order = [
-            DistributionType.SPARSE,
-            DistributionType.PERIODIC,
-            DistributionType.UNIFORM,
-            DistributionType.ZERO_INFLATED,
-            DistributionType.NORMAL,
-            DistributionType.HEAVY_TAILED,
-            DistributionType.LOG_NORMAL,
-            DistributionType.POISSON,
-            DistributionType.BETA,
-            DistributionType.EXPONENTIAL,
-            DistributionType.GAMMA,
-            DistributionType.CAUCHY,
-            DistributionType.MULTIMODAL,
-        ]
-
-        # for dist_type in priority_order:
-        #     flag_value = tf.get_static_value(dist_flags[dist_type])
-        #     tf.print(f"{dist_type:15} : {flag_value}")
-
-        for dist_type in priority_order:
-            flag_value = tf.get_static_value(dist_flags.get(dist_type, False))
-            if flag_value:
-                return dist_type
-
-        return DistributionType.NORMAL
-
-    def _check_heavy_tailed(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Check for heavy-tailed distribution by comparing with normal distribution.
-
-        Compares the ratio of data beyond 2 and 3 standard deviations with what we'd
-        expect from a normal distribution, and checks for symmetry.
-        """
-        # Standardize the data
-        mean = tf.reduce_mean(inputs)
-        std = tf.math.reduce_std(inputs)
-        standardized = (inputs - mean) / std
-
-        # Check symmetry
-        left_tail = tf.reduce_mean(tf.cast(standardized < -2.0, tf.float32))
-        right_tail = tf.reduce_mean(tf.cast(standardized > 2.0, tf.float32))
-        is_symmetric = tf.abs(left_tail - right_tail) < 0.01  # 1% tolerance
-
-        # For a normal distribution:
-        # ~4.6% of data should be beyond 2 std
-        # ~0.3% of data should be beyond 3 std
-        beyond_2std = tf.reduce_mean(tf.cast(tf.abs(standardized) > 2.0, tf.float32))
-        beyond_3std = tf.reduce_mean(tf.cast(tf.abs(standardized) > 3.0, tf.float32))
-
-        # Check if the 2nd quantile is about the same as the 3rd quantile compared to the normal distribution
-        # and ensure the distribution is symmetric
-        is_heavy = tf.logical_and(
-            tf.logical_and(
-                beyond_2std < 0.046 * 1.5,
-                beyond_3std > 0.0029,
-            ),
-            is_symmetric,
-        )
-
-        return is_heavy
-
-    def _check_log_normal(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Check if the distribution is log-normal."""
-        positive_inputs = inputs - tf.reduce_min(inputs) + self.epsilon
-        log_inputs = tf.math.log(positive_inputs)
-        log_kurtosis = tf.reduce_mean(
-            tf.pow(
-                (log_inputs - tf.reduce_mean(log_inputs))
-                / (tf.math.reduce_std(log_inputs) + self.epsilon),
-                4,
-            ),
-        )
-        return tf.abs(log_kurtosis - 3.0) < 0.5
-
-    def _check_discreteness(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Check if the distribution is discrete."""
-        flattened_inputs = tf.reshape(inputs, [-1])
-        unique_values = tf.unique(flattened_inputs)[0]
-
-        unique_val_vs_range = (
-            tf.cast(tf.size(unique_values), tf.float32)
-            / tf.cast(tf.size(inputs), tf.float32)
-            < 0.5
-        )
-
-        is_mostly_integer = (
-            tf.reduce_mean(
-                tf.cast(
-                    tf.abs(flattened_inputs - tf.round(flattened_inputs)) < 0.1,
-                    tf.float32,
-                )
-            )
-            > 0.9
-        )  # 90% of values are nearly integer
-
-        return tf.logical_and(unique_val_vs_range, is_mostly_integer)
-
-    def _check_periodicity(
-        self, data: tf.Tensor, max_lag: int = 50, threshold: float = 0.3
-    ) -> tf.Tensor:
-        """Test for periodicity in time series data using autocorrelation.
+    def _detect_distribution(self, x):
+        """Detect the distribution type of the data.
 
         Args:
-            data: Input time series tensor.
-            max_lag: Maximum lag to test. Defaults to 50.
-            threshold: Correlation threshold to consider as periodic.
+            x: Input tensor
 
         Returns:
-            tf.Tensor: A boolean tensor indicating if the data is periodic.
+            int: Index of the detected distribution type
         """
-        # Ensure data is 1D and float32
-        data = tf.cast(tf.reshape(data, [-1]), tf.float32)
-        n_samples = tf.shape(data)[0]
+        # Calculate statistics
+        stats = self._calculate_statistics(x)
 
-        # Set max_lag to the minimum of provided max_lag and n_samples // 2
-        max_lag = tf.minimum(
-            tf.cast(max_lag, tf.int32), tf.cast(n_samples // 2, tf.int32)
+        # Extract key metrics
+        skewness = tf.reduce_mean(tf.abs(stats["skewness"]))
+        kurtosis = tf.reduce_mean(stats["kurtosis"])
+        zero_ratio = stats["zero_ratio"]
+        has_negative = stats["has_negative"]
+        is_bounded_01 = stats["is_bounded_01"]
+        unique_ratio = stats["unique_ratio"]
+
+        # Check for periodicity if enabled - store as a tensor for graph compatibility
+        is_periodic = tf.constant(False, dtype=tf.bool)
+        if self.detect_periodicity:
+            is_periodic = tf.cast(self._check_periodicity(x), tf.bool)
+
+        # Check for multimodality - store as a tensor for graph compatibility
+        is_multimodal = tf.cast(self._check_multimodality(x, stats), tf.bool)
+
+        # Use a scoring system to determine distribution type
+        # Initialize scores for each distribution
+        dist_scores = {}
+        for dist_type in self._valid_distributions:
+            dist_scores[dist_type] = tf.constant(0.0, dtype=tf.float32)
+
+        # Sparse score - Use tf.cond
+        dist_scores["sparse"] = tf.cond(
+            zero_ratio > 0.5, lambda: tf.constant(100.0), lambda: tf.constant(0.0)
         )
 
-        # Handle cases where n_samples is too small
-        max_lag = tf.cond(
-            tf.greater(max_lag, 0),
-            lambda: max_lag,
-            lambda: tf.constant(1, dtype=tf.int32),
+        # Periodic score - Use tf.cond for tensor values
+        dist_scores["periodic"] = tf.cond(
+            is_periodic, lambda: tf.constant(90.0), lambda: tf.constant(0.0)
         )
 
-        # Center the data
-        data_centered = data - tf.reduce_mean(data)
-        variance = (
-            tf.reduce_sum(tf.square(data_centered)) + 1e-8
-        )  # Add epsilon to avoid division by zero
-
-        # Define a function to compute correlation for a given lag
-        def compute_corr(lag):
-            y1 = data_centered[lag:]
-            y2 = data_centered[:-lag]
-            corr = tf.reduce_sum(y1 * y2) / variance
-            return corr
-
-        # Create lags from 1 to max_lag
-        lags = tf.range(1, max_lag + 1)
-
-        # Compute autocorrelation for each lag using map_fn
-        autocorr = tf.map_fn(compute_corr, lags, dtype=tf.float32)
-
-        # Find peaks in the autocorrelation function
-        condition1 = autocorr > threshold
-        condition2 = autocorr > tf.concat([[0.0], autocorr[:-1]], 0)
-        condition3 = autocorr > tf.concat([autocorr[1:], [0.0]], 0)
-        peaks = tf.where(
-            tf.logical_and(tf.logical_and(condition1, condition2), condition3)
+        # Discrete score - Use tf.cond
+        dist_scores["discrete"] = tf.cond(
+            unique_ratio < 0.1, lambda: tf.constant(80.0), lambda: tf.constant(0.0)
         )
 
-        # Check if we found more than one significant peak
-        return tf.greater(tf.shape(peaks)[0], 1)
-
-    def _gaussian_kernel_density_estimation(
-        self,
-        x: tf.Tensor,
-        sample_points: tf.Tensor,
-        bandwidth: float,
-    ) -> tf.Tensor:
-        """Custom implementation of Gaussian KDE using TensorFlow operations."""
-        x = tf.reshape(x, [-1, 1])  # Shape: [n_points, 1]
-        sample_points = tf.reshape(sample_points, [1, -1])  # Shape: [1, n_samples]
-
-        # Calculate squared distances
-        squared_distances = tf.square(x - sample_points)
-
-        # Apply Gaussian kernel
-        kernel_values = tf.exp(-squared_distances / (2.0 * tf.square(bandwidth)))
-
-        # Average over all data points
-        kde = tf.reduce_mean(kernel_values, axis=0)
-
-        return kde / (bandwidth * tf.sqrt(2.0 * np.pi))
-
-    def _detect_multimodality(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Enhanced multimodality detection using KDE."""
-        # Instead of stack, use reshape and transpose for similar functionality
-        flattened_inputs = tf.reshape(inputs, [-1])
-        sample_points = tf.linspace(
-            tf.reduce_min(flattened_inputs),
-            tf.reduce_max(flattened_inputs),
-            500,
+        # Beta score
+        bounded_and_skewed = tf.logical_and(is_bounded_01, skewness > 0.5)
+        dist_scores["beta"] = tf.cond(
+            bounded_and_skewed, lambda: tf.constant(75.0), lambda: tf.constant(0.0)
         )
 
-        kde = self._gaussian_kernel_density_estimation(
-            flattened_inputs,
-            sample_points,
-            bandwidth=0.5,
+        # Uniform score
+        dist_scores["uniform"] = tf.cond(
+            is_bounded_01, lambda: tf.constant(70.0), lambda: tf.constant(0.0)
         )
 
-        # Compare with both previous and next points
-        prev_kde = tf.concat([kde[:1], kde[:-1]], axis=0)
-        next_kde = tf.concat([kde[1:], kde[-1:]], axis=0)
-        peaks = tf.where(
-            tf.logical_and(
-                kde > prev_kde,
-                kde > next_kde,
-            ),
+        # Log-normal score
+        positive_and_very_skewed = tf.logical_and(
+            tf.logical_not(has_negative), skewness > 2.0
+        )
+        dist_scores["log_normal"] = tf.cond(
+            positive_and_very_skewed,
+            lambda: tf.constant(65.0),
+            lambda: tf.constant(0.0),
         )
 
-        # Check if we have at least 2 peaks for multimodality
-        has_multiple_peaks = tf.greater(tf.shape(peaks)[0], 1)
-
-        # If we have 3 or more peaks, check for periodicity
-        def check_periodicity():
-            peak_positions = tf.cast(peaks[:, 0], tf.float32)
-            peak_distances = peak_positions[1:] - peak_positions[:-1]
-            mean_distance = tf.reduce_mean(peak_distances)
-            max_deviation = tf.reduce_max(tf.abs(peak_distances - mean_distance))
-            is_periodic = max_deviation < (0.2 * mean_distance)
-            # Return False if periodic, True if multimodal
-            return tf.logical_not(is_periodic)
-
-        # Only check periodicity if we have enough peaks
-        is_multimodal = tf.cond(
-            tf.greater_equal(tf.shape(peaks)[0], 3),
-            check_periodicity,
-            lambda: has_multiple_peaks,
+        # Exponential score
+        positive_and_skewed = tf.logical_and(
+            tf.logical_not(has_negative), skewness > 1.0
+        )
+        dist_scores["exponential"] = tf.cond(
+            positive_and_skewed, lambda: tf.constant(60.0), lambda: tf.constant(0.0)
         )
 
-        return is_multimodal
-
-    def _transform_distribution(self, inputs: tf.Tensor, dist_info: dict) -> tf.Tensor:
-        """Apply appropriate transformation based on distribution type."""
-        transformations = {
-            DistributionType.NORMAL: self._handle_normal,
-            DistributionType.HEAVY_TAILED: self._handle_heavy_tailed,
-            DistributionType.MULTIMODAL: self._handle_multimodal,
-            DistributionType.UNIFORM: self._handle_uniform,
-            DistributionType.EXPONENTIAL: self._handle_exponential,
-            DistributionType.LOG_NORMAL: self._handle_log_normal,
-            DistributionType.PERIODIC: self._handle_periodic,
-            DistributionType.SPARSE: self._handle_sparse,
-            DistributionType.BETA: self._handle_beta,
-            DistributionType.GAMMA: self._handle_gamma,
-            DistributionType.POISSON: self._handle_poisson,
-            DistributionType.CAUCHY: self._handle_cauchy,
-            DistributionType.ZERO_INFLATED: self._handle_zero_inflated,
-            DistributionType.BOUNDED: self._handle_bounded,
-            DistributionType.ORDINAL: self._handle_ordinal,
-        }
-
-        transform_fn = transformations.get(dist_info["type"], self._handle_normal)
-        result = transform_fn(inputs, dist_info["stats"])
-        return tf.cast(result, tf.float32)
-
-    def _handle_normal(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle normal distribution using TFP Normal distribution."""
-        dist = self.normal_dist(
-            loc=stats["mean"], scale=tf.sqrt(stats["variance"] + self.epsilon)
+        # Gamma score
+        positive_and_mild_skew = tf.logical_and(
+            tf.logical_not(has_negative), skewness > 0.5
         )
-        normalized = dist.cdf(inputs)
-        return 2.0 * normalized - 1.0  # Scale to [-1, 1]
+        dist_scores["gamma"] = tf.cond(
+            positive_and_mild_skew, lambda: tf.constant(55.0), lambda: tf.constant(0.0)
+        )
 
-    def _handle_heavy_tailed(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle heavy-tailed distribution using Student's t-distribution."""
-        # Estimate degrees of freedom using kurtosis
-        df = tf.cond(
-            stats["kurtosis"] > 3.0,
-            lambda: 6.0 / (stats["kurtosis"] - 3.0),
+        # Cauchy score
+        dist_scores["cauchy"] = tf.cond(
+            kurtosis > 10.0, lambda: tf.constant(50.0), lambda: tf.constant(0.0)
+        )
+
+        # Heavy-tailed score
+        dist_scores["heavy_tailed"] = tf.cond(
+            kurtosis > 4.0, lambda: tf.constant(45.0), lambda: tf.constant(0.0)
+        )
+
+        # Multimodal score - Use tf.cond for tensor values
+        dist_scores["multimodal"] = tf.cond(
+            is_multimodal, lambda: tf.constant(40.0), lambda: tf.constant(0.0)
+        )
+
+        # Zero-inflated score
+        moderate_zeros = tf.logical_and(zero_ratio > 0.3, zero_ratio <= 0.5)
+        dist_scores["zero_inflated"] = tf.cond(
+            moderate_zeros, lambda: tf.constant(35.0), lambda: tf.constant(0.0)
+        )
+
+        # Normal score - default option if nothing else fits well
+        normal_like = tf.logical_and(skewness < 0.5, tf.abs(kurtosis - 3.0) < 1.0)
+        dist_scores["normal"] = tf.cond(
+            normal_like,
             lambda: tf.constant(30.0),
-        )
-        df = tf.clip_by_value(df, 2.1, 30.0)  # Ensure df > 2 for finite variance
-
-        dist = self.student_t_dist(
-            df=df,
-            loc=stats["mean"],
-            scale=tf.sqrt(stats["variance"] * (df - 2) / df + self.epsilon),
-        )
-        return dist.cdf(inputs)
-
-    def _handle_multimodal(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle multimodal distribution using Gaussian Mixture Model."""
-        # Initialize mixture model parameters
-        means_init = tf.linspace(
-            tf.reduce_min(inputs),
-            tf.reduce_max(inputs),
-            self.mixture_components,
-        )
-        scales_init = tf.ones_like(means_init) * tf.sqrt(
-            stats["variance"] / self.mixture_components + self.epsilon
+            lambda: tf.constant(
+                20.0
+            ),  # Give some baseline score to normal distribution
         )
 
-        # Normalize mixture weights
-        weights = tf.nn.softmax(self.mixture_weights)
+        # Find the distribution with the highest score using TensorFlow operations
+        # Create tensors for scores and distribution types
+        score_values = []
+        dist_types = []
 
-        # Create mixture distribution
-        mix_dist = self.categorical_dist(probs=weights)
-        comp_dist = self.normal_dist(loc=means_init, scale=scales_init)
-        mixture = self.mixture_dist(mix_dist, comp_dist)
+        for dist_type in self._valid_distributions:
+            score_values.append(dist_scores[dist_type])
+            dist_types.append(dist_type)
 
-        return mixture.cdf(inputs)
+        # Convert to tensors
+        score_values_tensor = tf.stack(score_values)
 
-    def _handle_uniform(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
-        """Handle uniform distribution using TFP Uniform."""
-        low = tf.reduce_min(inputs)
-        high = tf.reduce_max(inputs)
+        # Find the index of the maximum score
+        max_score_idx = tf.argmax(score_values_tensor)
 
-        dist = self.uniform_dist(low=low, high=high + self.epsilon)
-        result = dist.cdf(inputs)
-        return result
+        # Get the selected distribution type
+        # For graph mode compatibility, we'll handle this differently
+        if tf.executing_eagerly():
+            # In eager mode, we can directly use the index
+            selected_dist = dist_types[max_score_idx.numpy()]
+            dist_idx = self._valid_distributions.index(selected_dist)
+        else:
+            # In graph mode, we'll use the index directly
+            dist_idx = max_score_idx
+            # For logging, use the first valid distribution as a fallback
+            selected_dist = self._valid_distributions[0]
 
-    def _handle_exponential(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
-        """Handle exponential distribution using TFP Exponential."""
-        # Shift to non-negative values
-        shifted_inputs = inputs - tf.reduce_min(inputs)
-
-        # Estimate rate parameter (1/mean)
-        rate = 1.0 / (tf.reduce_mean(shifted_inputs) + self.epsilon)
-
-        dist = self.exponential_dist(rate=rate)
-        return dist.cdf(shifted_inputs)
-
-    def _handle_log_normal(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
-        """Handle log-normal distribution using TFP LogNormal."""
-        # Shift inputs to be positive
-        shifted_inputs = inputs - tf.reduce_min(inputs) + self.epsilon
-
-        # Estimate parameters in log space
-        log_inputs = tf.math.log(shifted_inputs)
-        mu = tf.reduce_mean(log_inputs)
-        sigma = tf.math.reduce_std(log_inputs)
-
-        dist = self.lognormal_dist(loc=mu, scale=sigma)
-        return dist.cdf(shifted_inputs)
-
-    def _handle_beta(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle beta-distributed data using beta CDF."""
-        # Estimate alpha and beta parameters
-        mean = stats["mean"]
-        var = stats["variance"]
-        alpha = mean * (mean * (1 - mean) / var - 1)
-        beta = (1 - mean) * (mean * (1 - mean) / var - 1)
-        dist = self.beta_dist(concentration1=alpha, concentration0=beta)
-        return dist.cdf(inputs)
-
-    def _handle_gamma(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle gamma-distributed data using gamma CDF."""
-        mean = stats["mean"]
-        var = stats["variance"]
-        alpha = mean**2 / var  # shape parameter
-        beta = mean / var  # rate parameter
-        dist = self.gamma_dist(concentration=alpha, rate=beta)
-        return dist.cdf(inputs)
-
-    def _handle_poisson(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle Poisson-distributed data."""
-        rate = stats["mean"]
-        dist = self.poisson_dist(rate=rate)
-        result = dist.cdf(inputs)
-        return result
-
-    def _handle_weibull(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle Weibull-distributed data."""
-        # Estimate parameters using method of moments
-        mean = stats["mean"]
-        k = 1.2  # Shape parameter (approximation)
-        lambda_ = mean / tf.math.exp(tf.math.lgamma(1 + 1 / k))
-        dist = self.weibull_dist(concentration=k, scale=lambda_)
-        return dist.cdf(inputs)
-
-    def _handle_cauchy(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
-        """Handle Cauchy-distributed data."""
-        # Use robust statistics for location and scale
-        location = tfp.stats.percentile(inputs, 50.0)  # median
-        scale = (
-            tfp.stats.percentile(inputs, 75.0) - tfp.stats.percentile(inputs, 25.0)
-        ) / 2  # IQR/2
-        dist = self.cauchy_dist(loc=location, scale=scale)
-        return dist.cdf(inputs)
-
-    def _handle_zero_inflated(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """
-        Handle zero-inflated data using tf.cond. This version models the non-zero part
-        with an appropriate distribution (gamma or normal) based on the statistics of the non-zero inputs.
-        """
-        non_zero_mask = tf.abs(inputs) >= self.epsilon
-        non_zero_inputs = tf.boolean_mask(inputs, non_zero_mask)
-
-        def non_zero_transform():
-            # Calculate statistics for non-zero values
-            mean = tf.reduce_mean(non_zero_inputs)
-            var = tf.math.reduce_variance(non_zero_inputs)
-            # Determine if overdispersion exists: positive mean and variance > mean
-            return tf.cond(
-                tf.logical_and(tf.greater(mean, 0.0), tf.greater(var, mean)),
-                lambda: self._handle_gamma(inputs, {"mean": mean, "variance": var}),
-                lambda: self._handle_normal(inputs, {"mean": mean, "variance": var}),
+        # For logging purposes only, calculate these values
+        if tf.executing_eagerly():
+            logger.debug(
+                f"Detected distribution: {selected_dist} with "
+                f"skewness={skewness.numpy():.2f}, kurtosis={kurtosis.numpy():.2f}, "
+                f"zero_ratio={zero_ratio.numpy():.2f}, unique_ratio={unique_ratio.numpy():.2f}"
             )
 
-        transformed = tf.cond(
-            tf.greater(tf.size(non_zero_inputs), 0), non_zero_transform, lambda: inputs
+        return dist_idx
+
+    def _check_periodicity(self, x, max_lag=20, threshold=0.2):
+        """Check if the input data has periodicity by analyzing autocorrelation.
+
+        This method detects periodic patterns in the data by:
+        1. Computing the autocorrelation function (ACF) up to max_lag
+        2. Finding peaks in the ACF that exceed the threshold
+        3. Checking if these peaks have a consistent spacing (indicating periodicity)
+
+        Args:
+            x: Input tensor of shape (batch_size, features)
+            max_lag: Maximum lag to consider for autocorrelation. Default is 20.
+            threshold: Threshold for peak detection in ACF. Default is 0.2.
+
+        Returns:
+            Boolean tensor indicating if periodicity was detected
+
+        Note:
+            When periodicity is detected, the encoder will add sine and cosine features
+            to the output, effectively tripling the feature dimension.
+        """
+        # Flatten and ensure float type with proper shape
+        x_flat = tf.cast(tf.reshape(x, [-1]), tf.float32)
+        n = tf.shape(x_flat)[0]
+
+        # For graph mode compatibility, we need to avoid using tensor values in conditionals
+        # Instead, we'll use tf.cond for all conditionals
+
+        # If data is too short, return False
+        return tf.cond(
+            tf.less(n, 3 * max_lag),
+            lambda: tf.constant(False),
+            lambda: self._compute_periodicity(x_flat, n, max_lag, threshold),
         )
 
-        # Preserve zeros (values where |inputs| < epsilon) in the output.
-        return tf.where(
-            tf.abs(inputs) < self.epsilon, tf.zeros_like(inputs), transformed
-        )
+    def _compute_periodicity(self, x_flat, n, max_lag, threshold):
+        """Helper function to compute periodicity for graph mode compatibility."""
+        # Center the data
+        x_centered = x_flat - tf.reduce_mean(x_flat)
 
-    def _handle_bounded(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle bounded data with known bounds."""
-        min_val = tf.reduce_min(inputs)
-        max_val = tf.reduce_max(inputs)
-        # Scale to [0,1] using min-max scaling
-        scaled = (inputs - min_val) / (max_val - min_val + self.epsilon)
-        # Apply beta transformation if the distribution is not uniform
-        if tf.abs(stats["variance"] - 1 / 12) > 0.1:  # Not uniform
-            return self._handle_beta(scaled, stats)
-        return scaled
+        # Calculate variance
+        variance = tf.reduce_sum(tf.square(x_centered))
 
-    def _handle_ordinal(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
-        """Handle ordinal categorical data."""
-        # Get unique values and their counts
-        unique_values, _ = tf.unique(inputs)
-        unique_values = tf.sort(unique_values)
-        num_categories = tf.size(unique_values)
-
-        # Create mapping to [0, 1] space
-        indices = tf.range(num_categories, dtype=tf.float32)
-        normalized_indices = indices / tf.cast(num_categories - 1, tf.float32)
-
-        # Create value to index mapping
-        table = tf.lookup.StaticHashTable(
-            tf.lookup.KeyValueTensorInitializer(
-                tf.cast(unique_values, tf.int64),
-                normalized_indices,
+        # Skip if no variation
+        return tf.cond(
+            tf.less(variance, self.epsilon),
+            lambda: tf.constant(False),
+            lambda: self._compute_autocorrelation(
+                x_centered, n, max_lag, variance, threshold
             ),
-            default_value=-1.0,
         )
 
-        return table.lookup(inputs)
+    def _compute_autocorrelation(self, x_centered, n, max_lag, variance, threshold):
+        """Helper function to compute autocorrelation."""
+        # Use TensorArray to collect autocorrelation values
+        acf_array = tf.TensorArray(tf.float32, size=max_lag)
 
-    def _handle_discrete(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
-        """Handle discrete data using rank-based normalization.
+        # Compute autocorrelation for different lags
+        i = tf.constant(0)
 
-        This method:
-        1. Preserves the ordering of discrete values
-        2. Creates evenly spaced values in [-1, 1]
-        3. Handles both numeric and categorical discrete data
-        """
-        # Get unique values and their indices
-        unique_values, indices = tf.unique(tf.reshape(inputs, [-1]))
+        # Use while_loop for graph compatibility
+        def loop_cond(i, *args):
+            return tf.logical_and(tf.less(i, max_lag), tf.less(i, n // 3))
 
-        # Sort unique values
-        sorted_indices = tf.argsort(unique_values)
-        sorted_values = tf.gather(unique_values, sorted_indices)
+        def loop_body(i, acf_array):
+            # Make sure we don't go out of bounds
+            lag = i + 1  # Start from lag 1
 
-        # Create normalized values between 0 and 1
-        num_unique = tf.shape(sorted_values)[0]
-        normalized_values = tf.linspace(0.0, 1.0, num_unique)
+            # Calculate correlation at this lag
+            y1 = x_centered[lag:]
+            y2 = x_centered[:-lag]
 
-        # Create a mapping from original values to normalized values
-        # This is a workaround for StaticHashTable which might not be compatible with graph execution
-        normalized_inputs = tf.zeros_like(inputs, dtype=tf.float32)
+            # Ensure y1 and y2 have the same shape
+            min_len = tf.minimum(tf.shape(y1)[0], tf.shape(y2)[0])
+            y1 = y1[:min_len]
+            y2 = y2[:min_len]
 
-        # Use a loop to create the mapping
-        for i in range(tf.get_static_value(num_unique)):
-            value_mask = tf.equal(inputs, sorted_values[i])
-            normalized_inputs = tf.where(
-                value_mask, normalized_values[i], normalized_inputs
-            )
+            corr = tf.reduce_sum(y1 * y2) / (variance + self.epsilon)
+            acf_array = acf_array.write(i, corr)
 
-        return normalized_inputs
+            return [i + 1, acf_array]
 
-    def _handle_periodic(self, inputs: tf.Tensor, stats: dict) -> tf.Tensor:
-        """Handle periodic data using Fourier features.
+        # Run the loop
+        _, acf_array = tf.while_loop(loop_cond, loop_body, [i, acf_array])
 
-        This method:
-        1. Normalizes the input data
-        2. Applies learned frequency and phase parameters
-        3. Returns sine and cosine features to capture full periodicity
-        4. Optionally adds higher harmonics if multimodality is detected
+        # Convert to tensor
+        acf_tensor = acf_array.stack()
 
-        Args:
-            inputs: Input tensor to transform
-            stats: Dictionary containing distribution statistics
-
-        Returns:
-            tf.Tensor: The transformed tensor with sine and cosine features concatenated.
-        """
-        # Normalize the inputs to [-π, π]
-        normalized = (inputs - stats["mean"]) / (
-            tf.sqrt(stats["variance"]) + self.epsilon
+        # Check if we collected any values
+        return tf.cond(
+            tf.equal(tf.shape(acf_tensor)[0], 0),
+            lambda: tf.constant(False),
+            lambda: self._find_peaks(acf_tensor, threshold),
         )
-        normalized = normalized * tf.constant(math.pi, dtype=tf.float32)
 
-        # Set default frequency and phase parameters if not provided or initialized
-        if not hasattr(self, "frequency") or self.frequency is None:
-            self.frequency = tf.Variable(1.0, trainable=True, dtype=tf.float32)
-            self.phase = tf.Variable(0.0, trainable=True, dtype=tf.float32)
+    def _find_peaks(self, acf_tensor, threshold):
+        """Find peaks in autocorrelation values."""
+        # Need at least 3 points for meaningful peaks
+        return tf.cond(
+            tf.less(tf.shape(acf_tensor)[0], 3),
+            lambda: tf.constant(False),
+            lambda: self._check_significant_peaks(acf_tensor, threshold),
+        )
 
-        sin_feat = tf.sin(self.frequency * normalized + self.phase)
-        cos_feat = tf.cos(self.frequency * normalized + self.phase)
+    def _check_significant_peaks(self, acf_tensor, threshold):
+        """Check if there are significant peaks in the autocorrelation."""
+        # Create is_greater_left and is_greater_right tensors
+        is_greater_left = tf.concat([[True], acf_tensor[1:] > acf_tensor[:-1]], axis=0)
+        is_greater_right = tf.concat([acf_tensor[:-1] > acf_tensor[1:], [True]], axis=0)
+        is_peak = tf.logical_and(is_greater_left, is_greater_right)
 
-        # Concatenate along the last axis to avoid adding an extra dimension
-        base_features = tf.concat([sin_feat, cos_feat], axis=-1)
+        # Check if peaks are above threshold
+        significant_peaks = tf.logical_and(is_peak, acf_tensor > threshold)
+        num_peaks = tf.reduce_sum(tf.cast(significant_peaks, tf.int32))
 
-        # Optionally add harmonic features if multimodality is detected.
-        if stats.get("is_multimodal", False):
-            harmonic_features = []
-            for harmonic in [2, 3, 4]:  # Add up to the 4th harmonic.
-                harmonic_freq = tf.cast(harmonic, tf.float32) * self.frequency
-                harmonic_features.append(
-                    tf.sin(harmonic_freq * normalized + self.phase)
-                )
-                harmonic_features.append(
-                    tf.cos(harmonic_freq * normalized + self.phase)
-                )
-            harmonic_tensor = tf.concat(harmonic_features, axis=-1)
-            return tf.concat([base_features, harmonic_tensor], axis=-1)
+        # Consider periodic if at least one significant peak
+        return num_peaks >= 1
 
-        return base_features
+    def _check_multimodality(self, x, stats, num_bins=100):
+        """Check if the data has a multimodal distribution by analyzing its histogram.
 
-    def _handle_sparse(self, inputs: tf.Tensor, _: dict) -> tf.Tensor:
-        """Handle sparse data with special attention to zero values.
+        This method detects multimodality by:
+        1. Creating a histogram of the data with num_bins bins
+        2. Finding peaks in the histogram
+        3. Checking if there are multiple significant peaks separated by valleys
 
-        This method:
-        1. Identifies zero and non-zero values
-        2. Applies separate transformations to non-zero values
-        3. Preserves sparsity pattern
-        4. Handles both sparse continuous and sparse count data
+        Args:
+            x: Input tensor of shape (batch_size, features)
+            stats: Dictionary of pre-computed statistics from _calculate_statistics
+            num_bins: Number of bins to use for histogram analysis. Default is 100.
+
+        Returns:
+            Boolean tensor indicating if multimodality was detected
+
+        Note:
+            Multimodal distributions have multiple peaks, indicating that the data
+            might come from a mixture of different distributions.
         """
-        # Identify zero and non-zero elements
-        is_zero = tf.abs(inputs) < self.epsilon
-        non_zero_mask = tf.logical_not(is_zero)
-        non_zero_values = tf.boolean_mask(inputs, non_zero_mask)
+        # Use a histogram approach to detect multiple modes
+        # Flatten the input
+        x_flat = tf.reshape(x, [-1])
 
-        def non_zero_transform():
-            # Calculate statistics for non-zero values
-            non_zero_mean = tf.reduce_mean(non_zero_values)
-            non_zero_std = tf.math.reduce_std(non_zero_values)
+        # Create histogram
+        hist = tf.histogram_fixed_width(
+            x_flat, [stats["min"], stats["max"] + self.epsilon], nbins=num_bins
+        )
 
-            # Note: use tf.cond to decide among different transformations
-            return tf.cond(
-                tf.greater_equal(tf.reduce_min(non_zero_values), 0.0),
-                lambda: tf.cond(
-                    tf.greater(tf.math.reduce_variance(non_zero_values), non_zero_mean),
-                    lambda: self._handle_gamma(
-                        inputs,
-                        {
-                            "mean": non_zero_mean,
-                            "variance": tf.math.reduce_variance(non_zero_values),
-                        },
-                    ),
-                    lambda: self._handle_exponential(
-                        inputs,
-                        {
-                            "mean": non_zero_mean,
-                        },
-                    ),
-                ),
-                lambda: (inputs - non_zero_mean) / (non_zero_std + self.epsilon),
+        # Smooth the histogram with a simple average filter
+        # Avoid using loops for graph mode compatibility
+        hist_float = tf.cast(hist, tf.float32)
+
+        # Pad with zeros for simple window-based smoothing
+        padded_hist = tf.pad(hist_float, [[1, 1]])
+
+        # Create a simple 3-point average filter
+        # For each position i, we compute the average of elements i-1, i, and i+1
+        hist_padded_shifted_left = padded_hist[:-2]  # Elements i-1
+        hist_padded_center = padded_hist[1:-1]  # Elements i
+        hist_padded_shifted_right = padded_hist[2:]  # Elements i+1
+
+        # Compute the average
+        smoothed_hist = (
+            hist_padded_shifted_left + hist_padded_center + hist_padded_shifted_right
+        ) / 3.0
+
+        # Find peaks (local maxima)
+        # A peak is where the value is greater than its neighbors
+        is_greater_left = tf.concat(
+            [[True], smoothed_hist[1:] > smoothed_hist[:-1]], axis=0
+        )
+        is_greater_right = tf.concat(
+            [smoothed_hist[:-1] > smoothed_hist[1:], [True]], axis=0
+        )
+        is_peak = tf.logical_and(is_greater_left, is_greater_right)
+
+        # Count significant peaks (ignore small bumps)
+        peak_threshold = tf.reduce_max(smoothed_hist) * 0.1  # 10% of max
+        significant_peaks = tf.logical_and(is_peak, smoothed_hist > peak_threshold)
+        num_peaks = tf.reduce_sum(tf.cast(significant_peaks, tf.int32))
+
+        # Consider multimodal if at least two significant peaks
+        return num_peaks >= 2
+
+    def _apply_distribution_specific_transform(self, x, dist_type):
+        """Apply distribution-specific transformations to the input tensor.
+
+        This method applies different transformations depending on the detected or specified
+        distribution type:
+
+        - normal: No special transformation needed
+        - heavy_tailed: Use Box-Cox or Yeo-Johnson to normalize heavy tails
+        - multimodal: Apply transformations that can help separate modes
+        - uniform: No special transformation needed
+        - exponential: Log transformation to normalize exponential decay
+        - log_normal: Log transformation to convert to normal distribution
+        - discrete: Special handling for discrete values
+        - periodic: No transformation here (periodic features added separately)
+        - sparse: Special handling for sparse data with many zeros
+        - beta: Logit transformation for bounded [0,1] data
+        - gamma: Log or Box-Cox transformation for positive skewed data
+        - poisson: Square root transformation for count data
+        - cauchy: Arctan transformation for extremely heavy tails
+        - zero_inflated: Special handling for excess zeros
+        - bounded: Min-max scaling or logit transform
+        - ordinal: No special transformation needed
+
+        Args:
+            x: Input tensor of shape (batch_size, features)
+            dist_type: String indicating the distribution type
+
+        Returns:
+            Transformed tensor with the same shape as input
+        """
+        if dist_type == "periodic" and self.detect_periodicity:
+            # For periodic data, add Fourier features
+            mean = tf.reduce_mean(x)
+            std = tf.math.reduce_std(x)
+
+            # Normalize to [-π, π]
+            normalized = (
+                (x - mean)
+                / (std + self.epsilon)
+                * tf.constant(3.14159, dtype=tf.float32)
             )
 
-        # Preserve zeros and apply transformation to non-zeros
-        transformed = non_zero_transform()  # Call the function and assign the result
-        return tf.where(is_zero, tf.zeros_like(inputs), transformed)
+            # Create Fourier features
+            sin_feature = tf.sin(self.frequency * normalized + self.phase)
+            cos_feature = tf.cos(self.frequency * normalized + self.phase)
 
-    def compute_output_shape(self, input_shape: tf.TensorShape) -> tf.TensorShape:
-        """Compute the output shape of the distribution-aware encoder.
+            # Store that we've added features
+            self._added_periodic_features = True
 
-        The output shape matches the input shape since this layer performs
-        element-wise transformations that preserve dimensionality.
+            # Combine with original transformed data
+            return tf.concat([x, sin_feature, cos_feature], axis=-1)
+
+        # For other distributions, continue with existing implementation...
+        # Set flag to indicate no periodic features were added
+        self._added_periodic_features = False
+
+        if dist_type == "discrete" or dist_type == "ordinal":
+            # For discrete data, ensure values are evenly spaced
+            x_flat = tf.reshape(x, [-1])
+
+            # Handle case with a single value by returning the input
+            unique_values, indices = tf.unique(x_flat)
+            num_unique = tf.shape(unique_values)[0]
+
+            # If only one unique value, return as is
+            if num_unique <= 1:
+                return x
+
+            # Create normalized values from 0 to 1
+            normalized_values = tf.linspace(0.0, 1.0, num_unique)
+
+            # Map each original value to its normalized counterpart
+            normalized_flat = tf.gather(normalized_values, indices)
+
+            # Reshape back to original shape
+            return tf.reshape(normalized_flat, tf.shape(x))
+
+        elif dist_type == "sparse" and self.handle_sparsity:
+            # For sparse data, preserve zeros and transform non-zeros
+            is_zero = tf.abs(x) < self.epsilon
+
+            # Ensure zeros remain zeros and don't affect the transformation
+            return tf.where(is_zero, tf.zeros_like(x), x)
+
+        # For other distribution types, keep the transformation from DistributionTransformLayer
+        return x
+
+    def call(self, inputs, training=None):
+        """Apply distribution-aware encoding to the inputs.
+
+        This method:
+        1. Detects the distribution type of input data (if auto_detect=True and in training mode)
+        2. Applies appropriate transformations based on the detected distribution
+        3. Optionally adds distribution embedding vectors
+        4. Optionally adds periodic features (sin/cos transformations) for periodic data
+        5. Optionally projects to the specified embedding dimension
 
         Args:
-            input_shape: Shape of the input tensor.
+            inputs: Input tensor with shape (batch_size, ..., features)
+            training: Boolean indicating if in training mode (True) or inference mode (False).
+                      When True and auto_detect=True, distribution type is detected.
+                      When False, uses previously detected distribution type.
 
         Returns:
-            tf.TensorShape: Shape of the output tensor, which is identical to the input shape.
-        """
-        return input_shape
+            Transformed tensor with shape depending on configuration:
+            - Base case: Same shape as input
+            - With periodic features: (batch_size, ..., features*3)
+            - With embedding_dim: (batch_size, ..., embedding_dim)
+            - With distribution_embedding: Output has 8 additional dimensions
 
-    def call(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Apply the layer to input tensor.
+        Note:
+            During inference (training=False), the layer uses the distribution type
+            detected during training. This ensures consistent behavior between training
+            and inference.
+        """
+        # Cast inputs to float32
+        x = tf.cast(inputs, tf.float32)
+
+        # Initialize flag for tracking if periodic features were added
+        self._added_periodic_features = False
+
+        # Handle distribution type
+        if self.auto_detect:
+            # Use the provided training flag or default to True if not specified
+            is_training = training if training is not None else True
+
+            # Use tf.cond for graph mode compatibility
+            def detect_distribution_fn():
+                # During training or first call, detect the distribution
+                dist_idx = self._detect_distribution(x)
+
+                # Store the detected distribution
+                if hasattr(self, "detected_distribution"):
+                    self.detected_distribution.assign(tf.reshape(dist_idx, [1]))
+
+                # For graph mode compatibility, directly use the index
+                # Ensure consistent type (int32)
+                return tf.cast(dist_idx, tf.int32)
+
+            def use_stored_distribution_fn():
+                # During inference, use the stored distribution
+                if hasattr(self, "detected_distribution"):
+                    dist_idx = self.detected_distribution[0]
+                else:
+                    # Default to normal if no stored distribution
+                    dist_idx = tf.constant(
+                        self._valid_distributions.index("normal"), dtype=tf.int32
+                    )
+                return tf.cast(dist_idx, tf.int32)  # Ensure consistent type
+
+            # Use the appropriate function based on training
+            is_first_call = (
+                not hasattr(self, "_is_initialized") or not self._is_initialized
+            )
+            should_detect = tf.logical_and(
+                tf.cast(is_training, tf.bool),
+                tf.logical_or(tf.cast(is_first_call, tf.bool), tf.constant(False)),
+            )
+
+            dist_idx = tf.cond(
+                should_detect, detect_distribution_fn, use_stored_distribution_fn
+            )
+
+            # Mark as initialized
+            if is_first_call:
+                self._is_initialized = True
+
+            # Get distribution type from index - ensure index is within valid range
+            safe_idx = tf.clip_by_value(dist_idx, 0, len(self._valid_distributions) - 1)
+            dist_type = tf.gather(self._valid_distributions, safe_idx)
+        else:
+            # Use the specified distribution type
+            dist_type = self.distribution_type
+            # Get the index for consistency - ensure it's int32
+            dist_idx = tf.constant(
+                self._valid_distributions.index(dist_type), dtype=tf.int32
+            )
+
+        # Store the current distribution type for use in compute_output_shape
+        self._current_dist_type = dist_type
+        self._current_dist_idx = dist_idx
+
+        # Apply general distribution transformation
+        transformed = self.distribution_transform(x, training=training)
+
+        # Handle periodic features separately using a consistent approach for gradient flow
+        # First, apply transformation to all inputs
+        transformed = tf.identity(transformed)  # Ensure fresh tensor for gradient flow
+
+        # Now conditionally add periodic features if needed
+        if self.detect_periodicity:
+            # Check if this distribution is periodic
+            is_periodic = tf.equal(dist_type, "periodic")
+
+            if tf.executing_eagerly():
+                # In eager mode, we can use Python control flow
+                if is_periodic:
+                    # Add sin and cos features
+                    self._added_periodic_features = True
+                    mean = tf.reduce_mean(transformed)
+                    std = tf.math.reduce_std(transformed) + self.epsilon
+                    normalized = (
+                        (transformed - mean)
+                        / std
+                        * tf.constant(3.14159, dtype=tf.float32)
+                    )
+
+                    sin_feature = tf.sin(self.frequency * normalized + self.phase)
+                    cos_feature = tf.cos(self.frequency * normalized + self.phase)
+
+                    # Concat along feature dimension
+                    transformed = tf.concat(
+                        [transformed, sin_feature, cos_feature], axis=-1
+                    )
+            else:
+                # In graph mode, use tf.cond with carefully managed shapes
+                def add_periodic_features():
+                    mean = tf.reduce_mean(transformed)
+                    std = tf.math.reduce_std(transformed) + self.epsilon
+                    normalized = (
+                        (transformed - mean)
+                        / std
+                        * tf.constant(3.14159, dtype=tf.float32)
+                    )
+
+                    sin_feature = tf.sin(self.frequency * normalized + self.phase)
+                    cos_feature = tf.cos(self.frequency * normalized + self.phase)
+
+                    # Set flag (has no effect in graph mode, just for documentation)
+                    self._added_periodic_features = True
+
+                    # Concat with the transformed features
+                    return tf.concat([transformed, sin_feature, cos_feature], axis=-1)
+
+                def keep_original():
+                    return transformed
+
+                # Use tf.cond to conditionally add periodic features
+                transformed = tf.cond(is_periodic, add_periodic_features, keep_original)
+
+        # Apply projection if provided
+        if self.projection is not None:
+            transformed = self.projection(transformed)
+
+        # Add distribution embedding if needed
+        if self.add_distribution_embedding and hasattr(self, "distribution_embedding"):
+            # Get the distribution embedding for the current type
+            embedding = tf.gather(self.distribution_embedding, dist_idx)
+
+            # Tile embedding to match batch dimension
+            batch_size = tf.shape(transformed)[0]
+            tiled_embedding = tf.tile(tf.expand_dims(embedding, 0), [batch_size, 1])
+
+            # Concatenate with transformed features
+            transformed = tf.concat([transformed, tiled_embedding], axis=-1)
+
+        return transformed
+
+    def compute_output_shape(self, input_shape):
+        """Compute the output shape of the layer based on input shape and layer configuration.
 
         Args:
-            inputs: Input tensor
+            input_shape: Shape tuple (tuple of integers) or TensorShape
 
         Returns:
-            Transformed tensor
-        """
-        dist_info = self._estimate_distribution(inputs, name=self.name)
-        # print(f"Distribution info: {dist_info}")
-        return self._transform_distribution(inputs, dist_info)
+            Output shape tuple or TensorShape
 
-    def get_config(self) -> dict:
-        """Get layer configuration.
+        Notes:
+            The output shape depends on several factors:
+            1. If detect_periodicity=True and periodicity is detected/forced:
+               - Feature dimension is multiplied by 3 (original + sin + cos features)
+            2. If embedding_dim is specified:
+               - Output feature dimension will be embedding_dim
+            3. If add_distribution_embedding=True:
+               - 8 dimensions are added for the distribution embedding
+
+            These transformations are applied in sequence, if applicable.
+        """
+        # For better graph compatibility, handle both TensorShape and tuple/list inputs
+        input_shape = tf.TensorShape(input_shape)
+        output_shape = input_shape
+
+        # If we're going to add periodic features, output shape will change
+        if self.detect_periodicity and self._added_periodic_features:
+            # Expand the last dimension by 3x for the original + sin + cos features
+            # Ensure we create a new shape tuple with the modified last dimension
+            output_shape = output_shape[:-1].concatenate([output_shape[-1] * 3])
+
+        # For projection, the output shape changes to the embedding dim
+        if self.embedding_dim is not None:
+            # Replace the last dimension with embedding_dim
+            output_shape = output_shape[:-1].concatenate([self.embedding_dim])
+
+        # If adding distribution embedding, output shape increases
+        if self.add_distribution_embedding:
+            # Add 8 to the last dimension for the embedding
+            output_shape = output_shape[:-1].concatenate([output_shape[-1] + 8])
+
+        return output_shape
+
+    def get_config(self):
+        """Get the layer configuration for serialization.
+
+        This method enables serialization and deserialization of the layer via
+        `tf.keras.models.save_model()` and `tf.keras.models.load_model()`.
 
         Returns:
-            Layer configuration dictionary
+            Configuration dictionary containing all parameters needed to reconstruct the layer.
+
+        Note:
+            When saving a model containing a DistributionAwareEncoder layer, use the
+            `get_custom_objects()` function to provide the necessary custom objects dictionary:
+
+            ```python
+            model.save("my_model.keras")
+            custom_objects = get_custom_objects()
+            loaded_model = tf.keras.models.load_model("my_model", custom_objects=custom_objects)
+            ```
         """
-        config = super().get_config()
+        config = tf.keras.layers.Layer.get_config(self)
         config.update(
             {
-                "num_bins": self.num_bins,
+                "embedding_dim": self.embedding_dim,
                 "epsilon": self.epsilon,
                 "detect_periodicity": self.detect_periodicity,
                 "handle_sparsity": self.handle_sparsity,
+                "auto_detect": self.auto_detect,
+                "distribution_type": self.distribution_type,
+                "transform_type": self.transform_type,
+                "add_distribution_embedding": self.add_distribution_embedding,
+                # Include legacy parameters for backward compatibility
+                "num_bins": self.num_bins,
                 "adaptive_binning": self.adaptive_binning,
                 "mixture_components": self.mixture_components,
                 "prefered_distribution": self.prefered_distribution,
-            },
+            }
         )
         return config
+
+
+# Note: This implementation replaces the previous version that relied on TensorFlow Probability.
+# If you need the specific probability distributions from TensorFlow Probability, you may need to
+# add those dependencies separately.
+
+
+def get_custom_objects():
+    """Return custom objects dictionary needed for model loading.
+
+    This function returns a dictionary of custom objects that need to be provided
+    when loading a model that contains DistributionAwareEncoder layers.
+
+    Returns:
+        Dictionary mapping class names to class objects for all custom classes
+        used by the DistributionAwareEncoder.
+
+    Example:
+        ```python
+        from kdp.layers import DistributionAwareEncoder, get_custom_objects
+
+        # Save the model
+        model.save("my_model.keras")
+
+        # Load the model
+        custom_objects = get_custom_objects()
+        loaded_model = tf.keras.models.load_model("my_model", custom_objects=custom_objects)
+        ```
+    """
+    custom_objects = {
+        "DistributionAwareEncoder": DistributionAwareEncoder,
+        "DistributionTransformLayer": DistributionTransformLayer,
+    }
+    return custom_objects

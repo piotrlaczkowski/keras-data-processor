@@ -1176,8 +1176,8 @@ class TestPreprocessingModel(unittest.TestCase):
         # Check output dimensions
         self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
         self.assertEqual(
-            preprocessed.shape[-1], 2 + 4 + 12
-        )  # The dimensions for num1, cat1, date1
+            preprocessed.shape[-1], 3 + 4 + 12
+        )  # The dimensions for num1 (3 for periodic = original + sin + cos), cat1 (4), date1 (12)
 
     def test_preprocessor_all_features_with_transformer_and_attention_with_distribution_aware_v2(
         self,
@@ -1583,8 +1583,8 @@ class TestPreprocessingModel(unittest.TestCase):
                 self.assertEqual(len(preprocessed.shape), 2)  # (batch_size, d_model)
                 self.assertEqual(
                     preprocessed.shape[-1],
-                    2 if dist_type == DistributionType.PERIODIC else 1,
-                )  # Example dimension
+                    3 if dist_type == DistributionType.PERIODIC else 1,
+                )  # Periodic features add 2 additional dimensions (sin and cos)
 
 
 class TestPreprocessingModel_Combinations(unittest.TestCase):
