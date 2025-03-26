@@ -46,9 +46,16 @@ nav:
       - 🤖 Transformer Blocks: transformer_blocks.md
       - 🎯 Tabular Attention: tabular_attention.md
       - 🔂 Feature Selection: feature_selection.md
+      - 📊 Distribution-Aware Encoding: distribution_aware_encoder.md
+      - 🔢 Advanced Numerical Embeddings: advanced_numerical_embeddings.md
   - 🏗️ Usage & Examples:
       - 🚀 Quick Start: quick_start.md
       - 🧩 Complex Examples: complex_examples.md
+      - 🔄 Example Usages: example_usages.md
+  - 📚 Documentation:
+      - 🔄 Auto-Documentation: auto_documentation.md
+      - 🏗️ Model Architectures: model_architectures.md
+      - 📑 API Reference: generated/api_index.md
   - 🎯 Motivation & Contribution:
       - 🌍 Why KDP? (Motivation): motivation.md
       - 🍻 Contributing Guide: contributing.md

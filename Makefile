@@ -58,9 +58,20 @@ clean_built:
 # Build doc
 # ------------------------------------
 
+.PHONY: generate_doc_content
+## Generate documentation content from code and model architectures
+generate_doc_content:
+	@echo "Generating API documentation from docstrings"
+	mkdir -p docs/generated/api
+	poetry run python scripts/generate_docstring_docs.py
+	@echo "Generating model architecture diagrams"
+	mkdir -p docs/imgs/architectures
+	poetry run python scripts/generate_model_architectures.py
+	@echo "Documentation content generation complete"
+
 .PHONY: docs_deploy
 ## Build docs using mike
-docs_deploy:
+docs_deploy: generate_doc_content
 	@echo "Starting to build docs"
 	@echo "more info: https://squidfunk.github.io/mkdocs-material/setup/setting-up-versioning/"
 ifdef HAS_POETRY
@@ -84,12 +95,12 @@ docs_version_serve:
 
 .PHONY: docs
 ## Create or Deploy MkDocs based documentation to GitHub pages.
-deploy_doc:
+deploy_doc: generate_doc_content
 	mkdocs gh-deploy
 
 .PHONY: serve_doc
 ## Test MkDocs based documentation locally.
-serve_doc:
+serve_doc: generate_doc_content
 	poetry run mkdocs serve
 
 # ------------------------------------
