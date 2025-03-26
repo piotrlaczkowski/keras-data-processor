@@ -88,8 +88,200 @@ global_output = global_layer(x, training=False)
 
 ## Advanced Configuration
 
-Both layers offer additional parameters to fine-tune the embed­ding process. You can adjust dropout rates, batch normalization, and binning strategies to best suit your data. For more detailed information, please refer to the API documentation.
+Both layers offer additional parameters to fine-tune the embedding process. You can adjust dropout rates, batch normalization, and binning strategies to best suit your data. For more detailed information, please refer to the API documentation.
 
 ---
 
 This document highlights the key differences and usage examples for the new advanced numerical embeddings available in KDP.
+
+# 🌐 Global Numerical Embedding
+
+## 📚 Overview
+
+Global Numerical Embedding is a powerful technique for processing numerical features collectively rather than individually. It transforms batches of numerical features through a unified embedding approach, capturing relationships across the entire numerical feature space.
+
+## 🔑 Key Benefits
+
+- **Cross-Feature Learning**: Captures relationships between different numerical features
+- **Unified Representation**: Creates a consistent embedding space for all numerical data
+- **Dimensionality Control**: Transforms variable numbers of features into fixed-size embeddings
+- **Performance Enhancement**: Typically improves performance on complex tabular datasets
+
+## 💻 Usage
+
+### Basic Configuration
+
+Enable Global Numerical Embedding by setting the appropriate parameters in your `PreprocessingModel`:
+
+```python
+from kdp.processor import PreprocessingModel
+from kdp.features import FeatureType
+
+# Define features
+features_specs = {
+    "feature1": FeatureType.FLOAT_NORMALIZED,
+    "feature2": FeatureType.FLOAT_NORMALIZED,
+    "feature3": FeatureType.FLOAT_RESCALED,
+    # more numerical features...
+}
+
+# Initialize with Global Numerical Embedding
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
+    use_global_numerical_embedding=True,  # Enable the feature
+    global_embedding_dim=16,              # Output dimension per feature
+    global_pooling="average"              # Pooling strategy
+)
+
+# Build the model
+result = preprocessor.build_preprocessor()
+```
+
+### Advanced Configuration
+
+Fine-tune Global Numerical Embedding with additional parameters:
+
+```python
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
+    use_global_numerical_embedding=True,
+    global_embedding_dim=32,           # Embedding dimension size
+    global_mlp_hidden_units=64,        # Units in the MLP layer
+    global_num_bins=20,                # Number of bins for discretization
+    global_init_min=-3.0,              # Minimum initialization bound
+    global_init_max=3.0,               # Maximum initialization bound
+    global_dropout_rate=0.2,           # Dropout rate for regularization
+    global_use_batch_norm=True,        # Whether to use batch normalization
+    global_pooling="concat"            # Pooling strategy
+)
+```
+
+## ⚙️ Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `global_embedding_dim` | int | 8 | Dimension of each feature embedding |
+| `global_mlp_hidden_units` | int | 16 | Number of units in the MLP layer |
+| `global_num_bins` | int | 10 | Number of bins for discretization |
+| `global_init_min` | float | -3.0 | Minimum initialization bound |
+| `global_init_max` | float | 3.0 | Maximum initialization bound |
+| `global_dropout_rate` | float | 0.1 | Dropout rate for regularization |
+| `global_use_batch_norm` | bool | True | Whether to use batch normalization |
+| `global_pooling` | str | "average" | Pooling strategy ("average", "max", or "concat") |
+
+## 🧩 Architecture
+
+The Global Numerical Embedding layer processes numerical features through several steps:
+
+1. **Normalization**: Numerical features are normalized to a standard range
+2. **Binning**: Features are discretized into bins
+3. **Embedding**: Each bin is mapped to a learned embedding vector
+4. **MLP Processing**: A small MLP network processes each embedded feature
+5. **Pooling**: Features are aggregated using the specified pooling strategy
+6. **Output**: A fixed-size embedding representing all numerical features
+
+```
+┌─────────────┐     ┌───────────┐     ┌────────────┐     ┌─────────┐
+│ Numerical   │     │ Discretize│     │  Embedding │     │   MLP   │
+│ Features    │────▶│  to Bins  │────▶│   Lookup   │────▶│ Network │
+└─────────────┘     └───────────┘     └────────────┘     └────┬────┘
+                                                              │
+                                                              ▼
+┌─────────────┐     ┌───────────┐                       ┌─────────┐
+│   Output    │     │  Pooling  │                       │ Feature │
+│  Embedding  │◀────│ Operation │◀──────────────────────│ Vectors │
+└─────────────┘     └───────────┘                       └─────────┘
+```
+
+## 🧠 Pooling Strategies
+
+The `global_pooling` parameter controls how feature embeddings are combined:
+
+- **"average"**: Compute the mean across all feature embeddings (default)
+- **"max"**: Take the maximum value for each dimension across all embeddings
+- **"concat"**: Concatenate all feature embeddings (increases output dimension)
+
+## 🚀 When to Use
+
+Global Numerical Embedding is particularly effective when:
+
+- Your dataset has many numerical features (>5)
+- Features have complex relationships with each other
+- You want to reduce the dimensionality of your numerical features
+- You're working with tabular data where feature interactions matter
+
+## 📊 Comparison with Individual Processing
+
+| Aspect | Global Embedding | Individual Processing |
+|--------|------------------|----------------------|
+| Feature Interactions | Captures cross-feature relationships | Processes each feature independently |
+| Output Dimension | Fixed size regardless of input features | Scales with number of features |
+| Parameter Efficiency | Shares parameters across features | Separate parameters per feature |
+| Computational Cost | Higher for few features, more efficient for many | Linear with feature count |
+| Model Performance | Often better for complex datasets | Simpler, may miss interactions |
+
+## 🔍 Implementation Details
+
+The Global Numerical Embedding implementation is based on the `GlobalNumericalEmbedding` layer:
+
+```python
+# Sample internal implementation (simplified)
+class GlobalNumericalEmbedding(tf.keras.layers.Layer):
+    def __init__(self, global_embedding_dim=8, global_pooling="average", **kwargs):
+        super().__init__(**kwargs)
+        self.embedding_dim = global_embedding_dim
+        self.pooling = global_pooling
+        # ...additional initialization...
+
+    def build(self, input_shape):
+        # Create embeddings, MLP layers, etc.
+
+    def call(self, inputs):
+        # 1. Discretize numerical inputs
+        # 2. Apply embedding lookup
+        # 3. Process through MLP
+        # 4. Apply pooling
+        # 5. Return transformed features
+```
+
+## 📝 Examples
+
+### Basic Example
+
+```python
+# Simple example with default parameters
+preprocessor = PreprocessingModel(
+    features_specs={"feature1": FeatureType.FLOAT, "feature2": FeatureType.FLOAT},
+    use_global_numerical_embedding=True
+)
+```
+
+### Advanced Example with Custom Pooling
+
+```python
+# Using concatenation pooling for maximum information preservation
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
+    use_global_numerical_embedding=True,
+    global_embedding_dim=16,
+    global_pooling="concat",  # Will concatenate all feature embeddings
+    global_dropout_rate=0.2   # Increased regularization
+)
+```
+
+### Combined with Other Advanced Features
+
+```python
+# Combining Global Numerical Embedding with other advanced features
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
+    # Global Numerical Embedding
+    use_global_numerical_embedding=True,
+    global_embedding_dim=16,
+    # Distribution-Aware Encoding
+    use_distribution_aware=True,
+    # Tabular Attention
+    tabular_attention=True,
+    tabular_attention_placement="MULTI_RESOLUTION"
+)
+```

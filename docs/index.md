@@ -20,6 +20,12 @@ Say goodbye to tedious data preparation tasks and hello to streamlined, efficien
 
 - 🧠 **Enhanced with Transformer Blocks**: Incorporate transformer blocks into your preprocessing model to boost feature interaction analysis and uncover complex patterns, enhancing predictive model accuracy.
 
+- 📈 **Distribution-Aware Encoding**: Automatically detect underlying data distributions and apply specialized transformations to preserve statistical properties and improve model performance.
+
+- 🌐 **Global Numerical Embedding**: Transform batches of numerical features with a unified embedding approach, capturing relationships across the entire feature space and enhancing model performance on tabular data.
+
+- 👁️ **Tabular Attention Mechanisms**: Implement powerful attention-based learning on tabular data with standard and multi-resolution approaches to capture complex feature interactions.
+
 - ⚙️ **Easy Integration**: Designed to seamlessly integrate as the first layers in your TensorFlow Keras models, facilitating a smooth transition from raw data to trained model, accelerating your workflow significantly.
 
 ## 🚀 Getting started:
@@ -138,6 +144,63 @@ ppr = PreprocessingModel(
     path_data="data/my_data.csv",
     features_specs=features_spec,
     **transfo_config
+)
+```
+
+### 🌐 Global Numerical Embedding
+
+The Global Numerical Embedding layer offers a powerful way to process numerical features collectively, capturing relationships across your entire numerical feature space. This is particularly useful for tabular data with many numerical columns.
+
+- **Unified Embedding**: Process all numerical features together through a shared embedding space
+- **Advanced Pooling**: Aggregate information across features with various pooling strategies
+- **Adaptive Binning**: Intelligently discretize continuous values for more effective embedding
+
+Example configuration:
+
+```python
+numerical_embedding_config = {
+    'use_global_numerical_embedding': True,
+    'global_embedding_dim': 16,        # Embedding dimension size
+    'global_mlp_hidden_units': 32,     # Units in the MLP layer
+    'global_num_bins': 15,             # Number of bins for discretization
+    'global_init_min': -2.0,           # Minimum initialization bound
+    'global_init_max': 2.0,            # Maximum initialization bound
+    'global_dropout_rate': 0.1,        # Dropout rate for regularization
+    'global_use_batch_norm': True,     # Whether to use batch normalization
+    'global_pooling': 'average'        # Pooling strategy ('average', 'max', or 'concat')
+}
+
+ppr = PreprocessingModel(
+    path_data="data/my_data.csv",
+    features_specs=features_spec,
+    **numerical_embedding_config
+)
+```
+
+### 👁️ Tabular Attention Configuration
+
+Leverage attention mechanisms specifically designed for tabular data to capture complex feature interactions. See 👀 [Tabular Attention](tabular_attention.md) for detailed information.
+
+- **Standard Attention**: Apply uniform attention across all features
+- **Multi-Resolution Attention**: Use different attention mechanisms for numerical and categorical data
+- **Placement Options**: Control where attention is applied in your feature space
+
+Example configuration:
+
+```python
+attention_config = {
+    'tabular_attention': True,
+    'tabular_attention_heads': 4,              # Number of attention heads
+    'tabular_attention_dim': 64,               # Attention dimension
+    'tabular_attention_dropout': 0.1,          # Dropout rate
+    'tabular_attention_placement': 'ALL_FEATURES',  # Where to apply attention
+    'tabular_attention_embedding_dim': 32      # For multi-resolution attention
+}
+
+ppr = PreprocessingModel(
+    path_data="data/my_data.csv",
+    features_specs=features_spec,
+    **attention_config
 )
 ```
 
