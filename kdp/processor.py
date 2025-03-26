@@ -1,12 +1,13 @@
 import json
 import os
 import time
+import gc
 from collections import OrderedDict
 from collections.abc import Callable, Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 from functools import wraps
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import tensorflow as tf
@@ -346,31 +347,55 @@ class PreprocessingModel:
             Returns:
                 Result of the wrapped function
             """
-            start_time = time.time()
-            start_memory = (
-                tf.config.experimental.get_memory_info("GPU:0")["current"]
-                if tf.test.is_gpu_available()
-                else 0
-            )
+            try:
+                # Record start time
+                start_time = time.time()
 
-            result = func(self, *args, **kwargs)
+                # Check for GPU availability using modern TensorFlow API
+                gpus = tf.config.list_physical_devices("GPU")
+                if gpus:
+                    try:
+                        # Get initial GPU memory info if available
+                        start_memory = tf.config.experimental.get_memory_info("GPU:0")[
+                            "current"
+                        ]
+                    except (ValueError, tf.errors.NotFoundError):
+                        # Handle case where GPU memory info is not available
+                        start_memory = 0
+                else:
+                    start_memory = 0
 
-            end_time = time.time()
-            end_memory = (
-                tf.config.experimental.get_memory_info("GPU:0")["current"]
-                if tf.test.is_gpu_available()
-                else 0
-            )
+                # Execute the function
+                result = func(self, *args, **kwargs)
 
-            execution_time = end_time - start_time
-            memory_used = end_memory - start_memory
+                # Record end time
+                end_time = time.time()
 
-            logger.debug(
-                f"Function {func.__name__} executed in {execution_time:.2f} seconds. "
-                f"Memory used: {memory_used / (1024 * 1024):.2f} MB",
-            )
+                # Get final GPU memory if available
+                if gpus:
+                    try:
+                        end_memory = tf.config.experimental.get_memory_info("GPU:0")[
+                            "current"
+                        ]
+                    except (ValueError, tf.errors.NotFoundError):
+                        end_memory = start_memory
+                else:
+                    end_memory = start_memory
 
-            return result
+                # Calculate metrics
+                execution_time = end_time - start_time
+                memory_used = end_memory - start_memory
+
+                # Log performance metrics
+                logger.debug(
+                    f"Function {func.__name__} executed in {execution_time:.2f} seconds. "
+                    f"Memory used: {memory_used / (1024 * 1024):.2f} MB",
+                )
+
+                return result
+            except Exception as e:
+                logger.error(f"Error in {func.__name__}: {str(e)}")
+                raise
 
         return wrapper
 
@@ -471,7 +496,7 @@ class PreprocessingModel:
         _feature = self.features_specs[feature_name]
         for preprocessor_step in feature.preprocessors:
             logger.info(
-                f"Adding custom {preprocessor =} for {feature_name =}, {_feature.kwargs =}"
+                f"Adding custom {preprocessor_step} for {feature_name}, {_feature.kwargs}"
             )
             preprocessor.add_processing_step(
                 layer_class=preprocessor_step,
@@ -479,28 +504,6 @@ class PreprocessingModel:
                 **_feature.kwargs,
             )
         return preprocessor
-
-    @_monitor_performance
-    def _get_cached_or_process(
-        self, feature_name: str, processor_fn, *args: Any, **kwargs: Any
-    ) -> tf.Tensor:
-        """Get cached preprocessed feature or process it.
-
-        Args:
-            feature_name: Name of the feature
-            processor_fn: Function to process the feature if not cached
-            *args: Arguments for processor_fn
-            **kwargs: Keyword arguments for processor_fn
-
-        Returns:
-            tf.Tensor: Processed feature tensor
-        """
-        if not self.use_caching or feature_name not in self._preprocessed_cache:
-            processed = processor_fn(*args, **kwargs)
-            if self.use_caching:
-                self._preprocessed_cache[feature_name] = processed
-            return processed
-        return self._preprocessed_cache[feature_name]
 
     def _process_feature_batch(
         self, batch: list[tuple[str, dict]], feature_type: str
@@ -611,6 +614,93 @@ class PreprocessingModel:
                 logger.info(f"Processing {feature_type} features in parallel")
                 self._process_feature_batch(features, feature_type)
 
+    def _create_feature_preprocessor(
+        self, feature_name: str, feature: Feature, preprocessor: FeaturePreprocessor
+    ) -> FeaturePreprocessor:
+        """Create feature-specific preprocessor with custom steps if defined.
+
+        This method handles the common pattern of checking for custom preprocessors
+        and adding them to the pipeline if they exist.
+
+        Args:
+            feature_name: Name of the feature being processed
+            feature: Feature object containing specifications
+            preprocessor: The preprocessor to augment
+
+        Returns:
+            FeaturePreprocessor with custom steps added if they exist
+        """
+        # Check if feature has specific preprocessing steps defined
+        if hasattr(feature, "preprocessors") and feature.preprocessors:
+            logger.info(
+                f"Custom Preprocessors detected for {feature_name}: {feature.preprocessors}"
+            )
+            return self._add_custom_steps(
+                preprocessor=preprocessor,
+                feature=feature,
+                feature_name=feature_name,
+            )
+        return preprocessor
+
+    def _apply_feature_selection(
+        self, feature_name: str, output_pipeline: tf.Tensor, feature_type: str
+    ) -> tf.Tensor:
+        """Apply feature selection to a processed feature if enabled for its type.
+
+        Args:
+            feature_name: Name of the feature
+            output_pipeline: The processed feature tensor
+            feature_type: Type of the feature ('numeric', 'categorical', 'text', 'date')
+
+        Returns:
+            The processed tensor, possibly with feature selection applied
+        """
+        apply_selection = False
+
+        # Check if feature selection should be applied based on type
+        if (
+            self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.ALL_FEATURES
+        ):
+            apply_selection = True
+        elif (
+            feature_type == "numeric"
+            and self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.NUMERIC
+        ):
+            apply_selection = True
+        elif (
+            feature_type == "categorical"
+            and self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.CATEGORICAL
+        ):
+            apply_selection = True
+        elif (
+            feature_type == "text"
+            and self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.TEXT
+        ):
+            apply_selection = True
+        elif (
+            feature_type == "date"
+            and self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.DATE
+        ):
+            apply_selection = True
+
+        # Apply feature selection if enabled
+        if apply_selection:
+            feature_selector = PreprocessorLayerFactory.variable_selection_layer(
+                name=f"{feature_name}_feature_selection",
+                nr_features=1,  # Single feature for now
+                units=self.feature_selection_units,
+                dropout_rate=self.feature_selection_dropout,
+            )
+            output_pipeline, feature_weights = feature_selector([output_pipeline])
+            self.processed_features[f"{feature_name}_weights"] = feature_weights
+
+        return output_pipeline
+
     @_monitor_performance
     def _add_pipeline_numeric(
         self, feature_name: str, input_layer, stats: dict
@@ -635,129 +725,168 @@ class PreprocessingModel:
             name=f"cast_to_float_{feature_name}",
         )
 
-        # Check if feature has specific preprocessing steps defined
-        if hasattr(_feature, "preprocessors") and _feature.preprocessors:
-            logger.info(f"Custom Preprocessors detected : {_feature.preprocessors}")
-            self._add_custom_steps(
-                preprocessor=preprocessor,
-                feature=_feature,
-                feature_name=feature_name,
-            )
-        else:
+        # Check for custom preprocessors
+        preprocessor = self._create_feature_preprocessor(
+            feature_name=feature_name, feature=_feature, preprocessor=preprocessor
+        )
+
+        # If no custom preprocessors, apply standard preprocessing based on feature type
+        if not _feature.preprocessors:
             # Check if distribution-aware encoding is enabled
             if self.use_distribution_aware:
-                logger.info(f"Using distribution-aware encoding for {feature_name}")
-                # Check if manually specified distribution is provided
-                _prefered_distribution = _feature.kwargs.get("prefered_distribution")
-                if _prefered_distribution is not None:
-                    logger.info(
-                        f"Using manually specified distribution for {feature_name}"
-                    )
-                else:
-                    logger.info(
-                        f"Using automatic distribution detection for {feature_name}"
-                    )
-
-                # Apply distribution-aware encoding
-                preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.distribution_aware_encoder,
-                    name=f"distribution_aware_layer_{feature_name}",
-                    num_bins=self.distribution_aware_bins,
-                    detect_periodicity=True,
-                    handle_sparsity=True,
-                    adaptive_binning=True,
-                    mixture_components=3,
-                    prefered_distribution=_prefered_distribution,
-                )
-                # Cast to float32 after distribution-aware encoding
-                preprocessor.add_processing_step(
-                    layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
-                    name=f"post_dist_cast_to_float_{feature_name}",
+                self._add_distribution_aware_encoding(
+                    preprocessor, feature_name, _feature
                 )
             else:
-                # Default behavior if no specific preprocessing is defined
-                if _feature.feature_type == FeatureType.FLOAT_NORMALIZED:
-                    logger.debug("Adding Float Normalized Feature")
-                    preprocessor.add_processing_step(
-                        layer_class="Normalization",
-                        mean=stats["mean"],
-                        variance=stats["var"],
-                        name=f"norm_{feature_name}",
-                    )
-                elif _feature.feature_type == FeatureType.FLOAT_RESCALED:
-                    logger.debug("Adding Float Rescaled Feature")
-                    rescaling_scale = _feature.kwargs.get(
-                        "scale", 1.0
-                    )  # Default scale is 1.0 if not specified
-                    preprocessor.add_processing_step(
-                        layer_class="Rescaling",
-                        scale=rescaling_scale,
-                        name=f"rescale_{feature_name}",
-                    )
-                elif _feature.feature_type == FeatureType.FLOAT_DISCRETIZED:
-                    logger.debug("Adding Float Discretized Feature")
-                    # Use an empty list as the default value instead of 1.0.
-                    boundaries = _feature.kwargs.get("bin_boundaries", [])
-                    _out_dims = len(boundaries) + 1
-                    preprocessor.add_processing_step(
-                        layer_class="Discretization",
-                        **_feature.kwargs,
-                        name=f"discretize_{feature_name}",
-                    )
-                    preprocessor.add_processing_step(
-                        layer_class="CategoryEncoding",
-                        num_tokens=_out_dims,
-                        output_mode="one_hot",
-                        name=f"one_hot_{feature_name}",
-                    )
-                else:
-                    logger.debug("Adding Float Normalized Feature -> Default Option")
-                    preprocessor.add_processing_step(
-                        layer_class="Normalization",
-                        mean=stats["mean"],
-                        variance=stats["var"],
-                        name=f"norm_{feature_name}",
-                    )
+                self._add_numeric_type_processing(
+                    preprocessor, feature_name, _feature, stats
+                )
 
         # Check for advanced numerical embedding.
         if self.use_advanced_numerical_embedding:
-            logger.info(f"Using NumericalEmbedding for {feature_name}")
-            # Obtain the embedding layer.
-            embedding_layer = _feature.get_embedding_layer(
-                input_shape=input_layer.shape
-            )
-            preprocessor.add_processing_step(
-                layer_creator=lambda **kwargs: embedding_layer,
-                layer_class="NumericalEmbedding",
-                name=f"advanced_embedding_{feature_name}",
-                embedding_dim=self.embedding_dim,
-                mlp_hidden_units=self.mlp_hidden_units,
-                num_bins=self.num_bins,
-                init_min=self.init_min,
-                init_max=self.init_max,
-                dropout_rate=self.dropout_rate,
-                use_batch_norm=self.use_batch_norm,
+            self._add_advanced_numerical_embedding(
+                preprocessor, feature_name, _feature, input_layer
             )
 
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
 
-        # Optionally, apply feature selection for numeric features.
-        if (
-            self.feature_selection_placement == FeatureSelectionPlacementOptions.NUMERIC
-            or self.feature_selection_placement
-            == FeatureSelectionPlacementOptions.ALL_FEATURES
-        ):
-            feature_selector = PreprocessorLayerFactory.variable_selection_layer(
-                name=f"{feature_name}_feature_selection",
-                nr_features=1,  # Single feature for now
-                units=self.feature_selection_units,
-                dropout_rate=self.feature_selection_dropout,
-            )
-            _output_pipeline, feature_weights = feature_selector([_output_pipeline])
-            self.processed_features[f"{feature_name}_weights"] = feature_weights
+        # Apply feature selection if needed
+        _output_pipeline = self._apply_feature_selection(
+            feature_name=feature_name,
+            output_pipeline=_output_pipeline,
+            feature_type="numeric",
+        )
 
         self.processed_features[feature_name] = _output_pipeline
+
+    def _add_distribution_aware_encoding(
+        self,
+        preprocessor: FeaturePreprocessor,
+        feature_name: str,
+        feature: NumericalFeature,
+    ) -> None:
+        """Add distribution-aware encoding to a numeric feature preprocessor.
+
+        Args:
+            preprocessor: The preprocessor to add encoding to
+            feature_name: Name of the feature
+            feature: Feature object with settings
+        """
+        logger.info(f"Using distribution-aware encoding for {feature_name}")
+        # Check if manually specified distribution is provided
+        _prefered_distribution = feature.kwargs.get("prefered_distribution")
+        if _prefered_distribution is not None:
+            logger.info(f"Using manually specified distribution for {feature_name}")
+        else:
+            logger.info(f"Using automatic distribution detection for {feature_name}")
+
+        # Apply distribution-aware encoding
+        preprocessor.add_processing_step(
+            layer_creator=PreprocessorLayerFactory.distribution_aware_encoder,
+            name=f"distribution_aware_layer_{feature_name}",
+            num_bins=self.distribution_aware_bins,
+            detect_periodicity=True,
+            handle_sparsity=True,
+            adaptive_binning=True,
+            mixture_components=3,
+            prefered_distribution=_prefered_distribution,
+        )
+        # Cast to float32 after distribution-aware encoding
+        preprocessor.add_processing_step(
+            layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+            name=f"post_dist_cast_to_float_{feature_name}",
+        )
+
+    def _add_numeric_type_processing(
+        self,
+        preprocessor: FeaturePreprocessor,
+        feature_name: str,
+        feature: NumericalFeature,
+        stats: dict,
+    ) -> None:
+        """Add type-specific processing to a numeric feature preprocessor.
+
+        Args:
+            preprocessor: The preprocessor to add processing to
+            feature_name: Name of the feature
+            feature: Feature object with type and settings
+            stats: Statistics for the feature
+        """
+        # Default behavior if no specific preprocessing is defined
+        if feature.feature_type == FeatureType.FLOAT_NORMALIZED:
+            logger.debug("Adding Float Normalized Feature")
+            preprocessor.add_processing_step(
+                layer_class="Normalization",
+                mean=stats["mean"],
+                variance=stats["var"],
+                name=f"norm_{feature_name}",
+            )
+        elif feature.feature_type == FeatureType.FLOAT_RESCALED:
+            logger.debug("Adding Float Rescaled Feature")
+            rescaling_scale = feature.kwargs.get(
+                "scale", 1.0
+            )  # Default scale is 1.0 if not specified
+            preprocessor.add_processing_step(
+                layer_class="Rescaling",
+                scale=rescaling_scale,
+                name=f"rescale_{feature_name}",
+            )
+        elif feature.feature_type == FeatureType.FLOAT_DISCRETIZED:
+            logger.debug("Adding Float Discretized Feature")
+            # Use an empty list as the default value instead of 1.0.
+            boundaries = feature.kwargs.get("bin_boundaries", [])
+            _out_dims = len(boundaries) + 1
+            preprocessor.add_processing_step(
+                layer_class="Discretization",
+                **feature.kwargs,
+                name=f"discretize_{feature_name}",
+            )
+            preprocessor.add_processing_step(
+                layer_class="CategoryEncoding",
+                num_tokens=_out_dims,
+                output_mode="one_hot",
+                name=f"one_hot_{feature_name}",
+            )
+        else:
+            logger.debug("Adding Float Normalized Feature -> Default Option")
+            preprocessor.add_processing_step(
+                layer_class="Normalization",
+                mean=stats["mean"],
+                variance=stats["var"],
+                name=f"norm_{feature_name}",
+            )
+
+    def _add_advanced_numerical_embedding(
+        self,
+        preprocessor: FeaturePreprocessor,
+        feature_name: str,
+        feature: NumericalFeature,
+        input_layer,
+    ) -> None:
+        """Add advanced numerical embedding to a preprocessor.
+
+        Args:
+            preprocessor: The preprocessor to add the embedding to
+            feature_name: Name of the feature
+            feature: Feature object with settings
+            input_layer: Input layer for the feature
+        """
+        logger.info(f"Using NumericalEmbedding for {feature_name}")
+        # Obtain the embedding layer.
+        embedding_layer = feature.get_embedding_layer(input_shape=input_layer.shape)
+        preprocessor.add_processing_step(
+            layer_creator=lambda **kwargs: embedding_layer,
+            layer_class="NumericalEmbedding",
+            name=f"advanced_embedding_{feature_name}",
+            embedding_dim=self.embedding_dim,
+            mlp_hidden_units=self.mlp_hidden_units,
+            num_bins=self.num_bins,
+            init_min=self.init_min,
+            init_max=self.init_max,
+            dropout_rate=self.dropout_rate,
+            use_batch_norm=self.use_batch_norm,
+        )
 
     @_monitor_performance
     def _add_pipeline_categorical(
@@ -771,58 +900,104 @@ class PreprocessingModel:
             stats (dict): A dictionary containing the metadata of the feature, including
                 the vocabulary of the feature.
         """
+        # Get the feature object and its vocabulary
+        _feature = self.features_specs[feature_name]
         vocab = stats["vocab"]
 
-        # getting feature object
-        _feature = self.features_specs[feature_name]
-
-        # getting stats
-        _vocab = stats["vocab"]
-        logger.debug(f"TEXT: {_vocab = }")
-
-        # initializing preprocessor
+        # Initialize preprocessor
         preprocessor = FeaturePreprocessor(name=feature_name)
 
-        # Check if feature has specific preprocessing steps defined
-        if hasattr(_feature, "preprocessors") and _feature.preprocessors:
-            logger.info(f"Custom Preprocessors detected : {_feature.preprocessors}")
-            self._add_custom_steps(
-                preprocessor=preprocessor,
-                feature=_feature,
-                feature_name=feature_name,
-            )
-        else:
-            # Default behavior if no specific preprocessing is defined
-            if _feature.feature_type == FeatureType.STRING_CATEGORICAL:
-                preprocessor.add_processing_step(
-                    layer_class="StringLookup",
-                    vocabulary=vocab,
-                    num_oov_indices=1,
-                    name=f"lookup_{feature_name}",
-                )
-            elif _feature.feature_type == FeatureType.INTEGER_CATEGORICAL:
-                preprocessor.add_processing_step(
-                    layer_class="IntegerLookup",
-                    vocabulary=vocab,
-                    num_oov_indices=1,
-                    name=f"lookup_{feature_name}",
-                )
+        # Check for custom preprocessors
+        preprocessor = self._create_feature_preprocessor(
+            feature_name=feature_name, feature=_feature, preprocessor=preprocessor
+        )
 
-        if _feature.category_encoding == CategoryEncodingOptions.EMBEDDING:
-            _custom_embedding_size = _feature.kwargs.get("embedding_size")
+        # If no custom preprocessors, apply standard categorical preprocessing
+        if not _feature.preprocessors:
+            self._add_categorical_lookup(preprocessor, feature_name, _feature, vocab)
+            self._add_categorical_encoding(preprocessor, feature_name, _feature, vocab)
+
+        # Flatten the categorical feature
+        preprocessor.add_processing_step(
+            layer_class="Flatten",
+            name=f"flatten_{feature_name}",
+        )
+
+        # Process the feature
+        _output_pipeline = preprocessor.chain(input_layer=input_layer)
+
+        # Apply feature selection if needed
+        _output_pipeline = self._apply_feature_selection(
+            feature_name=feature_name,
+            output_pipeline=_output_pipeline,
+            feature_type="categorical",
+        )
+
+        self.processed_features[feature_name] = _output_pipeline
+
+    def _add_categorical_lookup(
+        self,
+        preprocessor: FeaturePreprocessor,
+        feature_name: str,
+        feature: CategoricalFeature,
+        vocab: list,
+    ) -> None:
+        """Add categorical lookup preprocessing.
+
+        Args:
+            preprocessor: The preprocessor to add the lookup to
+            feature_name: Name of the feature
+            feature: Feature object with settings
+            vocab: Vocabulary for the feature
+        """
+        # Default behavior if no specific preprocessing is defined
+        if feature.feature_type == FeatureType.STRING_CATEGORICAL:
+            preprocessor.add_processing_step(
+                layer_class="StringLookup",
+                vocabulary=vocab,
+                num_oov_indices=1,
+                name=f"lookup_{feature_name}",
+            )
+        elif feature.feature_type == FeatureType.INTEGER_CATEGORICAL:
+            preprocessor.add_processing_step(
+                layer_class="IntegerLookup",
+                vocabulary=vocab,
+                num_oov_indices=1,
+                name=f"lookup_{feature_name}",
+            )
+
+    def _add_categorical_encoding(
+        self,
+        preprocessor: FeaturePreprocessor,
+        feature_name: str,
+        feature: CategoricalFeature,
+        vocab: list,
+    ) -> None:
+        """Add categorical encoding preprocessing.
+
+        Args:
+            preprocessor: The preprocessor to add the encoding to
+            feature_name: Name of the feature
+            feature: Feature object with settings
+            vocab: Vocabulary for the feature
+        """
+        if feature.category_encoding == CategoryEncodingOptions.EMBEDDING:
+            _custom_embedding_size = feature.kwargs.get("embedding_size")
             _vocab_size = len(vocab) + 1
-            logger.debug(f"{_custom_embedding_size = }, {_vocab_size = }")
-            emb_size = _custom_embedding_size or _feature._embedding_size_rule(
+            logger.debug(
+                f"Custom embedding size: {_custom_embedding_size}, vocab size: {_vocab_size}"
+            )
+            emb_size = _custom_embedding_size or feature._embedding_size_rule(
                 nr_categories=_vocab_size
             )
-            logger.debug(f"{feature_name = }, {emb_size = }")
+            logger.debug(f"Feature {feature_name} using embedding size: {emb_size}")
             preprocessor.add_processing_step(
                 layer_class="Embedding",
                 input_dim=len(vocab) + 1,
                 output_dim=emb_size,
                 name=f"embed_{feature_name}",
             )
-        elif _feature.category_encoding == CategoryEncodingOptions.ONE_HOT_ENCODING:
+        elif feature.category_encoding == CategoryEncodingOptions.ONE_HOT_ENCODING:
             preprocessor.add_processing_step(
                 layer_class="CategoryEncoding",
                 num_tokens=len(vocab) + 1,
@@ -835,33 +1010,6 @@ class PreprocessingModel:
                 layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
                 name=f"cast_to_float_{feature_name}",
             )
-
-        # we need to flatten the categorical feature
-        preprocessor.add_processing_step(
-            layer_class="Flatten",
-            name=f"flatten_{feature_name}",
-        )
-
-        # Process the feature
-        _output_pipeline = preprocessor.chain(input_layer=input_layer)
-
-        # Apply feature selection if enabled for categorical features
-        if (
-            self.feature_selection_placement
-            == FeatureSelectionPlacementOptions.CATEGORICAL
-            or self.feature_selection_placement
-            == FeatureSelectionPlacementOptions.ALL_FEATURES
-        ):
-            feature_selector = PreprocessorLayerFactory.variable_selection_layer(
-                name=f"{feature_name}_feature_selection",
-                nr_features=1,  # Single feature for now
-                units=self.feature_selection_units,
-                dropout_rate=self.feature_selection_dropout,
-            )
-            _output_pipeline, feature_weights = feature_selector([_output_pipeline])
-            self.processed_features[f"{feature_name}_weights"] = feature_weights
-
-        self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
     def _add_pipeline_text(self, feature_name: str, input_layer, stats: dict) -> None:
@@ -1058,291 +1206,418 @@ class PreprocessingModel:
         """Prepare model outputs based on output mode."""
         logger.info("Building preprocessor Model")
         if self.output_mode == OutputModeOptions.CONCAT:
-            # Get features to concatenate
-            numeric_features = []
-            categorical_features = []
-
-            # Process features based on their type
-            for feature_name, feature in self.processed_features.items():
-                if feature is None:
-                    logger.warning(f"Skipping {feature_name} as it is None")
-                    continue
-
-                # Add to appropriate list based on feature type
-                feature_spec = self.features_specs.get(feature_name)
-                if feature_spec is None:
-                    logger.warning(
-                        f"No feature spec found for {feature_name}, skipping"
-                    )
-                    continue
-
-                if (
-                    feature_name in self.numeric_features
-                    or feature_name in self.date_features
-                ):
-                    logger.debug(f"Adding {feature_name} to numeric features")
-                    numeric_features.append(feature)
-                elif (
-                    feature_name in self.categorical_features
-                    or feature_name in self.text_features
-                ):
-                    logger.debug(f"Adding {feature_name} to categorical features")
-                    categorical_features.append(feature)
-                else:
-                    logger.warning(f"Unknown feature type for {feature_name}")
-
-            # Concatenate numeric features
-            if numeric_features:
-                concat_num = tf.keras.layers.Concatenate(
-                    name="ConcatenateNumeric",
-                    axis=-1,
-                )(numeric_features)
-                if self.use_global_numerical_embedding:
-                    concat_num = GlobalNumericalEmbedding(
-                        global_embedding_dim=self.global_embedding_dim,
-                        global_mlp_hidden_units=self.global_mlp_hidden_units,
-                        global_num_bins=self.global_num_bins,
-                        global_init_min=self.global_init_min,
-                        global_init_max=self.global_init_max,
-                        global_dropout_rate=self.global_dropout_rate,
-                        global_use_batch_norm=self.global_use_batch_norm,
-                        global_pooling=self.global_pooling,
-                    )(concat_num)
-            else:
-                concat_num = None
-
-            # Concatenate categorical features
-            if categorical_features:
-                concat_cat = tf.keras.layers.Concatenate(
-                    name="ConcatenateCategorical",
-                    axis=-1,
-                )(categorical_features)
-            else:
-                concat_cat = None
-
-            # Combine all features
-            if concat_num is not None and concat_cat is not None:
-                self.concat_all = tf.keras.layers.Concatenate(
-                    name="ConcatenateAll",
-                    axis=-1,
-                )([concat_num, concat_cat])
-            elif concat_num is not None:
-                self.concat_all = concat_num
-            elif concat_cat is not None:
-                self.concat_all = concat_cat
-            else:
-                raise ValueError("No features available for concatenation")
-
-            # Add tabular attention if specified
-            if self.tabular_attention:
-                if (
-                    self.tabular_attention_placement
-                    == TabularAttentionPlacementOptions.MULTI_RESOLUTION
-                ):
-                    logger.info("Adding multi-resolution tabular attention")
-                    if concat_num is not None and concat_cat is not None:
-                        # Reshape numeric features to 3D tensor
-                        num_features_3d = tf.keras.layers.Reshape(
-                            target_shape=(1, -1),
-                            name="reshape_numeric_3d",
-                        )(concat_num)
-
-                        # Reshape categorical features to 3D tensor
-                        cat_features_3d = tf.keras.layers.Reshape(
-                            target_shape=(1, -1),
-                            name="reshape_categorical_3d",
-                        )(concat_cat)
-
-                        (
-                            num_output,
-                            cat_output,
-                        ) = PreprocessorLayerFactory.multi_resolution_attention_layer(
-                            num_heads=self.tabular_attention_heads,
-                            d_model=self.tabular_attention_dim,
-                            embedding_dim=self.tabular_attention_embedding_dim,
-                            dropout_rate=self.tabular_attention_dropout,
-                            name="multi_resolution_attention",
-                        )(num_features_3d, cat_features_3d)
-
-                        # Squeeze back to 2D
-                        num_output = tf.keras.layers.Reshape(
-                            target_shape=(-1,),
-                            name="reshape_num_output_2d",
-                        )(num_output)
-
-                        cat_output = tf.keras.layers.Reshape(
-                            target_shape=(-1,),
-                            name="reshape_cat_output_2d",
-                        )(cat_output)
-
-                        self.concat_all = tf.keras.layers.Concatenate(
-                            name="ConcatenateMultiResolutionAttention",
-                            axis=-1,
-                        )([num_output, cat_output])
-                    else:
-                        logger.warning(
-                            "Multi-resolution attention requires both numerical and categorical features"
-                        )
-                        if concat_num is not None:
-                            self.concat_all = concat_num
-                        elif concat_cat is not None:
-                            self.concat_all = concat_cat
-                else:
-                    # Original tabular attention logic with 3D tensor support
-                    if (
-                        self.tabular_attention_placement
-                        == TabularAttentionPlacementOptions.ALL_FEATURES
-                    ):
-                        logger.info("Adding tabular attention to all features")
-                        # Reshape to 3D tensor (batch_size, 1, features)
-                        features_3d = tf.keras.layers.Reshape(
-                            target_shape=(1, -1),
-                            name="reshape_features_3d",
-                        )(self.concat_all)
-
-                        attention_output = (
-                            PreprocessorLayerFactory.tabular_attention_layer(
-                                num_heads=self.tabular_attention_heads,
-                                d_model=self.tabular_attention_dim,
-                                dropout_rate=self.tabular_attention_dropout,
-                                name="tabular_attention",
-                            )(features_3d)
-                        )
-
-                        # Reshape back to 2D
-                        self.concat_all = tf.keras.layers.Reshape(
-                            target_shape=(-1,),
-                            name="reshape_attention_2d",
-                        )(attention_output)
-
-                    elif (
-                        self.tabular_attention_placement
-                        == TabularAttentionPlacementOptions.NUMERIC
-                    ):
-                        logger.info("Adding tabular attention to numeric features")
-                        if concat_num is not None:
-                            # Reshape numeric features to 3D
-                            num_features_3d = tf.keras.layers.Reshape(
-                                target_shape=(1, -1),
-                                name="reshape_numeric_3d",
-                            )(concat_num)
-
-                            attention_output = (
-                                PreprocessorLayerFactory.tabular_attention_layer(
-                                    num_heads=self.tabular_attention_heads,
-                                    d_model=self.tabular_attention_dim,
-                                    dropout_rate=self.tabular_attention_dropout,
-                                    name="tabular_attention_numeric",
-                                )(num_features_3d)
-                            )
-
-                            # Reshape back to 2D
-                            concat_num = tf.keras.layers.Reshape(
-                                target_shape=(-1,),
-                                name="reshape_numeric_attention_2d",
-                            )(attention_output)
-
-                        if concat_cat is not None:
-                            self.concat_all = tf.keras.layers.Concatenate(
-                                name="ConcatenateTabularAttention",
-                                axis=-1,
-                            )([concat_num, concat_cat])
-                        else:
-                            self.concat_all = concat_num
-                    elif (
-                        self.tabular_attention_placement
-                        == TabularAttentionPlacementOptions.CATEGORICAL
-                    ):
-                        logger.info("Adding tabular attention to categorical features")
-                        if concat_cat is not None:
-                            # Reshape categorical features to 3D
-                            cat_features_3d = tf.keras.layers.Reshape(
-                                target_shape=(1, -1),
-                                name="reshape_categorical_3d",
-                            )(concat_cat)
-
-                            attention_output = (
-                                PreprocessorLayerFactory.tabular_attention_layer(
-                                    num_heads=self.tabular_attention_heads,
-                                    d_model=self.tabular_attention_dim,
-                                    dropout_rate=self.tabular_attention_dropout,
-                                    name="tabular_attention_categorical",
-                                )(cat_features_3d)
-                            )
-
-                            # Reshape back to 2D
-                            concat_cat = tf.keras.layers.Reshape(
-                                target_shape=(-1,),
-                                name="reshape_categorical_attention_2d",
-                            )(attention_output)
-
-                        if concat_num is not None:
-                            self.concat_all = tf.keras.layers.Concatenate(
-                                name="ConcatenateTabularAttention",
-                                axis=-1,
-                            )([concat_num, concat_cat])
-                        else:
-                            self.concat_all = concat_cat
-
-            # Add transformer blocks if specified
-            if self.transfo_nr_blocks:
-                if (
-                    self.transfo_placement
-                    == TransformerBlockPlacementOptions.CATEGORICAL
-                    and concat_cat is not None
-                ):
-                    logger.info(
-                        f"Adding transformer blocks to categorical features: #{self.transfo_nr_blocks}"
-                    )
-                    transformed = concat_cat
-                    for block_idx in range(self.transfo_nr_blocks):
-                        transformed = PreprocessorLayerFactory.transformer_block_layer(
-                            dim_model=transformed.shape[-1],
-                            num_heads=self.transfo_nr_heads,
-                            ff_units=self.transfo_ff_units,
-                            dropout_rate=self.transfo_dropout_rate,
-                            name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
-                        )(transformed)
-                    # Reshape transformer output to remove the extra dimension
-                    transformed = tf.keras.layers.Reshape(
-                        target_shape=(-1,),  # Flatten to match numeric shape
-                        name="reshape_transformer_output",
-                    )(transformed)
-
-                    # Recombine with numeric features if they exist
-                    if concat_num is not None:
-                        self.concat_all = tf.keras.layers.Concatenate(
-                            name="ConcatenateTransformed",
-                            axis=-1,
-                        )([concat_num, transformed])
-                    else:
-                        self.concat_all = transformed
-
-                elif (
-                    self.transfo_placement
-                    == TransformerBlockPlacementOptions.ALL_FEATURES
-                ):
-                    logger.info(
-                        f"Adding transformer blocks to all features: #{self.transfo_nr_blocks}"
-                    )
-                    for block_idx in range(self.transfo_nr_blocks):
-                        self.concat_all = PreprocessorLayerFactory.transformer_block_layer(
-                            dim_model=self.concat_all.shape[-1],
-                            num_heads=self.transfo_nr_heads,
-                            ff_units=self.transfo_ff_units,
-                            dropout_rate=self.transfo_dropout_rate,
-                            name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
-                        )(self.concat_all)
-
-            logger.info("Concatenating outputs mode enabled")
+            self._prepare_concat_mode_outputs()
         else:
-            # Dictionary mode
-            outputs = OrderedDict(
-                [(k, None) for k in self.inputs if k in self.processed_features]
+            self._prepare_dict_mode_outputs()
+
+    def _prepare_concat_mode_outputs(self) -> None:
+        """Prepare outputs for concatenation mode."""
+        # Get features to concatenate
+        numeric_features, categorical_features = self._group_features_by_type()
+
+        # Concatenate features by type
+        concat_num = self._concatenate_numeric_features(numeric_features)
+        concat_cat = self._concatenate_categorical_features(categorical_features)
+
+        # Combine all features
+        self._combine_all_features(concat_num, concat_cat)
+
+        # Apply transformations if needed
+        if self.tabular_attention:
+            self._apply_tabular_attention(concat_num, concat_cat)
+
+        if self.transfo_nr_blocks:
+            self._apply_transformer_blocks(concat_num, concat_cat)
+
+        logger.info("Concatenating outputs mode enabled")
+
+    def _group_features_by_type(self) -> Tuple[List, List]:
+        """Group processed features by their type.
+
+        Returns:
+            Tuple containing lists of numeric and categorical features
+        """
+        numeric_features = []
+        categorical_features = []
+
+        # Process features based on their type
+        for feature_name, feature in self.processed_features.items():
+            if feature is None:
+                logger.warning(f"Skipping {feature_name} as it is None")
+                continue
+
+            # Add to appropriate list based on feature type
+            feature_spec = self.features_specs.get(feature_name)
+            if feature_spec is None:
+                logger.warning(f"No feature spec found for {feature_name}, skipping")
+                continue
+
+            if (
+                feature_name in self.numeric_features
+                or feature_name in self.date_features
+            ):
+                logger.debug(f"Adding {feature_name} to numeric features")
+                numeric_features.append(feature)
+            elif (
+                feature_name in self.categorical_features
+                or feature_name in self.text_features
+            ):
+                logger.debug(f"Adding {feature_name} to categorical features")
+                categorical_features.append(feature)
+            else:
+                logger.warning(f"Unknown feature type for {feature_name}")
+
+        return numeric_features, categorical_features
+
+    def _concatenate_numeric_features(
+        self, numeric_features: List
+    ) -> Optional[tf.Tensor]:
+        """Concatenate numeric features and apply global embedding if needed.
+
+        Args:
+            numeric_features: List of numeric feature tensors
+
+        Returns:
+            Concatenated numeric features tensor or None if no numeric features
+        """
+        if not numeric_features:
+            return None
+
+        concat_num = tf.keras.layers.Concatenate(
+            name="ConcatenateNumeric",
+            axis=-1,
+        )(numeric_features)
+
+        if self.use_global_numerical_embedding:
+            concat_num = GlobalNumericalEmbedding(
+                global_embedding_dim=self.global_embedding_dim,
+                global_mlp_hidden_units=self.global_mlp_hidden_units,
+                global_num_bins=self.global_num_bins,
+                global_init_min=self.global_init_min,
+                global_init_max=self.global_init_max,
+                global_dropout_rate=self.global_dropout_rate,
+                global_use_batch_norm=self.global_use_batch_norm,
+                global_pooling=self.global_pooling,
+            )(concat_num)
+
+        return concat_num
+
+    def _concatenate_categorical_features(
+        self, categorical_features: List
+    ) -> Optional[tf.Tensor]:
+        """Concatenate categorical features.
+
+        Args:
+            categorical_features: List of categorical feature tensors
+
+        Returns:
+            Concatenated categorical features tensor or None if no categorical features
+        """
+        if not categorical_features:
+            return None
+
+        concat_cat = tf.keras.layers.Concatenate(
+            name="ConcatenateCategorical",
+            axis=-1,
+        )(categorical_features)
+
+        return concat_cat
+
+    def _combine_all_features(
+        self, concat_num: Optional[tf.Tensor], concat_cat: Optional[tf.Tensor]
+    ) -> None:
+        """Combine numeric and categorical features.
+
+        Args:
+            concat_num: Concatenated numeric features tensor
+            concat_cat: Concatenated categorical features tensor
+
+        Raises:
+            ValueError: If no features are available for concatenation
+        """
+        if concat_num is not None and concat_cat is not None:
+            self.concat_all = tf.keras.layers.Concatenate(
+                name="ConcatenateAll",
+                axis=-1,
+            )([concat_num, concat_cat])
+        elif concat_num is not None:
+            self.concat_all = concat_num
+        elif concat_cat is not None:
+            self.concat_all = concat_cat
+        else:
+            raise ValueError("No features available for concatenation")
+
+    def _apply_multi_resolution_attention(
+        self, concat_num: tf.Tensor, concat_cat: tf.Tensor
+    ) -> None:
+        """Apply multi-resolution tabular attention to features.
+
+        Args:
+            concat_num: Concatenated numeric features
+            concat_cat: Concatenated categorical features
+        """
+        logger.info("Adding multi-resolution tabular attention")
+
+        # Reshape numeric features to 3D tensor
+        num_features_3d = tf.keras.layers.Reshape(
+            target_shape=(1, -1),
+            name="reshape_numeric_3d",
+        )(concat_num)
+
+        # Reshape categorical features to 3D tensor
+        cat_features_3d = tf.keras.layers.Reshape(
+            target_shape=(1, -1),
+            name="reshape_categorical_3d",
+        )(concat_cat)
+
+        (
+            num_output,
+            cat_output,
+        ) = PreprocessorLayerFactory.multi_resolution_attention_layer(
+            num_heads=self.tabular_attention_heads,
+            d_model=self.tabular_attention_dim,
+            embedding_dim=self.tabular_attention_embedding_dim,
+            dropout_rate=self.tabular_attention_dropout,
+            name="multi_resolution_attention",
+        )(num_features_3d, cat_features_3d)
+
+        # Squeeze back to 2D
+        num_output = tf.keras.layers.Reshape(
+            target_shape=(-1,),
+            name="reshape_num_output_2d",
+        )(num_output)
+
+        cat_output = tf.keras.layers.Reshape(
+            target_shape=(-1,),
+            name="reshape_cat_output_2d",
+        )(cat_output)
+
+        self.concat_all = tf.keras.layers.Concatenate(
+            name="ConcatenateMultiResolutionAttention",
+            axis=-1,
+        )([num_output, cat_output])
+
+    def _apply_standard_attention(
+        self,
+        placement: str,
+        concat_num: Optional[tf.Tensor],
+        concat_cat: Optional[tf.Tensor],
+    ) -> None:
+        """Apply standard tabular attention based on placement.
+
+        Args:
+            placement: Where to apply attention (all_features, numeric, categorical)
+            concat_num: Concatenated numeric features
+            concat_cat: Concatenated categorical features
+        """
+        if placement == TabularAttentionPlacementOptions.ALL_FEATURES:
+            logger.info("Adding tabular attention to all features")
+            # Reshape to 3D tensor (batch_size, 1, features)
+            features_3d = tf.keras.layers.Reshape(
+                target_shape=(1, -1),
+                name="reshape_features_3d",
+            )(self.concat_all)
+
+            attention_output = PreprocessorLayerFactory.tabular_attention_layer(
+                num_heads=self.tabular_attention_heads,
+                d_model=self.tabular_attention_dim,
+                dropout_rate=self.tabular_attention_dropout,
+                name="tabular_attention",
+            )(features_3d)
+
+            # Reshape back to 2D
+            self.concat_all = tf.keras.layers.Reshape(
+                target_shape=(-1,),
+                name="reshape_attention_2d",
+            )(attention_output)
+
+        elif placement == TabularAttentionPlacementOptions.NUMERIC:
+            self._apply_numeric_attention(concat_num, concat_cat)
+
+        elif placement == TabularAttentionPlacementOptions.CATEGORICAL:
+            self._apply_categorical_attention(concat_num, concat_cat)
+
+    def _apply_numeric_attention(
+        self, concat_num: Optional[tf.Tensor], concat_cat: Optional[tf.Tensor]
+    ) -> None:
+        """Apply attention to numeric features.
+
+        Args:
+            concat_num: Concatenated numeric features
+            concat_cat: Concatenated categorical features
+        """
+        logger.info("Adding tabular attention to numeric features")
+        if concat_num is not None:
+            # Reshape numeric features to 3D
+            num_features_3d = tf.keras.layers.Reshape(
+                target_shape=(1, -1),
+                name="reshape_numeric_3d",
+            )(concat_num)
+
+            attention_output = PreprocessorLayerFactory.tabular_attention_layer(
+                num_heads=self.tabular_attention_heads,
+                d_model=self.tabular_attention_dim,
+                dropout_rate=self.tabular_attention_dropout,
+                name="tabular_attention_numeric",
+            )(num_features_3d)
+
+            # Reshape back to 2D
+            concat_num = tf.keras.layers.Reshape(
+                target_shape=(-1,),
+                name="reshape_numeric_attention_2d",
+            )(attention_output)
+
+        if concat_cat is not None:
+            self.concat_all = tf.keras.layers.Concatenate(
+                name="ConcatenateTabularAttention",
+                axis=-1,
+            )([concat_num, concat_cat])
+        else:
+            self.concat_all = concat_num
+
+    def _apply_categorical_attention(
+        self, concat_num: Optional[tf.Tensor], concat_cat: Optional[tf.Tensor]
+    ) -> None:
+        """Apply attention to categorical features.
+
+        Args:
+            concat_num: Concatenated numeric features
+            concat_cat: Concatenated categorical features
+        """
+        logger.info("Adding tabular attention to categorical features")
+        if concat_cat is not None:
+            # Reshape categorical features to 3D
+            cat_features_3d = tf.keras.layers.Reshape(
+                target_shape=(1, -1),
+                name="reshape_categorical_3d",
+            )(concat_cat)
+
+            attention_output = PreprocessorLayerFactory.tabular_attention_layer(
+                num_heads=self.tabular_attention_heads,
+                d_model=self.tabular_attention_dim,
+                dropout_rate=self.tabular_attention_dropout,
+                name="tabular_attention_categorical",
+            )(cat_features_3d)
+
+            # Reshape back to 2D
+            concat_cat = tf.keras.layers.Reshape(
+                target_shape=(-1,),
+                name="reshape_categorical_attention_2d",
+            )(attention_output)
+
+        if concat_num is not None:
+            self.concat_all = tf.keras.layers.Concatenate(
+                name="ConcatenateTabularAttention",
+                axis=-1,
+            )([concat_num, concat_cat])
+        else:
+            self.concat_all = concat_cat
+
+    def _apply_tabular_attention(
+        self, concat_num: Optional[tf.Tensor], concat_cat: Optional[tf.Tensor]
+    ) -> None:
+        """Apply tabular attention based on configuration.
+
+        Args:
+            concat_num: Concatenated numeric features
+            concat_cat: Concatenated categorical features
+        """
+        if (
+            self.tabular_attention_placement
+            == TabularAttentionPlacementOptions.MULTI_RESOLUTION
+        ):
+            if concat_num is not None and concat_cat is not None:
+                self._apply_multi_resolution_attention(concat_num, concat_cat)
+            else:
+                logger.warning(
+                    "Multi-resolution attention requires both numerical and categorical features"
+                )
+                if concat_num is not None:
+                    self.concat_all = concat_num
+                elif concat_cat is not None:
+                    self.concat_all = concat_cat
+        else:
+            # Original tabular attention logic with 3D tensor support
+            self._apply_standard_attention(
+                self.tabular_attention_placement, concat_num, concat_cat
             )
-            outputs.update(OrderedDict(self.processed_features))
-            self.outputs = outputs
-            logger.info("OrderedDict outputs mode enabled")
+
+    def _apply_transformer_blocks(
+        self, concat_num: Optional[tf.Tensor], concat_cat: Optional[tf.Tensor]
+    ) -> None:
+        """Apply transformer blocks based on configuration.
+
+        Args:
+            concat_num: Concatenated numeric features
+            concat_cat: Concatenated categorical features
+        """
+        if (
+            self.transfo_placement == TransformerBlockPlacementOptions.CATEGORICAL
+            and concat_cat is not None
+        ):
+            self._apply_categorical_transformer(concat_num, concat_cat)
+        elif self.transfo_placement == TransformerBlockPlacementOptions.ALL_FEATURES:
+            self._apply_all_features_transformer()
+
+    def _apply_categorical_transformer(
+        self, concat_num: Optional[tf.Tensor], concat_cat: tf.Tensor
+    ) -> None:
+        """Apply transformer blocks to categorical features.
+
+        Args:
+            concat_num: Concatenated numeric features
+            concat_cat: Concatenated categorical features
+        """
+        logger.info(
+            f"Adding transformer blocks to categorical features: #{self.transfo_nr_blocks}"
+        )
+        transformed = concat_cat
+        for block_idx in range(self.transfo_nr_blocks):
+            transformed = PreprocessorLayerFactory.transformer_block_layer(
+                dim_model=transformed.shape[-1],
+                num_heads=self.transfo_nr_heads,
+                ff_units=self.transfo_ff_units,
+                dropout_rate=self.transfo_dropout_rate,
+                name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
+            )(transformed)
+        # Reshape transformer output to remove the extra dimension
+        transformed = tf.keras.layers.Reshape(
+            target_shape=(-1,),  # Flatten to match numeric shape
+            name="reshape_transformer_output",
+        )(transformed)
+
+        # Recombine with numeric features if they exist
+        if concat_num is not None:
+            self.concat_all = tf.keras.layers.Concatenate(
+                name="ConcatenateTransformed",
+                axis=-1,
+            )([concat_num, transformed])
+        else:
+            self.concat_all = transformed
+
+    def _apply_all_features_transformer(self) -> None:
+        """Apply transformer blocks to all features."""
+        logger.info(
+            f"Adding transformer blocks to all features: #{self.transfo_nr_blocks}"
+        )
+        for block_idx in range(self.transfo_nr_blocks):
+            self.concat_all = PreprocessorLayerFactory.transformer_block_layer(
+                dim_model=self.concat_all.shape[-1],
+                num_heads=self.transfo_nr_heads,
+                ff_units=self.transfo_ff_units,
+                dropout_rate=self.transfo_dropout_rate,
+                name=f"transformer_block_{block_idx}_{self.transfo_nr_heads}heads",
+            )(self.concat_all)
+
+    def _prepare_dict_mode_outputs(self) -> None:
+        """Prepare outputs for dictionary mode."""
+        # Dictionary mode
+        outputs = OrderedDict(
+            [(k, None) for k in self.inputs if k in self.processed_features]
+        )
+        outputs.update(OrderedDict(self.processed_features))
+        self.outputs = outputs
+        logger.info("OrderedDict outputs mode enabled")
 
     @_monitor_performance
     def _cleanup_intermediate_tensors(self) -> None:
@@ -1357,8 +1632,6 @@ class PreprocessingModel:
             del self.features_cat_to_concat
 
         # Force garbage collection
-        import gc
-
         gc.collect()
 
         # Clear backend session to free GPU memory if using GPU
@@ -1505,39 +1778,15 @@ class PreprocessingModel:
             logger.error(f"Error building preprocessor model: {str(e)}")
             raise
 
-    def _predict_batch_parallel(
-        self, batches: list[tf.Tensor], model: tf.keras.Model
-    ) -> list[tf.Tensor]:
-        """Predict multiple batches in parallel.
-
-        Args:
-            batches: List of input batches
-            model: Model to use for prediction
-
-        Returns:
-            List of prediction results
-        """
-        with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
-            futures = []
-            for batch in batches:
-                futures.append(executor.submit(model.predict, batch))
-
-            results = []
-            for future in as_completed(futures):
-                try:
-                    results.append(future.result())
-                except Exception as e:
-                    logger.error(f"Error in batch prediction: {str(e)}")
-                    raise
-            return results
-
     @_monitor_performance
     def batch_predict(
         self,
         data: tf.data.Dataset,
-        model: tf.keras.Model | None = None,
-        batch_size: int | None = None,
+        model: Optional[tf.keras.Model] = None,
+        batch_size: Optional[int] = None,
         parallel: bool = True,
+        max_workers: Optional[int] = None,
+        timeout: Optional[float] = None,
     ) -> Generator:
         """Helper function for batch prediction on DataSets.
 
@@ -1546,32 +1795,188 @@ class PreprocessingModel:
             model: Model to be used for batch predictions. If None, uses self.model
             batch_size: Batch size for predictions. If None, uses self.batch_size
             parallel: Whether to use parallel processing for predictions
+            max_workers: Maximum number of worker threads for parallel processing.
+                        If None, uses os.cpu_count()
+            timeout: Maximum time to wait for a batch prediction (seconds).
+                    Only applies when parallel=True. None means no timeout.
+
+        Yields:
+            Prediction results for each batch
+
+        Raises:
+            ValueError: If no model is available for prediction
+            TimeoutError: If a batch prediction times out
+            RuntimeError: If there's an error in batch prediction
         """
-        logger.info("Batch predicting the dataset")
+        if not hasattr(self, "model") and model is None:
+            raise ValueError(
+                "No model available for prediction. Either build the model first or provide a model."
+            )
+
         _model = model or self.model
         _batch_size = batch_size or self.batch_size
+        _max_workers = max_workers or os.cpu_count()
 
-        if parallel:
-            # Collect batches
-            batches = []
-            for batch in data:
-                batches.append(batch)
-                if len(batches) >= _batch_size:
-                    # Process collected batches in parallel
-                    results = self._predict_batch_parallel(batches, _model)
+        logger.info(
+            f"Batch predicting the dataset with "
+            f"batch_size={_batch_size}, parallel={parallel}, max_workers={_max_workers}"
+        )
+
+        try:
+            if parallel:
+                yield from self._batch_predict_parallel(
+                    data=data,
+                    model=_model,
+                    batch_size=_batch_size,
+                    max_workers=_max_workers,
+                    timeout=timeout,
+                )
+            else:
+                yield from self._batch_predict_sequential(data=data, model=_model)
+        except Exception as e:
+            logger.error(f"Error during batch prediction: {str(e)}")
+            raise RuntimeError(f"Batch prediction failed: {str(e)}") from e
+
+    def _batch_predict_parallel(
+        self,
+        data: tf.data.Dataset,
+        model: tf.keras.Model,
+        batch_size: int,
+        max_workers: int,
+        timeout: Optional[float] = None,
+    ) -> Generator:
+        """Perform batch prediction in parallel.
+
+        Args:
+            data: Dataset to predict on
+            model: Model to use for prediction
+            batch_size: Size of batches to collect before parallel processing
+            max_workers: Maximum number of worker threads
+            timeout: Maximum time to wait for a batch prediction (seconds)
+
+        Yields:
+            Prediction results
+
+        Raises:
+            TimeoutError: If a batch prediction times out
+        """
+        # Collect batches
+        batches = []
+        for batch in data:
+            batches.append(batch)
+            if len(batches) >= batch_size:
+                # Process collected batches in parallel
+                try:
+                    results = self._predict_batch_parallel(
+                        batches=batches,
+                        model=model,
+                        max_workers=max_workers,
+                        timeout=timeout,
+                    )
                     for result in results:
                         yield result
                     batches = []
+                except Exception as e:
+                    logger.error(f"Error in parallel batch prediction: {str(e)}")
+                    raise
 
-            # Process remaining batches
-            if batches:
-                results = self._predict_batch_parallel(batches, _model)
-                for result in results:
-                    yield result
-        else:
-            # Sequential processing
-            for batch in data:
-                yield _model.predict(batch)
+        # Process remaining batches
+        if batches:
+            results = self._predict_batch_parallel(
+                batches=batches, model=model, max_workers=max_workers, timeout=timeout
+            )
+            for result in results:
+                yield result
+
+    def _batch_predict_sequential(
+        self, data: tf.data.Dataset, model: tf.keras.Model
+    ) -> Generator:
+        """Perform batch prediction sequentially.
+
+        Args:
+            data: Dataset to predict on
+            model: Model to use for prediction
+
+        Yields:
+            Prediction results
+        """
+        for batch in data:
+            try:
+                yield model.predict(batch)
+            except Exception as e:
+                logger.error(f"Error predicting batch: {str(e)}")
+                raise
+
+    def _predict_batch_parallel(
+        self,
+        batches: List[tf.Tensor],
+        model: tf.keras.Model,
+        max_workers: int,
+        timeout: Optional[float] = None,
+    ) -> List[tf.Tensor]:
+        """Predict multiple batches in parallel.
+
+        Args:
+            batches: List of input batches
+            model: Model to use for prediction
+            max_workers: Maximum number of worker threads
+            timeout: Maximum time to wait for a batch prediction (seconds)
+
+        Returns:
+            List of prediction results
+
+        Raises:
+            TimeoutError: If a batch prediction times out
+        """
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
+            for i, batch in enumerate(batches):
+                futures.append(
+                    executor.submit(self._predict_single_batch, model, batch, i)
+                )
+
+            results = []
+            for future in as_completed(futures, timeout=timeout):
+                try:
+                    result = future.result()
+                    # Store result at its original index to maintain batch order
+                    batch_idx, prediction = result
+                    while len(results) <= batch_idx:
+                        results.append(None)
+                    results[batch_idx] = prediction
+                except TimeoutError:
+                    logger.error("Batch prediction timed out")
+                    raise TimeoutError("Batch prediction timed out") from None
+                except Exception as e:
+                    logger.error(f"Error in batch prediction: {str(e)}")
+                    raise
+
+            # Make sure we don't have any None values in the results
+            if None in results:
+                raise RuntimeError("Some batches failed to process correctly")
+
+            return results
+
+    def _predict_single_batch(
+        self, model: tf.keras.Model, batch: tf.Tensor, batch_idx: int
+    ) -> Tuple[int, tf.Tensor]:
+        """Predict a single batch and include the original batch index.
+
+        Args:
+            model: Model to use for prediction
+            batch: Input batch
+            batch_idx: Original index of the batch
+
+        Returns:
+            Tuple of (batch_idx, prediction result)
+        """
+        try:
+            # Apply model prediction
+            result = model.predict(batch)
+            return batch_idx, result
+        except Exception as e:
+            logger.error(f"Error predicting batch {batch_idx}: {str(e)}")
+            raise
 
     @_monitor_performance
     def save_model(self, model_path: str) -> None:
@@ -1579,75 +1984,83 @@ class PreprocessingModel:
 
         Args:
             model_path: Path to save the model to.
+
+        Raises:
+            ValueError: If the model has not been built yet
+            IOError: If there's an issue saving the model
         """
+        if not hasattr(self, "model") or self.model is None:
+            raise ValueError("Model has not been built. Call build_preprocessor first.")
+
         logger.info(f"Saving preprocessor model to: {model_path}")
 
-        # Add feature statistics to model metadata
-        stats_metadata = {
-            "feature_statistics": self.features_stats,
-            "numeric_features": self.numeric_features,
-            "categorical_features": self.categorical_features,
-            "text_features": self.text_features,
-            "date_features": self.date_features,
-            "feature_crosses": self.feature_crosses,
-            "output_mode": self.output_mode,
-        }
+        try:
+            # Add feature statistics to model metadata
+            stats_metadata = {
+                "feature_statistics": self.features_stats,
+                "numeric_features": self.numeric_features,
+                "categorical_features": self.categorical_features,
+                "text_features": self.text_features,
+                "date_features": self.date_features,
+                "feature_crosses": self.feature_crosses,
+                "output_mode": self.output_mode,
+            }
 
-        # Convert metadata to JSON-serializable format
-        def serialize_dtype(obj: Any) -> str | Any:
-            """Serialize TensorFlow dtype to string representation.
+            # Convert metadata to JSON-serializable format
+            def serialize_dtype(obj: Any) -> Union[str, Any]:
+                """Serialize TensorFlow dtype to string representation.
 
-            Args:
-                obj: Object to serialize
+                Args:
+                    obj: Object to serialize
 
-            Returns:
-                Serialized representation of the object
-            """
-            if isinstance(obj, tf.dtypes.DType):
-                return obj.name
-            return obj
+                Returns:
+                    Serialized representation of the object
+                """
+                if isinstance(obj, tf.dtypes.DType):
+                    return obj.name
+                return obj
 
-        stats_metadata = json.loads(
-            json.dumps(stats_metadata, default=serialize_dtype),
-        )
+            stats_metadata = json.loads(
+                json.dumps(stats_metadata, default=serialize_dtype),
+            )
 
-        self.model.save(
-            model_path,
-            save_format="tf",
-            signatures=self.signatures,
-            options=tf.saved_model.SaveOptions(
-                experimental_custom_gradients=False,
-                save_debug_info=False,
-            ),
-            metadata=stats_metadata,
-        )
-        logger.info("Model saved successfully")
+            # Create serving signatures based on model inputs and outputs
+            if self.signature:
+                serving_signatures = {"serving_default": self._get_serving_signature()}
+            else:
+                serving_signatures = None
 
-    @staticmethod
-    def load_model(model_path: str) -> tuple[tf.keras.Model, dict[str, Any]]:
-        """Load the preprocessor model and its statistics.
+            # Save the model
+            self.model.save(
+                model_path,
+                save_format="tf",
+                signatures=serving_signatures,
+                options=tf.saved_model.SaveOptions(
+                    experimental_custom_gradients=False,
+                    save_debug_info=False,
+                ),
+                metadata=stats_metadata,
+            )
+            logger.info("Model saved successfully")
+        except (IOError, OSError) as e:
+            logger.error(f"Error saving model to {model_path}: {str(e)}")
+            raise IOError(f"Failed to save model to {model_path}: {str(e)}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error saving model: {str(e)}")
+            raise
 
-        Args:
-            model_path: Path to load the model from.
+    def _get_serving_signature(self) -> Callable:
+        """Create a serving signature function for the model.
 
         Returns:
-            tuple: (loaded model, feature statistics dictionary)
+            Callable: A function that takes the input tensors and returns outputs
         """
-        logger.info(f"Loading preprocessor model from: {model_path}")
 
-        # Load the model
-        model = tf.keras.models.load_model(
-            model_path,
-            custom_objects=None,
-            compile=True,
-            options=None,
-        )
+        @tf.function(input_signature=[self.signature])
+        def serving_fn(inputs):
+            return self.model(inputs)
 
-        # Extract statistics from model metadata
-        stats = model._metadata.get("feature_statistics", {})
-
-        logger.info("Model and statistics loaded successfully")
-        return model, stats
+        return serving_fn
 
     def plot_model(self, filename: str = "model.png") -> None:
         """Plots current model architecture.
@@ -1707,3 +2120,84 @@ class PreprocessingModel:
             logger.warning("No feature selection layers found in the model")
 
         return feature_importances
+
+    @staticmethod
+    def load_model(model_path: str) -> Tuple[tf.keras.Model, Dict[str, Any]]:
+        """Load the preprocessor model and its statistics.
+
+        Args:
+            model_path: Path to load the model from.
+
+        Returns:
+            tuple: (loaded model, feature statistics dictionary)
+
+        Raises:
+            FileNotFoundError: If the model path doesn't exist
+            ValueError: If the model couldn't be loaded properly
+            IOError: If there's an issue reading the model file
+        """
+        logger.info(f"Loading preprocessor model from: {model_path}")
+
+        # Check if path exists
+        if not os.path.exists(model_path):
+            error_msg = f"Model path {model_path} does not exist"
+            logger.error(error_msg)
+            raise FileNotFoundError(error_msg)
+
+        try:
+            # Load the model with appropriate error handling
+            custom_objects = {}
+
+            # Check if we have custom layer modules available
+            try:
+                # Try to get custom objects dynamically rather than importing directly
+                import importlib.util
+
+                if importlib.util.find_spec(
+                    "kdp.layers.distribution_aware_encoder_layer"
+                ):
+                    mod = importlib.import_module(
+                        "kdp.layers.distribution_aware_encoder_layer"
+                    )
+                    if hasattr(mod, "get_custom_objects"):
+                        custom_objects.update(mod.get_custom_objects())
+                        logger.info(
+                            "Added DistributionAwareEncoder custom objects for model loading"
+                        )
+            except ImportError:
+                logger.warning(
+                    "Could not import distribution_aware_encoder_layer, model may not load correctly if it uses this layer"
+                )
+
+            # Load the model
+            model = tf.keras.models.load_model(
+                model_path,
+                custom_objects=custom_objects,
+                compile=True,
+                options=None,
+            )
+
+            # Extract statistics from model metadata
+            if hasattr(model, "_metadata") and model._metadata:
+                stats = model._metadata.get("feature_statistics", {})
+            else:
+                logger.warning(
+                    "No metadata found in the model, returning empty statistics"
+                )
+                stats = {}
+
+            logger.info("Model and statistics loaded successfully")
+            return model, stats
+
+        except IOError as e:
+            error_msg = f"I/O error loading model from {model_path}: {str(e)}"
+            logger.error(error_msg)
+            raise IOError(error_msg) from e
+        except ValueError as e:
+            error_msg = f"Value error loading model from {model_path}: {str(e)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg) from e
+        except Exception as e:
+            error_msg = f"Unexpected error loading model from {model_path}: {str(e)}"
+            logger.error(error_msg)
+            raise
