@@ -7,9 +7,7 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from kdp.custom_layers import (
-    DistributionType,
-)
+from kdp.layers.distribution_aware_encoder_layer import DistributionType
 
 from kdp.layers.multi_resolution_tabular_attention_layer import (
     MultiResolutionTabularAttention,

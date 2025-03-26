@@ -4,7 +4,10 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_probability as tfp
 
-from kdp.custom_layers import DistributionAwareEncoder, DistributionType
+from kdp.layers.distribution_aware_encoder_layer import (
+    DistributionAwareEncoder,
+    DistributionType,
+)
 
 
 class TestDistributionAwareEncoder(tf.test.TestCase):

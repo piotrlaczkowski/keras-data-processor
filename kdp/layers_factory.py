@@ -2,7 +2,7 @@ import inspect
 
 import tensorflow as tf
 
-from kdp.custom_layers import (
+from kdp.layers.distribution_aware_encoder_layer import (
     DistributionAwareEncoder,
     DistributionType,
 )

@@ -48,7 +48,7 @@ import numpy as np
 import pytest
 import tensorflow as tf
 
-from kdp.custom_layers import DistributionAwareEncoder, DistributionType
+from kdp.layers.distribution_aware_encoder_layer import DistributionAwareEncoder, DistributionType
 
 @pytest.fixture
 def encoder():

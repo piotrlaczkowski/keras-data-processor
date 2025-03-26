@@ -298,7 +298,7 @@ However we can also manually set the prefered distribution for each numerical fe
 ```python
 from kdp.features import NumericalFeature, FeatureType
 from kdp.processor import PreprocessingModel, OutputModeOptions
-from kdp.custom_layers import DistributionAwareEncoder
+from kdp.layers.distribution_aware_encoder_layer import DistributionAwareEncoder
 
 
 # Define features

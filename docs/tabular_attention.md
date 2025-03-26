@@ -155,7 +155,7 @@ Choose where to apply attention using `tabular_attention_placement`:
 ### Custom Layer Integration
 
 ```python
-from kdp.custom_layers import MultiResolutionTabularAttention
+from kdp.layers.multi_resolution_tabular_attention_layer import MultiResolutionTabularAttention
 import tensorflow as tf
 
 # Create custom model with multi-resolution attention

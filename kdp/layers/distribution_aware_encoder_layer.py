@@ -64,8 +64,8 @@ class DistributionAwareEncoder(tf.keras.layers.Layer):
         adaptive_binning: bool = True,
         mixture_components: int = 3,
         trainable: bool = True,
-        name: str = None,
         prefered_distribution: DistributionType = None,
+        name: str = "distribution_aware",
         **kwargs,
     ) -> None:
         """Initialize the DistributionAwareEncoder.
