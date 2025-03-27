@@ -54,6 +54,7 @@ nav:
       - 🔄 Example Usages: example_usages.md
   - 📚 Documentation:
       - 🔄 Auto-Documentation: auto_documentation.md
+      - 🧙‍♂️ Auto-Configuration: auto_configuration.md
       - 🏗️ Model Architectures: model_architectures.md
       - 📑 API Reference: generated/api_index.md
   - 🎯 Motivation & Contribution:

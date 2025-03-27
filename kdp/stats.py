@@ -590,10 +590,41 @@ class DatasetStatistics:
     def main(self) -> dict:
         """Calculates and returns final statistics for the dataset.
 
-        Resturns:
+        Returns:
             A dictionary containing the calculated statistics for the dataset.
         """
         ds = self._read_data_into_dataset()
         stats = self.calculate_dataset_statistics(dataset=ds)
         self._save_stats()
         return stats
+
+    def recommend_model_configuration(self) -> dict:
+        """
+        Analyze the computed dataset statistics and provide recommendations for optimal preprocessing.
+
+        This method leverages the ModelAdvisor to analyze feature characteristics and suggest
+        the best preprocessing strategies, layer configurations, and model parameters.
+
+        Returns:
+            dict: A dictionary containing feature-specific and global recommendations
+                 along with a ready-to-use code snippet.
+        """
+        # Import the ModelAdvisor here to avoid circular imports
+        from kdp.model_advisor import recommend_model_configuration
+
+        # Ensure we have statistics to analyze
+        if not hasattr(self, "features_stats") or not self.features_stats:
+            logger.warning("No statistics available. Calculating statistics first.")
+            self.main()
+
+        # Generate recommendations based on the computed statistics
+        recommendations = recommend_model_configuration(self.features_stats)
+
+        logger.info(
+            "Generated model configuration recommendations based on dataset statistics"
+        )
+        logger.info(
+            f"Recommended configuration for {len(recommendations.get('features', {}))} features"
+        )
+
+        return recommendations
