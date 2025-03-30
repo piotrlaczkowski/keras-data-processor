@@ -1,86 +1,106 @@
 # Distribution-Aware Encoder
 
 ## Overview
-The **Distribution-Aware Encoder** is an advanced preprocessing layer that automatically detects and handles various types of data distributions. It leverages TensorFlow Probability (tfp) for accurate modeling and applies specialized transformations while preserving the statistical properties of the data.
 
-## Features
+The **Distribution-Aware Encoder** is an advanced preprocessing layer that automatically detects and handles various types of data distributions. It applies specialized transformations to improve model performance while preserving the statistical properties of the data. Built on pure TensorFlow operations without dependencies on TensorFlow Probability, it's lightweight and easy to deploy.
 
-### Distribution Types Supported
+## Key Features
+
+### 1. Automatic Distribution Detection
+- Uses statistical moments (mean, variance, skewness, kurtosis) to identify distribution types
+- Employs histogram analysis for multimodality detection
+- Performs autocorrelation analysis for periodic pattern detection
+- Adapts to data characteristics during training
+
+### 2. Intelligent Transformations
+- Applies distribution-specific transformations automatically
+- Handles 16 different distribution types with specialized approaches
+- Adds Fourier features (sin/cos) for periodic data
+- Special handling for sparse data and zero values
+
+### 3. Flexible Output Options
+- Optional projection to fixed embedding dimension
+- Distribution-specific embeddings can be added to outputs
+- Automatic feature expansion for periodic data
+
+### 4. Production-Ready Implementation
+- Graph mode compatible for TensorFlow's static graph execution
+- No dependencies on TensorFlow Probability for easier deployment
+- Serialization support for model saving and loading
+
+## Distribution Types Supported
+
+The encoder automatically detects and handles these distribution types:
+
 1. **Normal Distribution**
    - For standard normally distributed data
-   - Handled via z-score normalization
-   - Detection: Kurtosis ≈ 3.0, Skewness ≈ 0
+   - Detection: Skewness < 0.5, Kurtosis ≈ 3.0
 
 2. **Heavy-Tailed Distribution**
    - For data with heavier tails than normal
-   - Handled via Student's t-distribution
-   - Detection: Kurtosis > 3.5
+   - Detection: Kurtosis > 4.0
 
 3. **Multimodal Distribution**
    - For data with multiple peaks
-   - Handled via Gaussian Mixture Models
-   - Detection: KDE-based peak detection
+   - Detection: Multiple significant peaks in histogram
 
 4. **Uniform Distribution**
-   - For evenly distributed data
-   - Handled via min-max scaling
-   - Detection: Kurtosis ≈ 1.8
+   - For evenly distributed data between bounds
+   - Detection: Bounded between 0 and 1
 
 5. **Exponential Distribution**
    - For data with exponential decay
-   - Handled via rate-based transformation
-   - Detection: Skewness ≈ 2.0
+   - Detection: Positive values with skewness > 1.0
 
 6. **Log-Normal Distribution**
    - For data that is normal after log transform
-   - Handled via logarithmic transformation
-   - Detection: Log-transformed kurtosis ≈ 3.0
+   - Detection: Positive values with skewness > 2.0
 
 7. **Discrete Distribution**
    - For data with finite distinct values
-   - Handled via rank-based normalization
-   - Detection: Unique values analysis
+   - Detection: Low unique value ratio (< 0.1)
 
 8. **Periodic Distribution**
    - For data with cyclic patterns
-   - Handled via Fourier features (sin/cos)
-   - Detection: Peak spacing analysis
+   - Detection: Significant peaks in autocorrelation
 
 9. **Sparse Distribution**
    - For data with many zeros
-   - Handled via separate zero/non-zero transformations
-   - Detection: Zero ratio analysis
+   - Detection: Zero ratio > 0.5
 
 10. **Beta Distribution**
-    - For bounded data between 0 and 1
-    - Handled via beta CDF transformation
-    - Detection: Value range and shape analysis
+    - For bounded data between 0 and 1 with shape parameters
+    - Detection: Bounded between 0 and 1 with skewness > 0.5
 
 11. **Gamma Distribution**
     - For positive, right-skewed data
-    - Handled via gamma CDF transformation
-    - Detection: Positive support and skewness
+    - Detection: Positive values with mild skewness (> 0.5)
 
 12. **Poisson Distribution**
     - For count data
-    - Handled via rate parameter estimation
-    - Detection: Integer values and variance≈mean
+    - Handled implicitly through other transformations
 
-14. **Cauchy Distribution**
+13. **Cauchy Distribution**
     - For extremely heavy-tailed data
-    - Handled via robust location-scale estimation
-    - Detection: Undefined moments
+    - Detection: Very high kurtosis (> 10.0)
 
-15. **Zero-Inflated Distribution**
+14. **Zero-Inflated Distribution**
     - For data with excess zeros
-    - Handled via mixture model approach
-    - Detection: Zero proportion analysis
+    - Detection: Moderate zero ratio (0.3-0.5)
+
+15. **Bounded Distribution**
+    - For data with known bounds
+    - Handled implicitly through other transformations
+
+16. **Ordinal Distribution**
+    - For ordered categorical data
+    - Handled similarly to discrete distributions
 
 ## Usage
 
 ### Basic Usage
 
-The Distribution-Aware Encoder works seamlessly (and only) with numerical features. Enable it by setting `use_distribution_aware=True` in the `PreprocessingModel`.
+The Distribution-Aware Encoder works seamlessly with numerical features. Enable it by setting `use_distribution_aware=True` in the `PreprocessingModel`.
 
 ```python
 from kdp.processor import PreprocessingModel
@@ -88,28 +108,29 @@ from kdp.features import NumericalFeature
 
 # Define features
 features = {
-    # Numerical features
     "feature1": NumericalFeature(),
     "feature2": NumericalFeature(),
-    # etc ..
+    # etc.
 }
 
-# Initialize the model
-model = PreprocessingModel( # here
+# Initialize the model with distribution-aware encoding
+model = PreprocessingModel(
     features=features,
     use_distribution_aware=True
 )
 ```
 
-### Manual Usage
+### Manual Usage with Specific Distribution
+
+You can specify a preferred distribution type for specific features:
 
 ```python
 from kdp.processor import PreprocessingModel
 from kdp.features import NumericalFeature, FeatureType
+from kdp.layers.distribution_aware_encoder_layer import DistributionType
 
-# Define features
+# Define features with specific distribution preferences
 features = {
-    # Numerical features
     "feature1": NumericalFeature(
         name="feature1",
         feature_type=FeatureType.FLOAT_NORMALIZED
@@ -117,88 +138,119 @@ features = {
     "feature2": NumericalFeature(
         name="feature2",
         feature_type=FeatureType.FLOAT_RESCALED,
-        prefered_distribution="log_normal" # here we could specify a prefered distribution (normal, periodic, etc)
+        prefered_distribution=DistributionType.LOG_NORMAL  # Specify preferred distribution
     )
-    # etc ..
+    # etc.
 }
 
 # Initialize the model
-model = PreprocessingModel( # here
+model = PreprocessingModel(
     features=features,
-    use_distribution_aware=True,
-    distribution_aware_bins=1000, # 1000 is the default value, but you can change it for finer data
+    use_distribution_aware=True
 )
 ```
 
-### Advanced Configuration
+### Direct Layer Usage
+
+You can also use the layer directly in your Keras models:
+
 ```python
-encoder = DistributionAwareEncoder(
-    num_bins=1000,
-    epsilon=1e-6,
-    detect_periodicity=True,
-    handle_sparsity=True,
-    adaptive_binning=True,
-    mixture_components=3,
-    trainable=True
-)
+import tensorflow as tf
+from kdp.layers import DistributionAwareEncoder
+
+# Creating a model with automatic distribution detection
+inputs = tf.keras.Input(shape=(10,))
+encoded = DistributionAwareEncoder(embedding_dim=16)(inputs)
+outputs = tf.keras.layers.Dense(1)(encoded)
+model = tf.keras.Model(inputs, outputs)
+
+# Save and load model with custom objects
+model.save("my_model.keras")
+custom_objects = DistributionAwareEncoder.get_custom_objects()
+loaded_model = tf.keras.models.load_model("my_model", custom_objects=custom_objects)
 ```
 
 ## Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| num_bins | int | 1000 | Number of bins for quantile encoding |
-| epsilon | float | 1e-6 | Small value for numerical stability |
-| detect_periodicity | bool | True | Enable periodic pattern detection |
-| handle_sparsity | bool | True | Enable special handling for sparse data |
-| adaptive_binning | bool | True | Enable adaptive bin boundaries |
-| mixture_components | int | 3 | Number of components for mixture models |
-| trainable | bool | True | Whether parameters are trainable |
-| prefered_distribution | DistributionType | None | Manually specify distribution type |
+| embedding_dim | int or None | None | Output dimension for feature projection. If specified, a Dense layer projects the transformed features to this dimension. |
+| epsilon | float | 1e-6 | Small value to prevent numerical issues. |
+| detect_periodicity | bool | True | If True, checks for and handles periodic patterns by adding sin/cos features. |
+| handle_sparsity | bool | True | If True, applies special handling for sparse data (many zeros). |
+| auto_detect | bool | True | If True, automatically detects distribution type during training. |
+| distribution_type | str | "unknown" | Specific distribution type to use if auto_detect is False. |
+| transform_type | str | "auto" | Type of transformation to apply via DistributionTransformLayer. |
+| add_distribution_embedding | bool | False | If True, adds a learned embedding for the detected distribution type. |
+| trainable | bool | True | Whether the layer is trainable. |
 
-## Key Features
+## Output Dimensions
 
-### 1. Automatic Distribution Detection
-- Uses statistical moments and tests
-- Employs KDE for multimodality detection
-- Handles mixed distributions via ensemble approach
+The output dimensions depend on the configuration:
 
-### 2. Adaptive Transformations
-- Learns optimal parameters during training
-- Adjusts to data distribution changes
-- Handles complex periodic patterns
-
-### 3. Fourier Feature Generation
-- Automatic frequency detection
-- Multiple harmonic components
-- Phase-aware transformations
-
-### 4. Robust Handling
-- Special treatment for zeros
-- Outlier-resistant transformations
-- Numerical stability safeguards
+- **Base case**: Same shape as input
+- **With periodic features**: Input dimension × 3 (original + sin + cos features)
+- **With embedding_dim**: (batch_size, embedding_dim)
+- **With distribution_embedding**: Output has 8 additional dimensions
 
 ## Implementation Details
 
-### 1. Periodic Data Handling
+### 1. Distribution Detection Process
+
+The encoder uses statistical moments and specialized tests to detect the distribution type:
+
 ```python
-# Normalize to [-π, π] range
-normalized = inputs * π / scale
-# Generate Fourier features
-features = [
-    sin(freq * normalized + phase),
-    cos(freq * normalized + phase)
-]
-# Add harmonics if multimodal
-if is_multimodal:
-    for h in [2, 3, 4]:
-        features.extend([
-            sin(h * freq * normalized + phase),
-            cos(h * freq * normalized + phase)
-        ])
+# Calculate basic statistics
+mean = tf.reduce_mean(x)
+variance = tf.math.reduce_variance(x)
+std = tf.sqrt(variance + epsilon)
+
+# Standardize for higher moments
+x_std = (x - mean) / (std + epsilon)
+
+# Calculate skewness and kurtosis
+skewness = tf.reduce_mean(tf.pow(x_std, 3))
+kurtosis = tf.reduce_mean(tf.pow(x_std, 4))
+
+# Check for zeros and sparsity
+zero_ratio = tf.reduce_mean(tf.cast(tf.abs(x) < epsilon, tf.float32))
+
+# Check for discreteness
+unique_ratio = tf.size(tf.unique(tf.reshape(x, [-1]))[0]) / tf.size(x)
+
+# Score each distribution type and select the best match
 ```
 
-### 2. Distribution Detection
+### 2. Periodic Data Handling
+
+For data with detected periodicity, the encoder adds Fourier features:
+
+```python
+# Normalize to [-π, π] range
+normalized = (x - mean) / (std + epsilon) * π
+
+# Generate Fourier features
+sin_feature = tf.sin(frequency * normalized + phase)
+cos_feature = tf.cos(frequency * normalized + phase)
+
+# Combine with original data
+transformed = tf.concat([x, sin_feature, cos_feature], axis=-1)
+```
+
+### 3. Model Serialization
+
+When saving models containing the DistributionAwareEncoder:
+
+```python
+from kdp.layers import DistributionAwareEncoder, get_custom_objects
+
+# Save the model
+model.save("my_model.keras")
+
+# Load the model with custom objects
+custom_objects = get_custom_objects()
+loaded_model = tf.keras.models.load_model("my_model", custom_objects=custom_objects)
+```
 ```python
 # Statistical moments
 mean = tf.reduce_mean(inputs)
