@@ -120,11 +120,25 @@ plugins:
         'contributing.md': 'contributing/overview.md'
         # API reference redirects
         'reference/api-reference.md': 'generated/api_index.md'
+        'reference/parameters.md': 'generated/api_index.md'
+        'reference/glossary.md': 'generated/api_index.md'
         # Integration specific redirects
         'integrations/tensorflow.md': 'integrations/overview.md'
+        'integrations/pytorch.md': 'integrations/overview.md'
+        'integrations/scikit-learn.md': 'integrations/overview.md'
+        'integrations/production.md': 'integrations/overview.md'
+        # Examples redirects
+        'examples/classification.md': 'examples/complex-examples.md'
+        'examples/regression.md': 'examples/complex-examples.md'
+        'examples/recommendation.md': 'examples/complex-examples.md'
+        # Contributing redirects
+        'contributing/development.md': 'contributing/development/auto-documentation.md'
+        'contributing/testing.md': 'contributing/overview.md'
+        'contributing/contributing.md': 'contributing/overview.md'
         # Extra pages that might be referenced
         'memory_optimization.md': 'optimization/tabular-optimization.md'
         'benchmarking.md': 'optimization/tabular-optimization.md'
+        'optimization/memory-optimization.md': 'optimization/tabular-optimization.md'
 
 # Disable directory URLs to make relative paths work better
 use_directory_urls: false

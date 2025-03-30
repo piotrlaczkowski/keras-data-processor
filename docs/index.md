@@ -47,16 +47,13 @@ KDP is a high-performance preprocessing library for tabular data built on Tensor
     <ul>
       <li><a href="optimization/tabular-optimization.md">Tabular Optimization</a></li>
       <li><a href="optimization/auto-configuration.md">Auto-Configuration</a></li>
-      <li><a href="optimization/memory-optimization.md">Memory Optimization</a></li>
+      <li><a href="optimization/feature-selection.md">Feature Selection</a></li>
     </ul>
   </div>
   <div class="grid-item">
     <h3>🔗 Integrations</h3>
     <ul>
-      <li><a href="integrations/tensorflow.md">TensorFlow Integration</a></li>
-      <li><a href="integrations/pytorch.md">PyTorch Integration</a></li>
-      <li><a href="integrations/scikit-learn.md">Scikit-learn Integration</a></li>
-      <li><a href="integrations/production.md">Production Deployment</a></li>
+      <li><a href="integrations/overview.md">Integration Overview</a></li>
     </ul>
   </div>
   <div class="grid-item">
@@ -64,9 +61,6 @@ KDP is a high-performance preprocessing library for tabular data built on Tensor
     <ul>
       <li><a href="examples/basic-examples.md">Basic Examples</a></li>
       <li><a href="examples/complex-examples.md">Complex Examples</a></li>
-      <li><a href="examples/classification.md">Classification Examples</a></li>
-      <li><a href="examples/regression.md">Regression Examples</a></li>
-      <li><a href="examples/recommendation.md">Recommendation Examples</a></li>
     </ul>
   </div>
 </div>
@@ -75,17 +69,14 @@ KDP is a high-performance preprocessing library for tabular data built on Tensor
   <div class="grid-item">
     <h3>📚 Reference</h3>
     <ul>
-      <li><a href="reference/api-reference.md">API Reference</a></li>
-      <li><a href="reference/parameters.md">Parameter Reference</a></li>
-      <li><a href="reference/glossary.md">Glossary</a></li>
+      <li><a href="generated/api_index.md">API Reference</a></li>
     </ul>
   </div>
   <div class="grid-item">
     <h3>🤝 Contributing</h3>
     <ul>
-      <li><a href="contributing/contributing.md">Contribution Guide</a></li>
-      <li><a href="contributing/development.md">Development Setup</a></li>
-      <li><a href="contributing/testing.md">Testing Guide</a></li>
+      <li><a href="contributing/overview.md">Contribution Guide</a></li>
+      <li><a href="contributing/development/auto-documentation.md">Auto-Documentation</a></li>
     </ul>
   </div>
   <div class="grid-item">
@@ -140,9 +131,9 @@ model = result["model"]
 - **New to KDP?** Start with the [Quick Start Guide](getting-started/quick-start.md)
 - **Specific feature type?** Check the [Feature Processing](features/overview.md) section
 - **Performance issues?** See the [Optimization](optimization/tabular-optimization.md) guides
-- **Integration help?** Visit the [Integrations](integrations/tensorflow.md) section
+- **Integration help?** Visit the [Integration Overview](integrations/overview.md) section
 - **Practical examples?** Browse our [Examples](examples/basic-examples.md)
-- **API details?** Refer to the [Reference](reference/api-reference.md) documentation
+- **API details?** Refer to the [API Reference](generated/api_index.md) documentation
 
 ## 📣 Community & Support
 
