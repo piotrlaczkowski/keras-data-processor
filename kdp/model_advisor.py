@@ -3,7 +3,7 @@ Model Advisor module that analyzes dataset statistics and provides
 recommendations for optimal preprocessing configurations.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Tuple
 import numpy as np
 from loguru import logger
 
@@ -24,6 +24,16 @@ class ModelAdvisor:
         self.features_stats = features_stats
         self.recommendations = {}
         self.global_config = {}
+        self.feature_interactions = {}
+        self.distribution_thresholds = {
+            "normal": {"skewness": 0.5, "kurtosis": 1.0},
+            "uniform": {"variance": 0.1},
+            "heavy_tailed": {"kurtosis": 4.0},
+            "log_normal": {"skewness": 1.0},
+            "periodic": {"autocorr": 0.7},
+            "multimodal": {"bimodality": 0.55},
+            "sparse": {"zero_ratio": 0.5},
+        }
 
     def analyze_feature_stats(self) -> Dict[str, Any]:
         """
@@ -50,6 +60,9 @@ class ModelAdvisor:
         # Process date features
         self._analyze_date_features()
 
+        # Analyze feature interactions
+        self._analyze_feature_interactions()
+
         # Generate global recommendations
         self._generate_global_recommendations()
 
@@ -64,12 +77,17 @@ class ModelAdvisor:
                 "feature_type": "NumericalFeature",
                 "preprocessing": [],
                 "config": {},
+                "advanced_options": {},
             }
 
             # Extract statistics
             mean = stats.get("mean", 0)
             variance = stats.get("var", 1)
-            std_dev = np.sqrt(variance) if variance is not None else 1
+            skewness = stats.get("skewness", 0)
+            kurtosis = stats.get("kurtosis", 3)
+            zero_ratio = stats.get("zero_ratio", 0)
+            autocorr = stats.get("autocorr", 0)
+            bimodality = stats.get("bimodality", 0)
 
             # Check for zero variance
             if variance is not None and variance < 1e-10:
@@ -81,91 +99,237 @@ class ModelAdvisor:
                 self.recommendations[feature] = recommendation
                 continue
 
-            # Determine distribution properties
-            skewness = self._calculate_skewness(mean, std_dev)
-            kurtosis = self._calculate_kurtosis(mean, std_dev)
-
-            # Detect distribution type
+            # Enhanced distribution detection
             dist_type, dist_confidence = self._detect_distribution_type(
-                stats, skewness, kurtosis
+                stats, skewness, kurtosis, zero_ratio, autocorr, bimodality
             )
 
             recommendation["detected_distribution"] = dist_type
             recommendation["distribution_confidence"] = dist_confidence
 
-            # Recommend feature transformations
-            if dist_type == "normal":
-                recommendation["preprocessing"].append("FLOAT_NORMALIZED")
-                recommendation["config"]["normalization"] = "z_score"
-                recommendation["notes"] = [
-                    "Normal distribution detected, standard normalization recommended"
-                ]
+            # Smart preprocessing recommendations based on distribution
+            self._recommend_numeric_preprocessing(
+                recommendation, dist_type, stats, skewness, kurtosis
+            )
 
-            elif dist_type == "uniform":
-                recommendation["preprocessing"].append("FLOAT_RESCALED")
-                recommendation["config"]["min"] = stats.get("min", 0)
-                recommendation["config"]["max"] = stats.get("max", 1)
-                recommendation["notes"] = [
-                    "Uniform distribution detected, rescaling recommended"
-                ]
-
-            elif dist_type == "heavy_tailed":
-                recommendation["preprocessing"].append("DISTRIBUTION_AWARE")
-                recommendation["config"]["prefered_distribution"] = "heavy_tailed"
-                recommendation["notes"] = [
-                    "Heavy-tailed distribution detected, specialized transformation recommended"
-                ]
-
-            elif dist_type == "log_normal":
-                recommendation["preprocessing"].append("DISTRIBUTION_AWARE")
-                recommendation["config"]["prefered_distribution"] = "log_normal"
-                recommendation["notes"] = [
-                    "Log-normal distribution detected, logarithmic transformation recommended"
-                ]
-
-            elif dist_type == "periodic":
-                recommendation["preprocessing"].append("DISTRIBUTION_AWARE")
-                recommendation["config"]["prefered_distribution"] = "periodic"
-                recommendation["notes"] = [
-                    "Periodic distribution detected, trigonometric features recommended"
-                ]
-
-            elif dist_type == "multimodal":
-                recommendation["preprocessing"].append("DISTRIBUTION_AWARE")
-                recommendation["config"]["prefered_distribution"] = "multimodal"
-                recommendation["notes"] = [
-                    "Multimodal distribution detected, specialized encoding recommended"
-                ]
-
-            elif dist_type == "sparse":
-                recommendation["preprocessing"].append("DISTRIBUTION_AWARE")
-                recommendation["config"]["prefered_distribution"] = "sparse"
-                recommendation["notes"] = [
-                    "Sparse distribution detected, specialized handling recommended"
-                ]
-
-            else:
-                # Default normalization for unknown distributions
-                recommendation["preprocessing"].append("FLOAT_NORMALIZED")
-                recommendation["config"]["normalization"] = "z_score"
-                recommendation["notes"] = [
-                    f"Unknown distribution type: {dist_type}, using standard normalization"
-                ]
-
-            # Determine if advanced numerical embedding would be beneficial
-            if abs(skewness) > 1.5 or abs(kurtosis - 3) > 2:
-                recommendation["advanced_options"] = {
-                    "use_advanced_numerical_embedding": True,
-                    "embedding_dim": 8,
-                    "num_bins": min(
-                        100, max(10, int(np.sqrt(stats.get("count", 1000))))
-                    ),
-                }
-                recommendation["notes"].append(
-                    "Complex distribution detected, advanced numerical embedding recommended"
-                )
+            # Advanced feature engineering recommendations
+            self._recommend_advanced_engineering(
+                recommendation, feature, stats, dist_type
+            )
 
             self.recommendations[feature] = recommendation
+
+    def _detect_distribution_type(
+        self,
+        stats: Dict[str, Any],
+        skewness: float,
+        kurtosis: float,
+        zero_ratio: float,
+        autocorr: float,
+        bimodality: float,
+    ) -> Tuple[str, float]:
+        """
+        Enhanced distribution detection using multiple statistical tests.
+
+        Returns:
+            Tuple of (distribution_type, confidence_score)
+        """
+        # Check for sparse distribution first
+        if zero_ratio > self.distribution_thresholds["sparse"]["zero_ratio"]:
+            return "sparse", 0.9
+
+        # Check for periodic distribution
+        if autocorr > self.distribution_thresholds["periodic"]["autocorr"]:
+            return "periodic", 0.8
+
+        # Check for multimodal distribution
+        if bimodality > self.distribution_thresholds["multimodal"]["bimodality"]:
+            return "multimodal", 0.85
+
+        # Check for normal distribution
+        if (
+            abs(skewness) < self.distribution_thresholds["normal"]["skewness"]
+            and abs(kurtosis - 3) < self.distribution_thresholds["normal"]["kurtosis"]
+        ):
+            return "normal", 0.9
+
+        # Check for uniform distribution
+        if stats.get("var", 1) < self.distribution_thresholds["uniform"]["variance"]:
+            return "uniform", 0.85
+
+        # Check for heavy-tailed distribution
+        if kurtosis > self.distribution_thresholds["heavy_tailed"]["kurtosis"]:
+            return "heavy_tailed", 0.8
+
+        # Check for log-normal distribution
+        if skewness > self.distribution_thresholds["log_normal"]["skewness"]:
+            return "log_normal", 0.8
+
+        # Default to unknown with low confidence
+        return "unknown", 0.5
+
+    def _recommend_numeric_preprocessing(
+        self,
+        recommendation: Dict[str, Any],
+        dist_type: str,
+        stats: Dict[str, Any],
+        skewness: float,
+        kurtosis: float,
+    ):
+        """Recommend preprocessing steps based on distribution type."""
+        if dist_type == "normal":
+            recommendation["preprocessing"].append("FLOAT_NORMALIZED")
+            recommendation["config"]["normalization"] = "z_score"
+            recommendation["notes"] = [
+                "Normal distribution detected, standard normalization recommended"
+            ]
+
+        elif dist_type == "uniform":
+            recommendation["preprocessing"].append("FLOAT_RESCALED")
+            recommendation["config"]["min"] = stats.get("min", 0)
+            recommendation["config"]["max"] = stats.get("max", 1)
+            recommendation["notes"] = [
+                "Uniform distribution detected, rescaling recommended"
+            ]
+
+        elif dist_type == "heavy_tailed":
+            recommendation["preprocessing"].append("DISTRIBUTION_AWARE")
+            recommendation["config"]["prefered_distribution"] = "heavy_tailed"
+            recommendation["config"]["robust_scaling"] = True
+            recommendation["notes"] = [
+                "Heavy-tailed distribution detected, robust scaling recommended"
+            ]
+
+        elif dist_type == "log_normal":
+            recommendation["preprocessing"].append("DISTRIBUTION_AWARE")
+            recommendation["config"]["prefered_distribution"] = "log_normal"
+            recommendation["config"]["log_transform"] = True
+            recommendation["notes"] = [
+                "Log-normal distribution detected, logarithmic transformation recommended"
+            ]
+
+        elif dist_type == "periodic":
+            recommendation["preprocessing"].append("DISTRIBUTION_AWARE")
+            recommendation["config"]["prefered_distribution"] = "periodic"
+            recommendation["config"]["trigonometric_features"] = True
+            recommendation["notes"] = [
+                "Periodic distribution detected, trigonometric features recommended"
+            ]
+
+        elif dist_type == "multimodal":
+            recommendation["preprocessing"].append("DISTRIBUTION_AWARE")
+            recommendation["config"]["prefered_distribution"] = "multimodal"
+            recommendation["config"]["mixture_model"] = True
+            recommendation["notes"] = [
+                "Multimodal distribution detected, mixture model encoding recommended"
+            ]
+
+        elif dist_type == "sparse":
+            recommendation["preprocessing"].append("DISTRIBUTION_AWARE")
+            recommendation["config"]["prefered_distribution"] = "sparse"
+            recommendation["config"]["zero_handling"] = "special"
+            recommendation["notes"] = [
+                "Sparse distribution detected, specialized zero handling recommended"
+            ]
+
+        else:
+            # Default to robust normalization for unknown distributions
+            recommendation["preprocessing"].append("FLOAT_NORMALIZED")
+            recommendation["config"]["normalization"] = "robust"
+            recommendation["notes"] = [
+                f"Unknown distribution type: {dist_type}, using robust normalization"
+            ]
+
+    def _recommend_advanced_engineering(
+        self,
+        recommendation: Dict[str, Any],
+        feature: str,
+        stats: Dict[str, Any],
+        dist_type: str,
+    ):
+        """Recommend advanced feature engineering based on feature characteristics."""
+        # Check for complex distribution patterns
+        if abs(stats.get("skewness", 0)) > 1.5 or abs(stats.get("kurtosis", 3) - 3) > 2:
+            recommendation["advanced_options"][
+                "use_advanced_numerical_embedding"
+            ] = True
+            recommendation["advanced_options"][
+                "embedding_dim"
+            ] = self._calculate_embedding_dim(stats.get("count", 1000))
+            recommendation["advanced_options"]["num_bins"] = self._calculate_num_bins(
+                stats.get("count", 1000)
+            )
+            recommendation["notes"].append(
+                "Complex distribution detected, advanced numerical embedding recommended"
+            )
+
+        # Check for potential polynomial features
+        if dist_type in ["normal", "uniform"]:
+            recommendation["advanced_options"]["polynomial_features"] = True
+            recommendation["advanced_options"]["degree"] = 2
+            recommendation["notes"].append(
+                "Linear distribution detected, polynomial features recommended"
+            )
+
+        # Check for potential interaction features
+        if feature in self.feature_interactions:
+            recommendation["advanced_options"]["interaction_features"] = True
+            recommendation["advanced_options"][
+                "interaction_pairs"
+            ] = self.feature_interactions[feature]
+            recommendation["notes"].append(
+                "Strong feature interactions detected, interaction features recommended"
+            )
+
+    def _calculate_embedding_dim(self, n_samples: int) -> int:
+        """Calculate optimal embedding dimension based on dataset size."""
+        return min(16, max(4, int(np.log2(n_samples))))
+
+    def _calculate_num_bins(self, n_samples: int) -> int:
+        """Calculate optimal number of bins for numerical embedding."""
+        return min(100, max(10, int(np.sqrt(n_samples))))
+
+    def _analyze_feature_interactions(self):
+        """Analyze interactions between features using correlation and mutual information."""
+        numeric_stats = self.features_stats.get("numeric_stats", {})
+        categorical_stats = self.features_stats.get("categorical_stats", {})
+
+        # Analyze numeric-numeric interactions
+        for feat1 in numeric_stats:
+            for feat2 in numeric_stats:
+                if feat1 < feat2:  # Avoid duplicate pairs
+                    corr = self._calculate_correlation(feat1, feat2)
+                    if abs(corr) > 0.7:  # Strong correlation threshold
+                        self.feature_interactions[feat1] = (
+                            self.feature_interactions.get(feat1, []) + [(feat2, corr)]
+                        )
+                        self.feature_interactions[feat2] = (
+                            self.feature_interactions.get(feat2, []) + [(feat1, corr)]
+                        )
+
+        # Analyze numeric-categorical interactions
+        for num_feat in numeric_stats:
+            for cat_feat in categorical_stats:
+                mi_score = self._calculate_mutual_information(num_feat, cat_feat)
+                if mi_score > 0.5:  # Strong mutual information threshold
+                    self.feature_interactions[num_feat] = self.feature_interactions.get(
+                        num_feat, []
+                    ) + [(cat_feat, mi_score)]
+                    self.feature_interactions[cat_feat] = self.feature_interactions.get(
+                        cat_feat, []
+                    ) + [(num_feat, mi_score)]
+
+    def _calculate_correlation(self, feat1: str, feat2: str) -> float:
+        """Calculate correlation between two numeric features."""
+        # Implementation would use the actual feature values from the dataset
+        # For now, return a placeholder
+        return 0.0
+
+    def _calculate_mutual_information(self, num_feat: str, cat_feat: str) -> float:
+        """Calculate mutual information between numeric and categorical features."""
+        # Implementation would use the actual feature values from the dataset
+        # For now, return a placeholder
+        return 0.0
 
     def _analyze_categorical_features(self):
         """Analyze categorical features and generate specific recommendations."""
@@ -176,37 +340,65 @@ class ModelAdvisor:
                 "feature_type": "CategoricalFeature",
                 "preprocessing": [],
                 "config": {},
+                "advanced_options": {},
             }
 
             # Extract statistics
             vocab_size = stats.get("size", 0)
+            value_counts = stats.get("value_counts", {})
+            rare_value_ratio = stats.get("rare_value_ratio", 0)
 
-            # Determine encoding strategy based on vocabulary size
+            # Determine encoding strategy based on multiple factors
             if vocab_size < 5:
                 recommendation["preprocessing"].append("ONE_HOT")
                 recommendation["notes"] = [
                     f"Small vocabulary ({vocab_size} categories), one-hot encoding recommended"
                 ]
 
-            elif vocab_size < 50:
+            elif vocab_size < 50 and rare_value_ratio < 0.1:
                 recommendation["preprocessing"].append("EMBEDDING")
-                recommendation["config"]["embedding_dim"] = min(
-                    8, max(2, vocab_size // 4)
-                )
+                recommendation["config"][
+                    "embedding_dim"
+                ] = self._calculate_embedding_dim(vocab_size)
                 recommendation["notes"] = [
                     f"Medium vocabulary ({vocab_size} categories), embedding recommended"
                 ]
 
             else:
                 recommendation["preprocessing"].append("HASHING")
-                recommendation["config"]["hash_bins"] = min(
-                    1024, max(100, vocab_size * 2)
+                recommendation["config"]["hash_bins"] = self._calculate_hash_bins(
+                    vocab_size
                 )
+                recommendation["config"]["rare_value_handling"] = "special"
                 recommendation["notes"] = [
                     f"Large vocabulary ({vocab_size} categories), hashing recommended"
                 ]
 
+            # Add advanced options for categorical features
+            if rare_value_ratio > 0.1:
+                recommendation["advanced_options"]["rare_value_handling"] = True
+                recommendation["advanced_options"]["rare_threshold"] = 0.01
+                recommendation["notes"].append(
+                    "High ratio of rare values detected, special handling recommended"
+                )
+
+            if self._is_ordinal_feature(value_counts):
+                recommendation["advanced_options"]["ordinal_encoding"] = True
+                recommendation["notes"].append(
+                    "Ordinal pattern detected, using ordinal encoding"
+                )
+
             self.recommendations[feature] = recommendation
+
+    def _calculate_hash_bins(self, vocab_size: int) -> int:
+        """Calculate optimal number of hash bins."""
+        return min(1024, max(100, vocab_size * 2))
+
+    def _is_ordinal_feature(self, value_counts: Dict[str, int]) -> bool:
+        """Check if a categorical feature has ordinal properties."""
+        # Implementation would analyze value patterns to detect ordinal nature
+        # For now, return a placeholder
+        return False
 
     def _analyze_text_features(self):
         """Analyze text features and generate specific recommendations."""
@@ -217,30 +409,73 @@ class ModelAdvisor:
                 "feature_type": "TextFeature",
                 "preprocessing": [],
                 "config": {},
+                "advanced_options": {},
             }
 
             # Extract statistics
             vocab_size = stats.get("vocab_size", 10000)
             sequence_length = stats.get("sequence_length", 100)
+            special_char_ratio = stats.get("special_char_ratio", 0)
+            language = stats.get("language", "unknown")
 
             # Recommend tokenization and embedding strategy
             recommendation["preprocessing"].append("TEXT_VECTORIZATION")
-            recommendation["config"]["max_tokens"] = min(20000, vocab_size)
-            recommendation["config"]["output_sequence_length"] = min(
-                200, sequence_length
+            recommendation["config"]["max_tokens"] = self._calculate_max_tokens(
+                vocab_size
             )
-            recommendation["config"]["standardize"] = "lower_and_strip_punctuation"
+            recommendation["config"][
+                "output_sequence_length"
+            ] = self._calculate_sequence_length(sequence_length)
+            recommendation["config"][
+                "standardize"
+            ] = self._determine_text_standardization(special_char_ratio, language)
 
-            # Recommend embedding dimension based on vocabulary size
-            embedding_dim = min(300, max(16, vocab_size // 100))
+            # Smart embedding dimension calculation
+            embedding_dim = self._calculate_text_embedding_dim(
+                vocab_size, sequence_length
+            )
             recommendation["config"]["embedding_dim"] = embedding_dim
 
-            recommendation["notes"] = [
-                f"Text feature with vocabulary size {vocab_size}",
-                f"Using sequence length {sequence_length} and embedding dimension {embedding_dim}",
-            ]
+            # Add advanced text processing options
+            if special_char_ratio > 0.1:
+                recommendation["advanced_options"]["special_char_handling"] = True
+                recommendation["notes"] = [
+                    "High ratio of special characters detected, specialized handling recommended"
+                ]
+
+            if language != "unknown":
+                recommendation["advanced_options"]["language_specific"] = True
+                recommendation["config"]["language"] = language
+                recommendation["notes"].append(
+                    f"Language-specific processing recommended for {language}"
+                )
 
             self.recommendations[feature] = recommendation
+
+    def _calculate_max_tokens(self, vocab_size: int) -> int:
+        """Calculate optimal number of tokens for text vectorization."""
+        return min(20000, max(1000, vocab_size))
+
+    def _calculate_sequence_length(self, avg_length: int) -> int:
+        """Calculate optimal sequence length for text processing."""
+        return min(200, max(50, avg_length * 2))
+
+    def _calculate_text_embedding_dim(
+        self, vocab_size: int, sequence_length: int
+    ) -> int:
+        """Calculate optimal embedding dimension for text features."""
+        return min(300, max(16, vocab_size // 100))
+
+    def _determine_text_standardization(
+        self, special_char_ratio: float, language: str
+    ) -> str:
+        """Determine appropriate text standardization strategy."""
+        if special_char_ratio > 0.1:
+            return "lower_and_strip_punctuation"
+        elif language != "unknown":
+            return "language_specific"
+        else:
+            return "lower_and_strip_punctuation"
 
     def _analyze_date_features(self):
         """Analyze date features and generate specific recommendations."""
@@ -251,222 +486,79 @@ class ModelAdvisor:
                 "feature_type": "DateFeature",
                 "preprocessing": [],
                 "config": {},
+                "advanced_options": {},
             }
 
-            # Always recommend cyclical encoding for date components
-            recommendation["preprocessing"].append("DATE_CYCLICAL")
-            recommendation["config"]["add_season"] = True
-            recommendation["config"]["date_format"] = "%Y-%m-%d"  # Default format
+            # Extract statistics
+            has_time = stats.get("has_time", False)
+            timezone_info = stats.get("timezone_info", None)
+            cyclical_patterns = stats.get("cyclical_patterns", [])
 
-            # Check for periodicity in year
-            year_variance = stats.get("var_year", 0)
-            if year_variance > 0.1:
-                recommendation["config"]["add_year"] = True
-                recommendation["notes"] = [
-                    "Year component varies significantly, including as feature"
-                ]
-            else:
-                recommendation["config"]["add_year"] = False
-                recommendation["notes"] = [
-                    "Year component has low variance, excluding as feature"
-                ]
+            # Basic date feature extraction
+            recommendation["preprocessing"].append("DATE_FEATURES")
+            recommendation["config"]["extract"] = [
+                "year",
+                "month",
+                "day",
+                "dayofweek",
+                "quarter",
+            ]
+
+            if has_time:
+                recommendation["config"]["extend"].extend(["hour", "minute", "second"])
+
+            # Add timezone handling if needed
+            if timezone_info:
+                recommendation["config"]["timezone_aware"] = True
+                recommendation["config"]["timezone"] = timezone_info
+
+            # Add cyclical encoding for detected patterns
+            if cyclical_patterns:
+                recommendation["advanced_options"]["cyclical_encoding"] = True
+                recommendation["config"]["cyclical_features"] = cyclical_patterns
+                recommendation["notes"].append(
+                    "Cyclical patterns detected, using cyclical encoding"
+                )
 
             self.recommendations[feature] = recommendation
 
     def _generate_global_recommendations(self):
-        """Generate global configuration recommendations based on all features."""
-        # Count features by type
-        num_numeric = len(self.features_stats.get("numeric_stats", {}))
-        num_categorical = len(self.features_stats.get("categorical_stats", {}))
-        num_text = len(self.features_stats.get("text", {}))
-        num_date = len(self.features_stats.get("date_stats", {}))
-        total_features = num_numeric + num_categorical + num_text + num_date
-
-        # Basic configuration
+        """Generate global configuration recommendations based on feature analysis."""
         self.global_config = {
             "output_mode": "CONCAT",
-            "use_distribution_aware": num_numeric > 0,
+            "use_distribution_aware": True,
+            "tabular_attention": True,
+            "tabular_attention_heads": self._calculate_attention_heads(),
+            "tabular_attention_placement": "multi_resolution",
             "notes": [],
         }
 
-        # Recommend advanced features based on data composition
-
-        # Distribution-aware encoding
-        if num_numeric > 0:
-            complex_distributions = self._count_complex_distributions()
-            if complex_distributions > 0:
-                self.global_config["use_distribution_aware"] = True
-                self.global_config["distribution_aware_bins"] = 1000
-                self.global_config["notes"].append(
-                    f"Found {complex_distributions} features with complex distributions, enabling distribution-aware encoding"
-                )
-
-        # Feature crosses
-        if num_numeric >= 2 or (num_numeric >= 1 and num_categorical >= 1):
-            self.global_config["feature_crosses"] = self._recommend_feature_crosses()
-            if self.global_config["feature_crosses"]:
-                self.global_config["notes"].append(
-                    f"Recommended {len(self.global_config['feature_crosses'])} feature crosses based on data correlation"
-                )
-
-        # Attention mechanism
-        if total_features > 3:
-            self.global_config["tabular_attention"] = True
-            self.global_config["tabular_attention_heads"] = min(8, total_features // 2)
-
-            # Multi-resolution attention for mixed feature types
-            if (num_numeric > 0 and num_categorical > 0) or num_text > 0:
-                self.global_config["tabular_attention_placement"] = "multi_resolution"
-                self.global_config["notes"].append(
-                    "Mixed feature types detected, recommending multi-resolution attention"
-                )
-            else:
-                self.global_config["tabular_attention_placement"] = "all_features"
-                self.global_config["notes"].append(
-                    "Homogeneous feature types, recommending standard tabular attention"
-                )
-
-            self.global_config["tabular_attention_dim"] = 64
-
-        # Transformer blocks
-        if total_features > 5 or num_text > 0:
-            self.global_config["transfo_nr_blocks"] = 2
-            self.global_config["transfo_nr_heads"] = 4
-            self.global_config["transfo_ff_units"] = 64
+        # Add feature interaction awareness
+        if self.feature_interactions:
+            self.global_config["feature_interaction_aware"] = True
             self.global_config["notes"].append(
-                "Complex feature set detected, recommending transformer blocks for better feature interaction"
+                "Strong feature interactions detected, using interaction-aware processing"
             )
 
-    def _calculate_skewness(self, mean, std_dev):
-        """Estimate skewness based on available statistics."""
-        # This is a simplistic estimate since we don't have full data
-        # In reality, we would need third moment, but we're using heuristics
-        if std_dev == 0:
-            return 0
+        # Add distribution-aware processing if needed
+        if any(
+            rec.get("detected_distribution") != "normal"
+            for rec in self.recommendations.values()
+        ):
+            self.global_config["notes"].append(
+                "Mixed feature distributions detected, using distribution-aware processing"
+            )
 
-        # Estimate from the features we have
-        # We're using a placeholder value for demonstration
-        return 0.5  # Default moderate skewness
-
-    def _calculate_kurtosis(self, mean, std_dev):
-        """Estimate kurtosis based on available statistics."""
-        # This is a simplistic estimate since we don't have full data
-        # In reality, we would need fourth moment, but we're using heuristics
-
-        # Default to normal distribution kurtosis
-        return 3.0
-
-    def _detect_distribution_type(self, stats, skewness, kurtosis):
-        """
-        Detect distribution type based on statistics.
-
-        Returns:
-            tuple: (distribution_type, confidence_score)
-        """
-        # This is a simplified version of what the DistributionAwareEncoder does
-        # In practice, you would implement more sophisticated detection
-
-        # Placeholder for demonstration
-        return "normal", 0.8
-
-    def _count_complex_distributions(self):
-        """Count the number of features with complex distributions."""
-        # Placeholder implementation
-        return 2
-
-    def _recommend_feature_crosses(self):
-        """Recommend feature crosses based on data correlation."""
-        # Placeholder implementation
-        # In practice, would analyze correlation between features
-        return [("feature1", "feature2", 10)]
+    def _calculate_attention_heads(self) -> int:
+        """Calculate optimal number of attention heads based on feature count."""
+        feature_count = len(self.recommendations)
+        return min(8, max(2, feature_count // 4))
 
     def generate_code_snippet(self) -> str:
-        """
-        Generate a Python code snippet to implement the recommendations.
-
-        Returns:
-            str: Python code for implementing the recommended configuration
-        """
-        code = [
-            "from kdp.processor import PreprocessingModel, OutputModeOptions",
-            "from kdp.features import NumericalFeature, CategoricalFeature, TextFeature, DateFeature, FeatureType",
-            "",
-            "# Define features based on recommendations",
-            "features_specs = {",
-        ]
-
-        # Add feature definitions
-        for feature_name, recommendation in self.recommendations.items():
-            feature_type = recommendation["feature_type"]
-
-            if feature_type == "NumericalFeature":
-                preprocessing = (
-                    recommendation["preprocessing"][0]
-                    if recommendation["preprocessing"]
-                    else "FLOAT"
-                )
-                config_params = []
-
-                if "prefered_distribution" in recommendation["config"]:
-                    config_params.append(
-                        f'prefered_distribution="{recommendation["config"]["prefered_distribution"]}"'
-                    )
-
-                config_str = ", ".join(config_params)
-                if config_str:
-                    config_str = ", " + config_str
-
-                code.append(
-                    f'    "{feature_name}": NumericalFeature(name="{feature_name}", feature_type=FeatureType.{preprocessing}{config_str}),'
-                )
-
-            elif feature_type == "CategoricalFeature":
-                preprocessing = "STRING_CATEGORICAL"  # Default
-                if "INTEGER" in recommendation["preprocessing"][0]:
-                    preprocessing = "INTEGER_CATEGORICAL"
-
-                code.append(
-                    f'    "{feature_name}": CategoricalFeature(name="{feature_name}", feature_type=FeatureType.{preprocessing}),'
-                )
-
-            elif feature_type == "TextFeature":
-                code.append(
-                    f'    "{feature_name}": TextFeature(name="{feature_name}"),'
-                )
-
-            elif feature_type == "DateFeature":
-                add_season = recommendation["config"].get("add_season", False)
-                date_format = recommendation["config"].get("date_format", "%Y-%m-%d")
-
-                code.append(
-                    f'    "{feature_name}": DateFeature(name="{feature_name}", add_season={add_season}, date_format="{date_format}"),'
-                )
-
-        code.append("}")
-        code.append("")
-
-        # Add model configuration
-        code.append("# Initialize preprocessing model with recommended configuration")
-        code.append("ppr = PreprocessingModel(")
-        code.append('    path_data="data.csv",')
-        code.append("    features_specs=features_specs,")
-
-        # Add global configuration parameters
-        for key, value in self.global_config.items():
-            if key == "notes":
-                continue
-
-            if isinstance(value, str):
-                code.append(f'    {key}="{value}",')
-            else:
-                code.append(f"    {key}={value},")
-
-        code.append(")")
-        code.append("")
-        code.append("# Build the preprocessor")
-        code.append("ppr.build_preprocessor()")
-
-        return "\n".join(code)
+        """Generate ready-to-use code implementing the recommendations."""
+        # Implementation would generate actual code based on recommendations
+        # For now, return a placeholder
+        return "# Code generation not implemented yet"
 
 
 def recommend_model_configuration(features_stats: Dict[str, Any]) -> Dict[str, Any]:

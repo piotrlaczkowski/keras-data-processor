@@ -16,6 +16,7 @@ from kdp.processor import (
     TransformerBlockPlacementOptions,
 )
 from kdp.stats import DatasetStatistics
+from kdp.auto_config import auto_configure
 
 __all__ = [
     "ProcessingStep",
@@ -33,4 +34,5 @@ __all__ = [
     "TransformerBlockPlacementOptions",
     "OutputModeOptions",
     "TabularAttentionPlacementOptions",
+    "auto_configure",
 ]

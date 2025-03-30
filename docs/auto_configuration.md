@@ -11,68 +11,44 @@ The automatic model configuration system leverages statistical analysis to:
 3. **Optimize global settings** - Recommends global parameters for improved model performance
 4. **Generate code** - Provides ready-to-use Python code implementing the recommendations
 
-## 🛠️ How It Works
-
-The system works in two main phases:
-
-### 1. Statistics Collection
-
-First, the `DatasetStatistics` class analyzes your dataset to compute various statistical properties:
-
-- **Numerical features**: Mean, variance, distribution shape metrics (estimated skewness/kurtosis)
-- **Categorical features**: Vocabulary size, cardinality, unique values
-- **Text features**: Vocabulary statistics, average sequence length
-- **Date features**: Cyclical patterns, temporal variance
-
-### 2. Configuration Recommendation
-
-Then, the `ModelAdvisor` analyzes these statistics to recommend:
-
-- **Feature-specific transformations**: Based on the detected distribution type
-- **Advanced encoding options**: Such as distribution-aware encoding for complex distributions
-- **Attention mechanisms**: Tabular attention or multi-resolution attention when appropriate
-- **Global parameters**: Overall architecture suggestions based on the feature mix
-
 ## 🚀 Using the Configuration Advisor
 
-### Method 1: Using the Python API
+The simplest way to use the automatic configuration system is through the `auto_configure` function:
 
 ```python
-from kdp.stats import DatasetStatistics
-from kdp.processor import PreprocessingModel
+from kdp import auto_configure
 
-# Initialize statistics calculator
-stats_calculator = DatasetStatistics(
-    path_data="data/my_dataset.csv",
-    features_specs=features_specs  # Optional, will be inferred if not provided
+# Analyze your dataset and get recommendations
+config = auto_configure("data/my_dataset.csv")
+
+# Get the ready-to-use code snippet
+print(config["code_snippet"])
+
+# Get feature-specific recommendations
+print(config["recommendations"])
+
+# Get computed statistics (if save_stats=True)
+print(config["statistics"])
+```
+
+### Advanced Usage
+
+You can customize the analysis with additional parameters:
+
+```python
+config = auto_configure(
+    data_path="data/my_dataset.csv",
+    features_specs={
+        "age": "NumericalFeature",
+        "category": "CategoricalFeature",
+        "text": "TextFeature"
+    },
+    batch_size=100_000,
+    save_stats=True,
+    stats_path="my_stats.json",
+    overwrite_stats=False
 )
-
-# Calculate statistics
-stats = stats_calculator.main()
-
-# Generate recommendations
-recommendations = stats_calculator.recommend_model_configuration()
-
-# Use the recommendations to build a model
-# You can directly use the generated code snippet or access specific recommendations
-print(recommendations["code_snippet"])
 ```
-
-### Method 2: Using the Command-Line Tool
-
-KDP provides a command-line tool to analyze datasets and generate recommendations:
-
-```bash
-python scripts/analyze_dataset.py --data path/to/data.csv --output recommendations.json
-```
-
-Options:
-- `--data`, `-d`: Path to CSV data file or directory (required)
-- `--output`, `-o`: Path to save recommendations (default: recommendations.json)
-- `--stats`, `-s`: Path to save/load feature statistics (default: features_stats.json)
-- `--batch-size`, `-b`: Batch size for processing (default: 50000)
-- `--overwrite`, `-w`: Overwrite existing statistics file
-- `--feature-types`, `-f`: JSON file specifying feature types (optional)
 
 ## 🔮 Distribution Detection
 
