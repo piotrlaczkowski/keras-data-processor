@@ -32,7 +32,6 @@ document.addEventListener('DOMContentLoaded', function() {
     'auto_configuration.md',
     'complex_examples.md',
     'integrations.md',
-    'feature_moe.md',
     'transformer_blocks.md',
     'contributing.md'
   ];
@@ -47,7 +46,6 @@ document.addEventListener('DOMContentLoaded', function() {
     'optimization/auto-configuration.html',
     'examples/complex-examples.html',
     'integrations/overview.html',
-    'advanced/feature-moe.html',
     'advanced/transformer-blocks.html',
     'contributing/overview.html'
   ];

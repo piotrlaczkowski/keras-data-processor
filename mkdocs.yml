@@ -57,7 +57,6 @@ nav:
       - 🔢 Advanced Numerical Embeddings: advanced/numerical-embeddings.md
       - 👁️ Tabular Attention: advanced/tabular-attention.md
       - 🤖 Transformer Blocks: advanced/transformer-blocks.md
-      - 🧩 Feature-wise Mixture of Experts: advanced/feature-moe.md
   - ⚡ Optimization:
       - 🎯 Feature Selection: optimization/feature-selection.md
       - 📈 Tabular Optimization: optimization/tabular-optimization.md
@@ -113,10 +112,10 @@ plugins:
         'advanced_numerical_embeddings.md': 'advanced/numerical-embeddings.md'
         'tabular_attention.md': 'advanced/tabular-attention.md'
         'feature_selection.md': 'optimization/feature-selection.md'
+        'advanced/feature-selection.md': 'optimization/feature-selection.md'
         'auto_configuration.md': 'optimization/auto-configuration.md'
         'complex_examples.md': 'examples/complex-examples.md'
         'integrations.md': 'integrations/overview.md'
-        'feature_moe.md': 'advanced/feature-moe.md'
         'transformer_blocks.md': 'advanced/transformer-blocks.md'
         'contributing.md': 'contributing/overview.md'
         # API reference redirects
