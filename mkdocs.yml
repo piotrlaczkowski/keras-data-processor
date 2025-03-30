@@ -1,4 +1,6 @@
 site_name: KDP - Keras Data Preprocessor
+site_url: https://example.com/kdp
+docs_dir: docs
 theme:
   name: "material"
   icon:
@@ -34,32 +36,43 @@ theme:
         icon: material/toggle-switch
         name: Switch to light mode
 
-
 nav:
   - 🏠 Home: index.md
-  - 💡 Understanding KDP: kdp_overview.md
-  - 🛠️ Key Features: features.md
-  - 🏭 Factory System:
-      - 🏗️ Layers Factory: layers_factory.md
-      - 📦 Integrating Preprocessing Models: integrations.md
-  - 🔌 Model Extensions:
-      - 🤖 Transformer Blocks: transformer_blocks.md
-      - 🎯 Tabular Attention: tabular_attention.md
-      - 🔂 Feature Selection: feature_selection.md
-      - 📊 Distribution-Aware Encoding: distribution_aware_encoder.md
-      - 🔢 Advanced Numerical Embeddings: advanced_numerical_embeddings.md
-  - 🏗️ Usage & Examples:
-      - 🚀 Quick Start: quick_start.md
-      - 🧩 Complex Examples: complex_examples.md
-      - 🔄 Example Usages: example_usages.md
-  - 📚 Documentation:
-      - 🔄 Auto-Documentation: auto_documentation.md
-      - 🧙‍♂️ Auto-Configuration: auto_configuration.md
-      - 🏗️ Model Architectures: model_architectures.md
-      - 📑 API Reference: generated/api_index.md
-  - 🎯 Motivation & Contribution:
-      - 🌍 Why KDP? (Motivation): motivation.md
-      - 🍻 Contributing Guide: contributing.md
+  - 🚀 Getting Started:
+      - 📦 Installation: getting-started/installation.md
+      - 🎯 Quick Start: getting-started/quick-start.md
+      - 🌍 Why KDP?: getting-started/motivation.md
+      - 🧩 Architecture Overview: getting-started/architecture.md
+      - 🏗️ System Overview: getting-started/overview.md
+  - 📚 Feature Types:
+      - 🛠️ Features Overview: features/overview.md
+      - 🔢 Numerical Features: features/numerical-features.md
+      - 🏷️ Categorical Features: features/categorical-features.md
+      - 📝 Text Features: features/text-features.md
+      - 📅 Date Features: features/date-features.md
+      - ➕ Cross Features: features/cross-features.md
+  - 🧠 Advanced Features:
+      - 📊 Distribution-Aware Encoding: advanced/distribution-aware-encoding.md
+      - 🔬 Distribution-Aware Testing: advanced/distribution-aware-testing.md
+      - 🔢 Advanced Numerical Embeddings: advanced/numerical-embeddings.md
+      - 👁️ Tabular Attention: advanced/tabular-attention.md
+      - 🤖 Transformer Blocks: advanced/transformer-blocks.md
+      - 🧩 Feature-wise Mixture of Experts: advanced/feature-moe.md
+  - ⚡ Optimization:
+      - 🎯 Feature Selection: optimization/feature-selection.md
+      - 📈 Tabular Optimization: optimization/tabular-optimization.md
+      - ⚙️ Auto-Configuration: optimization/auto-configuration.md
+  - 📖 Examples:
+      - 🧪 Basic Examples: examples/basic-examples.md
+      - 🔥 Complex Examples: examples/complex-examples.md
+  - 🔌 Integration:
+      - 🔄 Integration Overview: integrations/overview.md
+  - 🤝 Contributing:
+      - 🍻 Contributing Guide: contributing/overview.md
+      - 📝 Auto-Documentation: contributing/development/auto-documentation.md
+  - 📑 API Reference:
+      - 🏭 Layers Factory: api/layers-factory.md
+      - 📚 Generated API: generated/api_index.md
 
 repo_name: Keras Data Preprocessor
 repo_url: https://github.com/piotrlaczkowski/keras-data-processor
@@ -87,12 +100,44 @@ plugins:
   - search
   - mkdocstrings
   - mike:
-      # These fields are all optional; the defaults are as below...
       canonical_version: null
       version_selector: true
       css_dir: css
       javascript_dir: js
+  - redirects:
+      redirect_maps:
+        # Old to new mappings
+        'features.md': 'features/overview.md'
+        'quick_start.md': 'getting-started/quick-start.md'
+        'distribution_aware_encoder.md': 'advanced/distribution-aware-encoding.md'
+        'advanced_numerical_embeddings.md': 'advanced/numerical-embeddings.md'
+        'tabular_attention.md': 'advanced/tabular-attention.md'
+        'feature_selection.md': 'optimization/feature-selection.md'
+        'auto_configuration.md': 'optimization/auto-configuration.md'
+        'complex_examples.md': 'examples/complex-examples.md'
+        'integrations.md': 'integrations/overview.md'
+        'feature_moe.md': 'advanced/feature-moe.md'
+        'transformer_blocks.md': 'advanced/transformer-blocks.md'
+        'contributing.md': 'contributing/overview.md'
+        # API reference redirects
+        'reference/api-reference.md': 'generated/api_index.md'
+        # Integration specific redirects
+        'integrations/tensorflow.md': 'integrations/overview.md'
+        # Extra pages that might be referenced
+        'memory_optimization.md': 'optimization/tabular-optimization.md'
+        'benchmarking.md': 'optimization/tabular-optimization.md'
+
+# Disable directory URLs to make relative paths work better
+use_directory_urls: false
 
 extra:
   version:
     provider: mike
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/piotrlaczkowski/keras-data-processor
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/keras-data-processor/
+
+extra_javascript:
+  - assets/js/fix-image-paths.js

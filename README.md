@@ -1,107 +1,116 @@
-# 🌟 Welcome to Keras Data Processor (KDP) - Preprocessing Power with TensorFlow Keras 🌟
+# 🌟 Keras Data Processor (KDP) - Powerful Data Preprocessing for TensorFlow
 
 <p align="center">
   <img src="docs/kdp_logo.png" width="350"/>
 </p>
 
-**Welcome to the Future of Data Preprocessing!**
+**Transform your raw data into ML-ready features with just a few lines of code!**
 
-Diving into the world of machine learning and data science, we often find ourselves tangled in the preprocessing jungle.
-Worry no more! Introducing a state-of-the-art data preprocessing model based on TensorFlow Keras and the innovative use of Keras preprocessing layers.
+KDP provides a state-of-the-art preprocessing system built on TensorFlow Keras. It handles everything from feature normalization to advanced embedding techniques, making your ML pipelines faster, more robust, and easier to maintain.
 
-Say goodbye to tedious data preparation tasks and hello to streamlined, efficient, and scalable data pipelines. Whether you're a seasoned data scientist or just starting out, this tool is designed to supercharge your ML workflows, making them more robust and faster than ever!
+## ✨ Key Features
 
-## 🔑 Key Features:
+- 🚀 **Efficient Single-Pass Processing**: Process all features in one go, dramatically faster than alternatives
+- 🧠 **Distribution-Aware Encoding**: Automatically detects and optimally handles different data distributions
+- 👁️ **Tabular Attention**: Captures complex feature interactions for better model performance
+- 🔍 **Feature Selection**: Automatically identifies and focuses on the most important features
+- 🔄 **Feature-wise Mixture of Experts**: Specialized processing for different feature types
+- 📦 **Production-Ready**: Deploy your preprocessing along with your model as a single unit
 
-- Automatic and scalable features statistics extraction: Automatically infer the feature tatistics from your data, saving you time and efforts.
-
-- Customizable Preprocessing Pipelines: Tailor your preprocessing steps with ease, choosing from a wide range of options for numeric, categorical, and even complex feature crosses.
-
-- Scalability and Efficiency: Designed for performance, handling large datasets with ease thanks to TensorFlow's powerful backend.
-
-- Easy Integration: Seamlessly fits into your TensorFlow Keras models (as first layers of the mode), making it a breeze to go from raw data to trained model faster than ever.
-
-## 🚀 Getting started:
-
-We use poetry for handling dependencies so you will need to install it first.
-Then you can install the dependencies by running:
-
-To install dependencies:
+## 🚀 Quick Installation
 
 ```bash
-poetry install
+# Using pip
+pip install keras-data-processor
+
+# Using Poetry
+poetry add keras-data-processor
 ```
 
-or to enter a dedicated env directly:
-
-```bash
-poetry shell
-```
-
-Then you can simply configure your preprocessor:
-
-## 🛠️ Building Preprocessor:
+## 📋 Simple Example
 
 ```python
-from kdp import PreprocessingModel
-from kdp import FeatureType
+from kdp import PreprocessingModel, FeatureType
 
-# DEFINING FEATURES PROCESSORS
+# Define your features
 features_specs = {
-    # ======= NUMERICAL Features =========================
-    "feat1": FeatureType.FLOAT_NORMALIZED,
-    "feat2": FeatureType.FLOAT_RESCALED,
-    # ======= CATEGORICAL Features ========================
-    "feat3": FeatureType.STRING_CATEGORICAL,
-    "feat4": FeatureType.INTEGER_CATEGORICAL,
-    # ======= TEXT Features ========================
-    "feat5": FeatureType.TEXT,
+    "age": FeatureType.FLOAT_NORMALIZED,
+    "income": FeatureType.FLOAT_RESCALED,
+    "occupation": FeatureType.STRING_CATEGORICAL,
+    "description": FeatureType.TEXT
 }
 
-# INSTANTIATE THE PREPROCESSING MODEL with your data
-ppr = PreprocessingModel(
+# Create and build the preprocessor
+preprocessor = PreprocessingModel(
     path_data="data/my_data.csv",
     features_specs=features_specs,
+    # Enable advanced features
+    use_distribution_aware=True,
+    tabular_attention=True
 )
-# construct the preprocessing pipelines
-ppr.build_preprocessor()
+result = preprocessor.build_preprocessor()
+model = result["model"]
+
+# Use the preprocessor with your data
+processed_features = model(input_data)
 ```
 
-This wil output:
+## 📚 Comprehensive Documentation
 
-```JS
-{
-'model': <Functional name=preprocessor, built=True>,
-'inputs': {
-    'feat1': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat1>,
-    'feat2': <KerasTensor shape=(None, 1), dtype=float32, sparse=None, name=feat2>,
-    'feat3': <KerasTensor shape=(None, 1), dtype=string, sparse=None, name=feat3>,
-    'feat4': <KerasTensor shape=(None, 1), dtype=int32, sparse=None, name=feat4>,
-    'feat5': <KerasTensor shape=(None, 1), dtype=string, sparse=None, name=feat5>
-    },
-'signature': {
-    'feat1': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat1'),
-    'feat2': TensorSpec(shape=(None, 1), dtype=tf.float32, name='feat2'),
-    'feat3': TensorSpec(shape=(None, 1), dtype=tf.string, name='feat3'),
-    'feat4': TensorSpec(shape=(None, 1), dtype=tf.int32, name='feat4'),
-    'feat5': TensorSpec(shape=(None, 1), dtype=tf.string, name='feat5')
-    },
-'output_dims': 45
-}
-```
+We've built an extensive documentation system to help you get the most from KDP:
 
-This will result in the following preprocessing steps:
+### Core Guides
+
+- [🚀 Quick Start Guide](docs/quick_start.md) - Get up and running in minutes
+- [📊 Feature Processing](docs/features.md) - Learn about all supported feature types
+- [🧙‍♂️ Auto-Configuration](docs/auto_configuration.md) - Let KDP configure itself for your data
+
+### Advanced Topics
+
+- [📈 Distribution-Aware Encoding](docs/distribution_aware_encoder.md) - Smart handling of different distributions
+- [👁️ Tabular Attention](docs/tabular_attention.md) - Capture complex feature interactions
+- [🔢 Advanced Numerical Embeddings](docs/advanced_numerical_embeddings.md) - Rich representations for numbers
+- [🤖 Transformer Blocks](docs/transformer_blocks.md) - Apply transformer architecture to tabular data
+- [🎯 Feature Selection](docs/feature_selection.md) - Focus on what matters in your data
+- [🧠 Feature-wise Mixture of Experts](docs/feature_moe.md) - Specialized processing per feature
+
+### Integration & Performance
+
+- [🔗 Integration Guide](docs/integrations.md) - Use KDP with existing ML pipelines
+- [🚀 Tabular Optimization](docs/tabular_optimization.md) - Supercharge your preprocessing
+- [📈 Performance Tips](docs/complex_examples.md) - Handling large datasets efficiently
+
+### Background & Resources
+
+- [💡 Motivation](docs/motivation.md) - Why we built KDP
+- [🤝 Contributing](docs/contributing.md) - Help improve KDP
+
+## 🖼️ Model Architecture
+
+Your preprocessing pipeline is built as a Keras model that can be used independently or as the first layer of any model:
 
 <p align="center">
   <img src="docs/imgs/Model_Architecture.png" width="800"/>
 </p>
 
+## 📊 Performance
 
-**This preprocessing model can be used independentyly or as the first layer of any Keras model.
-This means you can ship your model with the preprocessing pipeline (built-in) as a single entity and deploy it with ease using Tesnorflow Serving.**
+KDP outperforms alternative preprocessing approaches, especially as data size increases:
 
-```python
+<p align="center">
+  <img src="docs/imgs/time_vs_nr_data.png" width="400"/>
+  <img src="docs/imgs/time_vs_nr_features.png" width="400"/>
+</p>
 
-## 🔍 Dive Deeper:
+## 🤝 Contributing
 
-Explore the detailed documentation to leverage the full potential of this preprocessing tool. Learn about customizing feature crosses, bucketization strategies, embedding sizes, and much more to truly tailor your preprocessing pipeline to your project's needs.
+We welcome contributions! Please check out our [Contributing Guide](docs/contributing.md) for guidelines on how to proceed.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- The TensorFlow and Keras teams for their amazing work
+- All contributors who help make KDP better
