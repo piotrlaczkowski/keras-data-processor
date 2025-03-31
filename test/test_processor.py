@@ -1800,6 +1800,62 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
                         )  # (batch_size, feature_dim)
                         # You can add more specific checks for each feature if needed
 
+    def test_preprocessor_with_passthrough_feature(self):
+        """Test preprocessor with a passthrough feature."""
+        # Create features specs with a passthrough feature
+        features = {
+            "num1": NumericalFeature(
+                name="num1",
+                feature_type=FeatureType.FLOAT_NORMALIZED,
+            ),
+            "raw_feature": PassthroughFeature(
+                name="raw_feature",
+                feature_type=FeatureType.PASSTHROUGH,
+                dtype=tf.float32,
+            ),
+        }
+
+        # Generate and save fake data
+        df = generate_fake_data(features, num_rows=20)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor with passthrough feature
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.DICT,
+        )
+
+        result = ppr.build_preprocessor()
+
+        # Check if the model was created
+        self.assertIsInstance(result["model"], tf.keras.Model)
+
+        # Check if both features are in the inputs
+        input_names = [input_layer.name for input_layer in result["model"].inputs]
+        self.assertIn("num1", input_names)
+        self.assertIn("raw_feature", input_names)
+
+        # Create a simple dataset for testing
+        test_data = {
+            "num1": tf.constant([[1.0], [2.0]]),
+            "raw_feature": tf.constant([[3.0], [4.0]]),
+        }
+
+        # Run prediction
+        outputs = result["model"](test_data)
+
+        # Check that the outputs include the passthrough feature
+        self.assertIsInstance(outputs, dict)
+        self.assertIn("raw_feature", outputs)
+
+        # Verify that the passthrough feature values are unchanged
+        np.testing.assert_array_almost_equal(
+            outputs["raw_feature"].numpy(), test_data["raw_feature"].numpy()
+        )
+
 
 class TestPreprocessingModel_åNumericalEmbedding(unittest.TestCase):
     @classmethod
