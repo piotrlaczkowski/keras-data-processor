@@ -1,7 +1,6 @@
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -22,6 +21,7 @@ from kdp.features import (
     FeatureType,
     NumericalFeature,
     TextFeature,
+    PassthroughFeature,
 )
 from kdp.processor import FeatureSpaceConverter, OutputModeOptions, PreprocessingModel
 
@@ -59,7 +59,14 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
         elif isinstance(spec, str):
             feature_type = FeatureType[spec.upper()] if isinstance(spec, str) else spec
         elif isinstance(
-            spec, (NumericalFeature, CategoricalFeature, TextFeature, DateFeature)
+            spec,
+            (
+                NumericalFeature,
+                CategoricalFeature,
+                TextFeature,
+                DateFeature,
+                PassthroughFeature,
+            ),
         ):
             feature_type = spec.feature_type
         else:
@@ -90,6 +97,23 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
             date_range = pd.date_range(start=start_date, end=end_date, freq="D")
             dates = pd.Series(np.random.choice(date_range, size=num_rows))
             data[feature] = dates.dt.strftime("%Y-%m-%d")
+        elif feature_type == FeatureType.PASSTHROUGH:
+            # For passthrough features, use a simple array of random values
+            # Check if a specific dtype is specified in the feature
+            if isinstance(spec, PassthroughFeature) and hasattr(spec, "dtype"):
+                if spec.dtype == tf.string:
+                    # Generate string data
+                    values = ["value1", "value2", "value3", "value4"]
+                    data[feature] = np.random.choice(values, size=num_rows)
+                elif spec.dtype == tf.int32 or spec.dtype == tf.int64:
+                    # Generate integer data
+                    data[feature] = np.random.randint(0, 100, size=num_rows)
+                else:
+                    # Default to float data
+                    data[feature] = np.random.randn(num_rows)
+            else:
+                # Default to float data
+                data[feature] = np.random.randn(num_rows)
 
     return pd.DataFrame(data)
 
@@ -202,11 +226,27 @@ class TestFeatureSpaceConverter(unittest.TestCase):
                 output_format="year",
             ),
         }
-        with patch.object(
-            FeatureSpaceConverter, "_init_features_specs", return_value=None
-        ) as mock_method:
-            self.converter._init_features_specs(features_specs)
-            mock_method.assert_called()
+        self.converter._init_features_specs(features_specs)
+        self.assertIn("height", self.converter.numeric_features)
+        self.assertIn("category", self.converter.categorical_features)
+        self.assertIn("birthdate", self.converter.date_features)
+
+    def test_init_features_specs_with_passthrough(self):
+        """Test _init_features_specs with PassthroughFeature."""
+        features_specs = {
+            "raw_feature": PassthroughFeature(
+                name="raw_feature",
+                feature_type=FeatureType.PASSTHROUGH,
+                dtype=tf.float32,
+            ),
+            "passthrough_str": "passthrough",
+            "passthrough_enum": FeatureType.PASSTHROUGH,
+        }
+        self.converter._init_features_specs(features_specs)
+        self.assertIn("raw_feature", self.converter.passthrough_features)
+        self.assertIn("passthrough_str", self.converter.passthrough_features)
+        self.assertIn("passthrough_enum", self.converter.passthrough_features)
+        self.assertEqual(len(self.converter.passthrough_features), 3)
 
     @unittest.expectedFailure
     def test_init_features_specs_unsupported_string_type(self):

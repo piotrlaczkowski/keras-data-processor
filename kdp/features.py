@@ -32,6 +32,7 @@ class FeatureType(Enum):
     TEXT = auto()
     CROSSES = auto()
     DATE = auto()
+    PASSTHROUGH = auto()
 
 
 class DistributionType(str, Enum):
@@ -234,4 +235,27 @@ class DateFeature(Feature):
         """
         super().__init__(name, feature_type, **kwargs)
         self.dtype = tf.string
+        self.kwargs = kwargs
+
+
+class PassthroughFeature(Feature):
+    """PassthroughFeature for including features in output without processing."""
+
+    def __init__(
+        self,
+        name: str,
+        feature_type: FeatureType = FeatureType.PASSTHROUGH,
+        dtype: tf.DType = tf.float32,
+        **kwargs,
+    ) -> None:
+        """Initializes a PassthroughFeature instance.
+
+        Args:
+            name (str): The name of the feature.
+            feature_type (FeatureType): The type of the feature.
+            dtype (tf.DType): The data type of the feature (defaults to float32).
+            **kwargs: Additional keyword arguments for the feature.
+        """
+        super().__init__(name, feature_type, **kwargs)
+        self.dtype = dtype
         self.kwargs = kwargs

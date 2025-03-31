@@ -4,7 +4,7 @@
 
 ## 💪 Feature Types at a Glance
 
-KDP supports five primary feature types, each with specialized processing:
+KDP supports six primary feature types, each with specialized processing:
 
 | Feature Type | What It's For | Processing Magic |
 |--------------|---------------|------------------|
@@ -13,6 +13,7 @@ KDP supports five primary feature types, each with specialized processing:
 | 📝 **Text** | Free-form text like reviews, descriptions | Tokenization, embeddings, sequence handling |
 | 📅 **Date** | Temporal data like signup dates, transactions | Component extraction, cyclical encoding, seasonality |
 | ➕ **Cross Features** | Feature interactions | Combined embeddings, interaction modeling |
+| 🔍 **Passthrough** | Pre-processed data, custom vectors | No modification, type casting only |
 
 ## 🚀 Getting Started
 
@@ -34,7 +35,10 @@ features = {
 
     # Text and dates - specialized processing
     "product_review": FeatureType.TEXT,
-    "signup_date": FeatureType.DATE
+    "signup_date": FeatureType.DATE,
+
+    # Passthrough feature - use with pre-processed data
+    "embedding_vector": FeatureType.PASSTHROUGH
 }
 
 # Create your preprocessor
@@ -88,13 +92,15 @@ Learn about each feature type in detail:
 - [Text Features](text-features.md) - Work with free-form text
 - [Date Features](date-features.md) - Extract temporal patterns
 - [Cross Features](cross-features.md) - Model feature interactions
+- [Passthrough Features](passthrough-features.md) - Include unmodified data
 
 ## 👨‍💻 Advanced Feature Configuration
 
 For more control, use specialized feature classes:
 
 ```python
-from kdp.features import NumericalFeature, CategoricalFeature, TextFeature, DateFeature
+from kdp.features import NumericalFeature, CategoricalFeature, TextFeature, DateFeature, PassthroughFeature
+import tensorflow as tf
 
 # Advanced feature configuration
 features = {
@@ -129,6 +135,12 @@ features = {
         add_day_of_week=True,
         add_month=True,
         cyclical_encoding=True
+    ),
+
+    # Passthrough feature
+    "embedding": PassthroughFeature(
+        name="embedding",
+        dtype=tf.float32
     )
 }
 ```
@@ -140,6 +152,7 @@ features = {
 3. **Combine Approaches**: Mix distribution-aware, attention, embeddings for best results
 4. **Check Distributions**: Review your data distribution before choosing feature types
 5. **Experiment with Types**: Sometimes a different encoding provides better results
+6. **Consider Passthrough**: Use passthrough features for pre-processed data or custom vectors
 
 ---
 

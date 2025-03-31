@@ -22,6 +22,7 @@ from kdp.features import (
     FeatureType,
     NumericalFeature,
     TextFeature,
+    PassthroughFeature,
 )
 from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.pipeline import FeaturePreprocessor
@@ -74,12 +75,13 @@ class FeatureSelectionPlacementOptions(str, Enum):
 
 class FeatureSpaceConverter:
     def __init__(self) -> None:
-        """Initialize the FeatureSpaceConverter class."""
+        """Initialize a feature space converter."""
         self.features_space = {}
         self.numeric_features = []
         self.categorical_features = []
         self.text_features = []
         self.date_features = []
+        self.passthrough_features = []
 
     def _init_features_specs(
         self, features_specs: dict[str, FeatureType | str]
@@ -87,17 +89,23 @@ class FeatureSpaceConverter:
         """Format the features space into a dictionary.
 
         Args:
-            features_specs (dict): A dictionary with the features and their types,
-            where types can be specified as either FeatureType enums,
-            class instances (NumericalFeature, CategoricalFeature, TextFeature), or strings.
+            features_specs: A dictionary with the features and their types,
+                            where types can be specified as either FeatureType enums,
+                            class instances (NumericalFeature, CategoricalFeature, TextFeature, DateFeature),
+                            or strings.
 
         Returns:
-            dict[str, Feature]: A dictionary containing the features and their types.
+            A dictionary with feature names as keys and Feature objects as values.
         """
         for name, spec in features_specs.items():
             # Direct instance check for standard pipelines
             if isinstance(
-                spec, NumericalFeature | CategoricalFeature | TextFeature | DateFeature
+                spec,
+                NumericalFeature
+                | CategoricalFeature
+                | TextFeature
+                | DateFeature
+                | PassthroughFeature,
             ):
                 feature_instance = spec
             else:
@@ -139,6 +147,16 @@ class FeatureSpaceConverter:
                     feature_instance = TextFeature(name=name, feature_type=feature_type)
                 elif feature_type == FeatureType.DATE:
                     feature_instance = DateFeature(name=name, feature_type=feature_type)
+                elif feature_type == FeatureType.PASSTHROUGH:
+                    # Get dtype from kwargs if provided
+                    dtype = (
+                        spec.kwargs.get("dtype", tf.float32)
+                        if isinstance(spec, Feature)
+                        else tf.float32
+                    )
+                    feature_instance = PassthroughFeature(
+                        name=name, feature_type=feature_type, dtype=dtype
+                    )
                 else:
                     raise ValueError(
                         f"Unsupported feature type for feature '{name}': {spec}"
@@ -161,6 +179,9 @@ class FeatureSpaceConverter:
                 self.text_features.append(name)
             elif isinstance(feature_instance, DateFeature):
                 self.date_features.append(name)
+            elif isinstance(feature_instance, PassthroughFeature):
+                # Add to passthrough features
+                self.passthrough_features.append(name)
 
             # Adding formatted spec to the features_space dictionary
             self.features_space[name] = feature_instance
@@ -425,24 +446,24 @@ class PreprocessingModel:
     def _init_features_specs(
         self, features_specs: dict[str, FeatureType | str]
     ) -> None:
-        """Format the features space into a dictionary.
+        """Initialize the features specifications for the model.
 
         Args:
-            features_specs (dict): A dictionary with the features and their types,
-            where types can be specified as either FeatureType enums,
-            class instances (NumericalFeature, CategoricalFeature, TextFeature), or strings.
+            features_specs (dict): A dictionary containing the features and their types.
         """
-        logger.info("Normalizing Feature Space using FeatureSpaceConverter")
-        logger.debug(f"Features specs: {features_specs}")
-        fsc = FeatureSpaceConverter()
-
-        # attributing class variables
-        self.features_specs = fsc._init_features_specs(features_specs=features_specs)
-        logger.debug(f"Features specs normalized: {self.features_specs}")
-        self.numeric_features = fsc.numeric_features
-        self.categorical_features = fsc.categorical_features
-        self.text_features = fsc.text_features
-        self.date_features = fsc.date_features
+        if features_specs:
+            logger.info("Normalizing Feature Space using FeatureSpaceConverter")
+            logger.debug(f"Features specs: {features_specs}")
+            fsc = FeatureSpaceConverter()
+            self.features_specs = fsc._init_features_specs(
+                features_specs=features_specs
+            )
+            logger.debug(f"Features specs normalized: {self.features_specs}")
+            self.numeric_features = fsc.numeric_features
+            self.categorical_features = fsc.categorical_features
+            self.text_features = fsc.text_features
+            self.date_features = fsc.date_features
+            self.passthrough_features = fsc.passthrough_features
 
     def _init_stats(self) -> None:
         """Initialize the statistics for the model.
@@ -535,7 +556,7 @@ class PreprocessingModel:
 
         Args:
             batch: List of (feature_name, stats) tuples to process
-            feature_type: Type of features ('numeric', 'categorical', 'text', 'date')
+            feature_type: Type of features ('numeric', 'categorical', 'text', 'date', 'passthrough')
         """
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = []
@@ -564,6 +585,12 @@ class PreprocessingModel:
                 elif feature_type == "date":
                     future = executor.submit(
                         self._add_pipeline_date,
+                        feature_name=feature_name,
+                        input_layer=self.inputs[feature_name],
+                    )
+                elif feature_type == "passthrough":
+                    future = executor.submit(
+                        self._add_pipeline_passthrough,
                         feature_name=feature_name,
                         input_layer=self.inputs[feature_name],
                     )
@@ -1770,56 +1797,59 @@ class PreprocessingModel:
                 self.features_stats = self.stats_instance.main()
                 logger.debug(f"Features Stats were calculated: {self.features_stats}")
 
-            # Process all features
-            # NUMERICAL AND CATEGORICAL FEATURES (based on stats)
-            for _key in self.features_stats:
-                logger.info(f"Processing feature type: {_key = }")
-                self._process_features_parallel(features_dict=self.features_stats[_key])
+            # Process features in batches by type
+            numeric_batch = []
+            categorical_batch = []
+            text_batch = []
+            date_batch = []
+            passthrough_batch = []
+
+            for f_name in self.numeric_features:
+                numeric_batch.append((f_name, self.features_stats.get(f_name, {})))
+            for f_name in self.categorical_features:
+                categorical_batch.append((f_name, self.features_stats.get(f_name, {})))
+            for f_name in self.text_features:
+                text_batch.append((f_name, self.features_stats.get(f_name, {})))
+            for f_name in self.date_features:
+                date_batch.append((f_name, {}))
+            for f_name in self.passthrough_features:
+                passthrough_batch.append((f_name, {}))
+
+            # Process features in parallel by type
+            if numeric_batch:
+                self._process_feature_batch(numeric_batch, "numeric")
+            if categorical_batch:
+                self._process_feature_batch(categorical_batch, "categorical")
+            if text_batch:
+                self._process_feature_batch(text_batch, "text")
+            if date_batch:
+                self._process_feature_batch(date_batch, "date")
+            if passthrough_batch:
+                self._process_feature_batch(passthrough_batch, "passthrough")
 
             # CROSSING FEATURES (based on defined inputs)
             if self.feature_crosses:
                 logger.info("Processing feature type: cross feature")
                 self._add_pipeline_cross()
 
-            # TEXT FEATURES
-            for feature_name in self.text_features:
-                logger.info(f"Processing feature type (text): {feature_name}")
-                self._add_input_column(feature_name=feature_name, dtype=tf.string)
-                self._add_input_signature(feature_name=feature_name, dtype=tf.string)
-                input_layer = self.inputs[feature_name]
-
-                # Get text feature stats or use defaults
-                if "text" not in self.features_stats:
-                    self.features_stats["text"] = {}
-                if feature_name not in self.features_stats["text"]:
-                    logger.warning(
-                        f"No statistics found for text feature '{feature_name}'."
-                        "Using default text processing configuration.",
-                    )
-                    text_stats = {
-                        "vocab_size": 10000,
-                        "sequence_length": 100,
-                        "dtype": tf.string,
-                    }
-                else:
-                    text_stats = self.features_stats["text"][feature_name]
-
-                self._add_pipeline_text(
-                    feature_name=feature_name,
-                    input_layer=input_layer,
-                    stats=text_stats,
-                )
-
-            # DATE FEATURES
-            for feat_name in self.date_features:
-                logger.info(f"Processing feature type (date): {feat_name}")
-                self._add_input_column(feature_name=feat_name, dtype=tf.string)
-                self._add_input_signature(feature_name=feat_name, dtype=tf.string)
-                input_layer = self.inputs[feat_name]
-                self._add_pipeline_date(
-                    feature_name=feat_name,
-                    input_layer=input_layer,
-                )
+            # Prepare inputs for all feature types
+            # Set up inputs for each feature
+            for feature_name in (
+                self.numeric_features
+                + self.categorical_features
+                + self.text_features
+                + self.date_features
+                + self.passthrough_features
+            ):
+                if feature_name not in self.inputs:
+                    # Get feature and its data type
+                    feature = self.features_specs.get(feature_name)
+                    if feature:
+                        dtype = getattr(feature, "dtype", tf.float32)
+                        self._add_input_column(feature_name=feature_name, dtype=dtype)
+                        self._add_input_signature(
+                            feature_name=feature_name, dtype=dtype
+                        )
 
             # Prepare outputs based on mode
             logger.info("Preparing outputs for the model")
@@ -2520,3 +2550,46 @@ class PreprocessingModel:
                 self.processed_features[feature_name] = enhanced_features[i]
 
         logger.info("Feature MoE applied successfully")
+
+    @_monitor_performance
+    def _add_pipeline_passthrough(self, feature_name: str, input_layer) -> None:
+        """Add a passthrough feature to the pipeline without applying any transformations.
+
+        Args:
+            feature_name (str): The name of the feature to be passed through.
+            input_layer: The input layer for the feature.
+        """
+        # Get the feature specifications
+        _feature = self.features_specs[feature_name]
+
+        # Initialize preprocessor
+        preprocessor = FeaturePreprocessor(name=feature_name)
+
+        # Check for custom preprocessors if any are defined
+        preprocessor = self._create_feature_preprocessor(
+            feature_name=feature_name, feature=_feature, preprocessor=preprocessor
+        )
+
+        # If no custom preprocessors, just cast to the specified dtype for compatibility
+        if not _feature.preprocessors:
+            # Cast to the feature's dtype (defaults to float32)
+            dtype = getattr(_feature, "dtype", tf.float32)
+            preprocessor.add_processing_step(
+                layer_creator=lambda **kwargs: tf.keras.layers.Lambda(
+                    lambda x: tf.cast(x, dtype), **kwargs
+                ),
+                name=f"cast_to_{dtype.name}_{feature_name}",
+            )
+
+        # Process the feature
+        _output_pipeline = preprocessor.chain(input_layer=input_layer)
+
+        # Apply feature selection if needed
+        _output_pipeline = self._apply_feature_selection(
+            feature_name=feature_name,
+            output_pipeline=_output_pipeline,
+            feature_type="passthrough",
+        )
+
+        # Add the processed feature to the dictionary
+        self.processed_features[feature_name] = _output_pipeline
