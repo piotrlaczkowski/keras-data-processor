@@ -68,7 +68,7 @@ jobs:
 
   PYPI_PUBLISH:
     needs: [SEMANTIC_RELEASE]
-    if: ${{ needs.SEMANTIC_RELEASE.outputs.release_created == 'true' || inputs.SKIP_RELEASE }}
+    if: ${{ needs.SEMANTIC_RELEASE.outputs.release_created == 'true' || inputs.SKIP_RELEASE == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -143,7 +143,7 @@ jobs:
 
   UPDATE_DOCS:
     needs: [SEMANTIC_RELEASE, PYPI_PUBLISH]
-    if: ${{ (needs.SEMANTIC_RELEASE.outputs.release_created == 'true' && !failure('PYPI_PUBLISH')) || inputs.SKIP_RELEASE }}
+    if: ${{ (needs.SEMANTIC_RELEASE.outputs.release_created == 'true' && !failure('PYPI_PUBLISH')) || inputs.SKIP_RELEASE == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -206,5 +206,5 @@ jobs:
           sleep 10
           git pull --rebase
 
-          # Use the version from recovery process
-          mike deploy --push --update-aliases ${{ steps.get_docs_version.outputs.VERSION }} latest
+          # Use --ignore-remote-status to handle unrelated histories
+          mike deploy --push --update-aliases --ignore-remote-status ${{ steps.get_docs_version.outputs.VERSION }} latest
