@@ -86,28 +86,66 @@ runs:
 
     - name: "Run Semantic Release"
       id: semantic-release
-      uses: cycjimmy/semantic-release-action@v3.4.1
+      shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.GITHUB_TOKEN }}
-      with:
-        branches: ${{ inputs.BRANCHES }}
-        dry_run: ${{ inputs.DRY_RUN }}
-        working_directory: ${{ inputs.PROJECT_DIRECTORY }}
-        extra_plugins: |
-          @semantic-release/commit-analyzer
-          @semantic-release/release-notes-generator
-          @semantic-release/changelog
-          @semantic-release/github
-          @semantic-release/git
-          @semantic-release/exec
-          conventional-changelog-conventionalcommits@7.0.2
+      run: |
+        cd ${{ inputs.PROJECT_DIRECTORY }}
+
+        # Run semantic-release
+        DRY_RUN_FLAG=""
+        if [ "${{ inputs.DRY_RUN }}" = "true" ]; then
+          DRY_RUN_FLAG="--dry-run"
+        fi
+
+        # Run semantic-release and capture the output
+        npx semantic-release $DRY_RUN_FLAG --branches ${{ inputs.BRANCHES }} > semantic-release-output.txt 2>&1 || true
+
+        # Display output for debugging
+        cat semantic-release-output.txt
+
+        # Check if a release was created or would be created (in dry-run)
+        if grep -q "The next release version is" semantic-release-output.txt || grep -q "Published release" semantic-release-output.txt; then
+          # Try different patterns to extract the version
+          if grep -q "The next release version is" semantic-release-output.txt; then
+            NEW_RELEASE_VERSION=$(grep -o "The next release version is [0-9]\+\.[0-9]\+\.[0-9]\+" semantic-release-output.txt | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+")
+          else
+            NEW_RELEASE_VERSION=$(grep -o "Published release [0-9]\+\.[0-9]\+\.[0-9]\+" semantic-release-output.txt | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+")
+          fi
+
+          echo "new_release_version=$NEW_RELEASE_VERSION" >> $GITHUB_OUTPUT
+          echo "new_release_published=true" >> $GITHUB_OUTPUT
+
+          # Extract major, minor, patch versions
+          MAJOR=$(echo $NEW_RELEASE_VERSION | cut -d. -f1)
+          MINOR=$(echo $NEW_RELEASE_VERSION | cut -d. -f2)
+          PATCH=$(echo $NEW_RELEASE_VERSION | cut -d. -f3)
+
+          echo "new_release_major_version=$MAJOR" >> $GITHUB_OUTPUT
+          echo "new_release_minor_version=$MINOR" >> $GITHUB_OUTPUT
+          echo "new_release_patch_version=$PATCH" >> $GITHUB_OUTPUT
+
+          # Generate a simplified version of the release notes for output
+          if [ -f "CHANGELOG.md" ]; then
+            # Extract the latest release notes from the changelog
+            RELEASE_NOTES=$(awk '/^## / {if (p) exit; p=1} p' CHANGELOG.md | tail -n +2)
+            echo "new_release_notes<<EOF" >> $GITHUB_OUTPUT
+            echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "new_release_notes=No detailed release notes available" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "No new version to be released"
+          echo "new_release_published=false" >> $GITHUB_OUTPUT
+          echo "new_release_notes=No release notes available" >> $GITHUB_OUTPUT
+        fi
 
     - name: "Export released version"
       id: export-released-version
       shell: bash
       run: |
         if [ "${{ steps.semantic-release.outputs.new_release_version }}" != "" ]; then
-          echo "new_release_version=${{ steps.semantic-release.outputs.new_release_version }}" >> $GITHUB_OUTPUT
           echo "New release version: ${{ steps.semantic-release.outputs.new_release_version }}"
         else
           echo "No new version released"
@@ -118,15 +156,9 @@ runs:
       shell: bash
       run: |
         if [ "${{ steps.semantic-release.outputs.new_release_notes }}" != "" ]; then
-          RELEASE_NOTES="${{ steps.semantic-release.outputs.new_release_notes }}"
-          RELEASE_NOTES="${RELEASE_NOTES//'%'/'%25'}"
-          RELEASE_NOTES="${RELEASE_NOTES//$'\r'/'%0D'}"
-          RELEASE_NOTES="${RELEASE_NOTES//$'\n'/'%0A'}"
-          echo "new_release_notes=${RELEASE_NOTES}" >> $GITHUB_OUTPUT
           echo "Release notes captured successfully"
         else
           echo "No release notes available"
-          echo "new_release_notes=No release notes available" >> $GITHUB_OUTPUT
         fi
 
     - name: "Release summary"
