@@ -637,6 +637,7 @@ class PreprocessingModel:
         categorical_features = []
         text_features = []
         date_features = []
+        passthrough_features = []
 
         for feature_name, stats in features_dict.items():
             if "mean" in stats:
@@ -647,6 +648,8 @@ class PreprocessingModel:
                 text_features.append((feature_name, stats))
             elif feature_name in self.date_features:
                 date_features.append((feature_name, stats))
+            elif feature_name in self.passthrough_features:
+                passthrough_features.append((feature_name, stats))
 
         # Set up inputs in parallel
         self._parallel_setup_inputs(features_dict)
@@ -657,6 +660,7 @@ class PreprocessingModel:
             (categorical_features, "categorical"),
             (text_features, "text"),
             (date_features, "date"),
+            (passthrough_features, "passthrough"),
         ]
 
         for features, feature_type in feature_groups:
@@ -700,7 +704,7 @@ class PreprocessingModel:
         Args:
             feature_name: Name of the feature
             output_pipeline: The processed feature tensor
-            feature_type: Type of the feature ('numeric', 'categorical', 'text', 'date')
+            feature_type: Type of the feature ('numeric', 'categorical', 'text', 'date', 'passthrough')
 
         Returns:
             The processed tensor, possibly with feature selection applied
@@ -735,6 +739,12 @@ class PreprocessingModel:
             feature_type == "date"
             and self.feature_selection_placement
             == FeatureSelectionPlacementOptions.DATE
+        ):
+            apply_selection = True
+        elif (
+            feature_type == "passthrough"
+            and self.feature_selection_placement
+            == FeatureSelectionPlacementOptions.ALL_FEATURES
         ):
             apply_selection = True
 
@@ -1285,18 +1295,20 @@ class PreprocessingModel:
         logger.info("Concatenating outputs mode enabled")
 
     def _group_features_by_type(self) -> Tuple[List, List]:
-        """Group processed features by their type.
+        """Group processed features by type for concatenation.
 
         Returns:
-            Tuple containing lists of numeric and categorical features
+            Tuple of (numeric_features, categorical_features) lists
         """
+        # Initialize lists for features of different types
         numeric_features = []
         categorical_features = []
+        passthrough_features = []
 
-        # Process features based on their type
+        # Group processed features by type
         for feature_name, feature in self.processed_features.items():
-            if feature is None:
-                logger.warning(f"Skipping {feature_name} as it is None")
+            # Skip feature weights
+            if feature_name.endswith("_weights"):
                 continue
 
             # Add to appropriate list based on feature type
@@ -1317,8 +1329,15 @@ class PreprocessingModel:
             ):
                 logger.debug(f"Adding {feature_name} to categorical features")
                 categorical_features.append(feature)
+            elif feature_name in self.passthrough_features:
+                logger.debug(f"Adding {feature_name} to passthrough features")
+                passthrough_features.append(feature)
             else:
                 logger.warning(f"Unknown feature type for {feature_name}")
+
+        # For concatenation purposes, add passthrough features to numeric features
+        if passthrough_features:
+            numeric_features.extend(passthrough_features)
 
         return numeric_features, categorical_features
 
@@ -1797,6 +1816,24 @@ class PreprocessingModel:
                 self.features_stats = self.stats_instance.main()
                 logger.debug(f"Features Stats were calculated: {self.features_stats}")
 
+            # Set up inputs for all feature types BEFORE processing them
+            for feature_name in (
+                self.numeric_features
+                + self.categorical_features
+                + self.text_features
+                + self.date_features
+                + self.passthrough_features
+            ):
+                if feature_name not in self.inputs:
+                    # Get feature and its data type
+                    feature = self.features_specs.get(feature_name)
+                    if feature:
+                        dtype = getattr(feature, "dtype", tf.float32)
+                        self._add_input_column(feature_name=feature_name, dtype=dtype)
+                        self._add_input_signature(
+                            feature_name=feature_name, dtype=dtype
+                        )
+
             # Process features in batches by type
             numeric_batch = []
             categorical_batch = []
@@ -1804,12 +1841,17 @@ class PreprocessingModel:
             date_batch = []
             passthrough_batch = []
 
+            # Get the numeric stats from the correct location in features_stats
+            numeric_stats = self.features_stats.get("numeric_stats", {})
+            categorical_stats = self.features_stats.get("categorical_stats", {})
+            text_stats = self.features_stats.get("text", {})
+
             for f_name in self.numeric_features:
-                numeric_batch.append((f_name, self.features_stats.get(f_name, {})))
+                numeric_batch.append((f_name, numeric_stats.get(f_name, {})))
             for f_name in self.categorical_features:
-                categorical_batch.append((f_name, self.features_stats.get(f_name, {})))
+                categorical_batch.append((f_name, categorical_stats.get(f_name, {})))
             for f_name in self.text_features:
-                text_batch.append((f_name, self.features_stats.get(f_name, {})))
+                text_batch.append((f_name, text_stats.get(f_name, {})))
             for f_name in self.date_features:
                 date_batch.append((f_name, {}))
             for f_name in self.passthrough_features:
@@ -1831,25 +1873,6 @@ class PreprocessingModel:
             if self.feature_crosses:
                 logger.info("Processing feature type: cross feature")
                 self._add_pipeline_cross()
-
-            # Prepare inputs for all feature types
-            # Set up inputs for each feature
-            for feature_name in (
-                self.numeric_features
-                + self.categorical_features
-                + self.text_features
-                + self.date_features
-                + self.passthrough_features
-            ):
-                if feature_name not in self.inputs:
-                    # Get feature and its data type
-                    feature = self.features_specs.get(feature_name)
-                    if feature:
-                        dtype = getattr(feature, "dtype", tf.float32)
-                        self._add_input_column(feature_name=feature_name, dtype=dtype)
-                        self._add_input_signature(
-                            feature_name=feature_name, dtype=dtype
-                        )
 
             # Prepare outputs based on mode
             logger.info("Preparing outputs for the model")
