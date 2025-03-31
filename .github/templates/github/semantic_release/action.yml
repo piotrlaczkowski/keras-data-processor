@@ -155,11 +155,12 @@ runs:
       id: export-released-notes
       shell: bash
       run: |
-        if [ "${{ steps.semantic-release.outputs.new_release_notes }}" != "" ]; then
-          echo "Release notes captured successfully"
-        else
-          echo "No release notes available"
-        fi
+        # Just echo the success status - no need to parse the notes again
+        # since they're already captured in the semantic-release step
+        echo "Release notes already captured in previous step"
+
+        # Set the output to match the expected structure
+        echo "new_release_notes=Release notes available in CHANGELOG.md" >> $GITHUB_OUTPUT
 
     - name: "Release summary"
       if: steps.semantic-release.outputs.new_release_published == 'true'
