@@ -170,7 +170,17 @@ prediction = my_model(features)
 
 3. **Get Feature Importance**
    ```python
-   # After building
+   # First enable feature selection when creating the model
+   preprocessor = PreprocessingModel(
+       features_specs=features,
+       feature_selection_placement="all_features",  # Required for feature importance
+       feature_selection_units=32
+   )
+
+   # Build the preprocessor
+   preprocessor.build_preprocessor()
+
+   # After building, you can get feature importances
    importances = preprocessor.get_feature_importances()
    print("Most important features:", sorted(
        importances.items(), key=lambda x: x[1], reverse=True

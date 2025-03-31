@@ -1,6 +1,6 @@
 # 🔢 Numerical Features
 
-> Transform your continuous data like age, income, or prices into powerful feature representations.
+> 📈 Transform your continuous data like age, income, or prices into powerful feature representations.
 
 ## 📋 Quick Overview
 
@@ -10,10 +10,10 @@ Numerical features are the backbone of most machine learning models. KDP provide
 
 | Feature Type | Best For | Example Values | When to Use |
 |--------------|----------|----------------|-------------|
-| `FLOAT_NORMALIZED` | Data with clear bounds | Age: 18-65, Score: 0-100 | When you know your data falls in a specific range |
-| `FLOAT_RESCALED` | Unbounded, varied data | Income: $0-$1M+, Revenue | When data has outliers or unknown bounds |
-| `FLOAT_DISCRETIZED` | Values that form groups | Years: 1-50, Ratings: 1-5 | When groups of values have special meaning |
-| `FLOAT` | Raw pass-through | Machine-generated numbers | When you want no scaling/normalization |
+| `FLOAT_NORMALIZED` | Data with clear bounds | 🧓 Age: 18-65, ⭐ Score: 0-100 | When you know your data falls in a specific range |
+| `FLOAT_RESCALED` | Unbounded, varied data | 💰 Income: $0-$1M+, 📊 Revenue | When data has outliers or unknown bounds |
+| `FLOAT_DISCRETIZED` | Values that form groups | 📅 Years: 1-50, ⭐ Ratings: 1-5 | When groups of values have special meaning |
+| `FLOAT` | Default normalization | 🔢 General numeric values | When you want standard normalization (identical to FLOAT_NORMALIZED) |
 
 ## 🚀 Basic Usage
 
@@ -22,15 +22,15 @@ The simplest way to define numerical features is with the `FeatureType` enum:
 ```python
 from kdp import PreprocessingModel, FeatureType
 
-# Quick numerical feature definition
+# ✨ Quick numerical feature definition
 features = {
-    "age": FeatureType.FLOAT_NORMALIZED,          # Age gets 0-1 normalization
-    "income": FeatureType.FLOAT_RESCALED,         # Income gets robust scaling
-    "transaction_count": FeatureType.FLOAT,       # No preprocessing
-    "rating": FeatureType.FLOAT_DISCRETIZED       # Discretized into bins
+    "age": FeatureType.FLOAT_NORMALIZED,          # 🧓 Age gets 0-1 normalization
+    "income": FeatureType.FLOAT_RESCALED,         # 💰 Income gets robust scaling
+    "transaction_count": FeatureType.FLOAT,       # 🔢 Default normalization
+    "rating": FeatureType.FLOAT_DISCRETIZED       # ⭐ Discretized into bins
 }
 
-# Create your preprocessor
+# 🏗️ Create your preprocessor
 preprocessor = PreprocessingModel(
     path_data="customer_data.csv",
     features_specs=features
@@ -45,30 +45,29 @@ For more control, use the `NumericalFeature` class:
 from kdp.features import NumericalFeature
 
 features = {
-    # Simple example with enhanced configuration
+    # 🧓 Simple example with enhanced configuration
     "age": NumericalFeature(
         name="age",
         feature_type=FeatureType.FLOAT_NORMALIZED,
-        use_embedding=True,                 # Create neural embeddings
-        embedding_dim=16,                   # Size of embedding
-        preferred_distribution="normal"      # Hint about distribution
+        use_embedding=True,                 # 🔄 Create neural embeddings
+        embedding_dim=16,                   # 📏 Size of embedding
+        preferred_distribution="normal"      # 📊 Hint about distribution
     ),
 
-    # Financial data example
+    # 💰 Financial data example
     "transaction_amount": NumericalFeature(
         name="transaction_amount",
         feature_type=FeatureType.FLOAT_RESCALED,
-        scaling_method="robust",           # Robust to outliers
         use_embedding=True,
         embedding_dim=32,
         preferred_distribution="heavy_tailed"
     ),
 
-    # Custom binning example
+    # ⏳ Custom binning example
     "years_experience": NumericalFeature(
         name="years_experience",
         feature_type=FeatureType.FLOAT_DISCRETIZED,
-        bin_boundaries=[0, 2, 5, 10, 20]    # Custom bin edges
+        num_bins=5                          # 📏 Number of bins
     )
 }
 ```
@@ -77,153 +76,156 @@ features = {
 
 | Parameter | Description | Default | Suggested Range |
 |-----------|-------------|---------|----------------|
-| `feature_type` | Base feature type | `FLOAT_NORMALIZED` | Choose from 4 types |
-| `use_embedding` | Enable neural embeddings | `False` | `True`/`False` |
-| `embedding_dim` | Dimensionality of embedding | 8 | 4-64 |
-| `preferred_distribution` | Hint about data distribution | `None` | "normal", "log_normal", etc. |
-| `scaling_method` | Method for FLOAT_RESCALED | "standard" | "standard", "robust", "minmax" |
-| `num_bins` | Bins for discretization | 10 | 5-100 |
-| `bin_boundaries` | Custom bin edges | `None` | Custom list of values |
+| `feature_type` | 🏷️ Base feature type | `FLOAT_NORMALIZED` | Choose from 4 types |
+| `use_embedding` | 🧠 Enable neural embeddings | `False` | `True`/`False` |
+| `embedding_dim` | 📏 Dimensionality of embedding | 8 | 4-64 |
+| `preferred_distribution` | 📊 Hint about data distribution | `None` | "normal", "log_normal", etc. |
+| `num_bins` | 🔢 Bins for discretization | 10 | 5-100 |
 
 ## 🔥 Power Features
 
-### Distribution-Aware Processing
+### 📊 Distribution-Aware Processing
 
 Let KDP automatically detect and handle distributions:
 
 ```python
-# Enable distribution-aware processing for all numerical features
+# ✨ Enable distribution-aware processing for all numerical features
 preprocessor = PreprocessingModel(
     features_specs=features,
-    use_distribution_aware=True      # Enable distribution detection
+    use_distribution_aware=True      # 🔍 Enable distribution detection
 )
 ```
 
-### Advanced Numerical Embeddings
+### 🧠 Advanced Numerical Embeddings
 
 Using advanced numerical embeddings:
 
-![Advanced Numerical Embeddings](imgs/models/advanced_numerical_embedding.png)
-
-### Custom Numerical Feature
-
-Using the `NumericalFeature` class for additional control:
-
-![Custom Numerical Feature](imgs/models/custom_numerical_feature.png)
-
-## 💼 Real-World Examples
-
-### Financial Analysis
-
 ```python
-# Financial metrics with appropriate processing
+# Configure numerical embeddings
 preprocessor = PreprocessingModel(
     features_specs={
         "income": NumericalFeature(
             name="income",
             feature_type=FeatureType.FLOAT_RESCALED,
-            scaling_method="robust",
+            use_embedding=True,
+            embedding_dim=32,
             preferred_distribution="log_normal"
+        )
+    }
+)
+```
+
+## 💼 Real-World Examples
+
+### 💰 Financial Analysis
+
+```python
+# 📈 Financial metrics with appropriate processing
+preprocessor = PreprocessingModel(
+    features_specs={
+        "income": NumericalFeature(
+            name="income",
+            feature_type=FeatureType.FLOAT_RESCALED,
+            preferred_distribution="log_normal"   # 📉 Log-normal distribution
         ),
         "credit_score": NumericalFeature(
             name="credit_score",
             feature_type=FeatureType.FLOAT_NORMALIZED,
-            min_value=300,
-            max_value=850
+            use_embedding=True,
+            embedding_dim=16
         ),
         "debt_ratio": NumericalFeature(
             name="debt_ratio",
             feature_type=FeatureType.FLOAT_NORMALIZED,
-            min_value=0,
-            max_value=1
+            preferred_distribution="bounded"      # 📊 Bounded between 0 and 1
         )
     },
-    use_distribution_aware=True
+    use_distribution_aware=True                   # 🧠 Smart distribution handling
 )
 ```
 
-### Sensor Data
+### 🔌 Sensor Data
 
 ```python
-# Processing sensor readings
+# 📡 Processing sensor readings
 preprocessor = PreprocessingModel(
     features_specs={
         "temperature": NumericalFeature(
             name="temperature",
             feature_type=FeatureType.FLOAT_RESCALED,
-            scaling_method="robust"
+            use_embedding=True,
+            embedding_dim=16
         ),
         "humidity": NumericalFeature(
             name="humidity",
             feature_type=FeatureType.FLOAT_NORMALIZED,
-            min_value=0,
-            max_value=100
+            preferred_distribution="bounded"      # 💧 Bounded between 0 and 100
         ),
         "pressure": NumericalFeature(
             name="pressure",
-            feature_type=FeatureType.FLOAT_RESCALED
+            feature_type=FeatureType.FLOAT_RESCALED,
+            use_embedding=True,
+            embedding_dim=16
         )
-    },
-    use_numerical_embedding=True,
-    numerical_embedding_dim=32
+    }
 )
 ```
 
 ## 💡 Pro Tips
 
-1. **Understand Your Data Distribution**
-   - Use `FLOAT_NORMALIZED` when your data has clear bounds
-   - Use `FLOAT_RESCALED` when your data has outliers
-   - Use `FLOAT_DISCRETIZED` when your values naturally form groups
+1. **📊 Understand Your Data Distribution**
+   - Use `FLOAT_NORMALIZED` when your data has clear bounds (e.g., 0-100%)
+   - Use `FLOAT_RESCALED` when your data has outliers (e.g., income, prices)
+   - Use `FLOAT_DISCRETIZED` when your values naturally form groups (e.g., age groups)
 
-2. **Consider Neural Embeddings for Complex Relationships**
+2. **🧠 Consider Neural Embeddings for Complex Relationships**
    - Enable when a simple scaling doesn't capture the pattern
-   - Increase embedding dimensions for more complex patterns
+   - Increase embedding dimensions for more complex patterns (16→32→64)
 
-3. **Let KDP Handle Distribution Detection**
+3. **🔍 Let KDP Handle Distribution Detection**
    - Enable `use_distribution_aware=True` and let KDP automatically choose
    - This is especially important for skewed or multi-modal distributions
 
-4. **Custom Bin Boundaries**
-   - Define domain-specific boundaries for better discretization
-   - Example: Age groups [0, 18, 25, 35, 50, 65, 100]
+4. **📏 Custom Bin Boundaries**
+   - Use `num_bins` parameter to control discretization granularity
+   - More bins = finer granularity but more parameters to learn
 
 ## 🔗 Related Topics
 
-- [Distribution-Aware Encoding](../advanced/distribution-aware-encoding.md) - Smart numerical handling
-- [Advanced Numerical Embeddings](../advanced/numerical-embeddings.md) - Neural representations
-- [Feature Selection](../advanced/feature-selection.md) - Finding important features
+- [📊 Distribution-Aware Encoding](../advanced/distribution-aware-encoding.md) - Smart numerical handling
+- [🧠 Advanced Numerical Embeddings](../advanced/numerical-embeddings.md) - Neural representations
+- [🎯 Feature Selection](../advanced/feature-selection.md) - Finding important features
 
-## 💡 Types of Numerical Features
+## 🧮 Types of Numerical Features
 
 KDP supports different types of numerical features, each with specialized processing:
 
-1. **FLOAT**: Basic floating-point features without normalization or scaling
-2. **FLOAT_NORMALIZED**: Values normalized to the [0,1] range using min-max scaling
-3. **FLOAT_RESCALED**: Values rescaled using standardization (mean=0, std=1)
-4. **FLOAT_DISCRETIZED**: Continuous values binned into discrete buckets
+1. **🔄 FLOAT**: Basic floating-point features with default normalization
+2. **📏 FLOAT_NORMALIZED**: Values normalized to the [0,1] range using min-max scaling
+3. **⚖️ FLOAT_RESCALED**: Values rescaled using standardization (mean=0, std=1)
+4. **📊 FLOAT_DISCRETIZED**: Continuous values binned into discrete buckets
 
-## Architecture Diagrams
+## 📊 Architecture Diagrams
 
-### Normalized Numerical Feature
+### 📏 Normalized Numerical Feature
 
 Below is a visualization of a model with a normalized numerical feature:
 
 ![Normalized Numerical Feature](imgs/models/basic_numeric_normalized.png)
 
-### Rescaled Numerical Feature
+### ⚖️ Rescaled Numerical Feature
 
 Below is a visualization of a model with a rescaled numerical feature:
 
 ![Rescaled Numerical Feature](imgs/models/basic_numeric_rescaled.png)
 
-### Discretized Numerical Feature
+### 📊 Discretized Numerical Feature
 
 Below is a visualization of a model with a discretized numerical feature:
 
 ![Discretized Numerical Feature](imgs/models/basic_numeric_discretized.png)
 
-### Advanced Numerical Embeddings
+### 🧠 Advanced Numerical Embeddings
 
 When using advanced numerical embeddings, the model architecture looks like this:
 

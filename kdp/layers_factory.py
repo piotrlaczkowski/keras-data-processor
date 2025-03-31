@@ -18,6 +18,11 @@ from kdp.layers.multi_resolution_tabular_attention_layer import (
     MultiResolutionTabularAttention,
 )
 from kdp.layers.variable_selection_layer import VariableSelection
+from kdp.layers.numerical_embedding_layer import NumericalEmbedding
+from kdp.layers.global_numerical_embedding_layer import GlobalNumericalEmbedding
+from kdp.layers.gated_linear_unit_layer import GatedLinearUnit
+from kdp.layers.gated_residual_network_layer import GatedResidualNetwork
+from kdp.layers.distribution_transform_layer import DistributionTransformLayer
 
 
 class PreprocessorLayerFactory:
@@ -93,6 +98,46 @@ class PreprocessorLayerFactory:
             adaptive_binning=adaptive_binning,
             mixture_components=mixture_components,
             prefered_distribution=prefered_distribution,
+            **kwargs,
+        )
+
+    @staticmethod
+    def distribution_transform_layer(
+        name: str = "distribution_transform",
+        transform_type: str = "none",
+        lambda_param: float = 0.0,
+        epsilon: float = 1e-10,
+        min_value: float = 0.0,
+        max_value: float = 1.0,
+        clip_values: bool = True,
+        auto_candidates: list[str] = None,
+        **kwargs,
+    ) -> tf.keras.layers.Layer:
+        """Create a DistributionTransformLayer layer.
+
+        Args:
+            name (str): Name of the layer
+            transform_type (str): Type of transformation to apply
+            lambda_param (float): Parameter for parameterized transformations
+            epsilon (float): Small value for numerical stability
+            min_value (float): Minimum value for min-max scaling
+            max_value (float): Maximum value for min-max scaling
+            clip_values (bool): Whether to clip values to the specified range
+            auto_candidates (list[str]): List of transformations to consider in auto mode
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            DistributionTransformLayer layer
+        """
+        return DistributionTransformLayer(
+            name=name,
+            transform_type=transform_type,
+            lambda_param=lambda_param,
+            epsilon=epsilon,
+            min_value=min_value,
+            max_value=max_value,
+            clip_values=clip_values,
+            auto_candidates=auto_candidates,
             **kwargs,
         )
 
@@ -265,19 +310,158 @@ class PreprocessorLayerFactory:
 
     @staticmethod
     def variable_selection_layer(
-        name: str = "variable_selection", **kwargs: dict
+        nr_features: int = None,
+        units: int = 16,
+        dropout_rate: float = 0.2,
+        name: str = "variable_selection",
+        **kwargs: dict,
     ) -> tf.keras.layers.Layer:
         """Create a VariableSelection layer.
 
         Args:
-            name: The name of the layer.
-            **kwargs: Additional keyword arguments to pass to the layer constructor.
+            nr_features (int): Number of input features
+            units (int): Dimensionality of the output space
+            dropout_rate (float): Fraction of the input units to drop
+            name (str): Name of the layer
+            **kwargs: Additional arguments to pass to the layer
 
         Returns:
-            An instance of the VariableSelection layer.
+            VariableSelection: A VariableSelection layer instance
         """
-        return PreprocessorLayerFactory.create_layer(
-            layer_class=VariableSelection,
+        return VariableSelection(
+            nr_features=nr_features,
+            units=units,
+            dropout_rate=dropout_rate,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def numerical_embedding_layer(
+        embedding_dim: int = 8,
+        mlp_hidden_units: int = 16,
+        num_bins: int = 10,
+        init_min: float = -3.0,
+        init_max: float = 3.0,
+        dropout_rate: float = 0.1,
+        use_batch_norm: bool = True,
+        name: str = "numerical_embedding",
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a NumericalEmbedding layer.
+
+        Args:
+            embedding_dim (int): Dimension of the output embedding
+            mlp_hidden_units (int): Number of hidden units in the MLP
+            num_bins (int): Number of bins for discretization
+            init_min (float): Minimum value for initialization
+            init_max (float): Maximum value for initialization
+            dropout_rate (float): Dropout rate for regularization
+            use_batch_norm (bool): Whether to use batch normalization
+            name (str): Name of the layer
+            **kwargs: Additional arguments to pass to the layer
+
+        Returns:
+            NumericalEmbedding: A NumericalEmbedding layer instance
+        """
+        return NumericalEmbedding(
+            embedding_dim=embedding_dim,
+            mlp_hidden_units=mlp_hidden_units,
+            num_bins=num_bins,
+            init_min=init_min,
+            init_max=init_max,
+            dropout_rate=dropout_rate,
+            use_batch_norm=use_batch_norm,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def global_numerical_embedding_layer(
+        global_embedding_dim: int = 8,
+        global_mlp_hidden_units: int = 16,
+        global_num_bins: int = 10,
+        global_init_min: float = -3.0,
+        global_init_max: float = 3.0,
+        global_dropout_rate: float = 0.1,
+        global_use_batch_norm: bool = True,
+        global_pooling: str = "average",
+        name: str = "global_numerical_embedding",
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a GlobalNumericalEmbedding layer.
+
+        Args:
+            global_embedding_dim (int): Dimension of the final global embedding
+            global_mlp_hidden_units (int): Number of hidden units in the global MLP
+            global_num_bins (int): Number of bins for discretization
+            global_init_min (float): Minimum value for initialization
+            global_init_max (float): Maximum value for initialization
+            global_dropout_rate (float): Dropout rate for regularization
+            global_use_batch_norm (bool): Whether to use batch normalization
+            global_pooling (str): Pooling method to use ("average" or "max")
+            name (str): Name of the layer
+            **kwargs: Additional arguments to pass to the layer
+
+        Returns:
+            GlobalNumericalEmbedding: A GlobalNumericalEmbedding layer instance
+        """
+        return GlobalNumericalEmbedding(
+            global_embedding_dim=global_embedding_dim,
+            global_mlp_hidden_units=global_mlp_hidden_units,
+            global_num_bins=global_num_bins,
+            global_init_min=global_init_min,
+            global_init_max=global_init_max,
+            global_dropout_rate=global_dropout_rate,
+            global_use_batch_norm=global_use_batch_norm,
+            global_pooling=global_pooling,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def gated_linear_unit_layer(
+        units: int,
+        name: str = "gated_linear_unit",
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a GatedLinearUnit layer.
+
+        Args:
+            units (int): Dimensionality of the output space
+            name (str): Name of the layer
+            **kwargs: Additional arguments to pass to the layer
+
+        Returns:
+            GatedLinearUnit: A GatedLinearUnit layer instance
+        """
+        return GatedLinearUnit(
+            units=units,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def gated_residual_network_layer(
+        units: int,
+        dropout_rate: float = 0.2,
+        name: str = "gated_residual_network",
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a GatedResidualNetwork layer.
+
+        Args:
+            units (int): Dimensionality of the output space
+            dropout_rate (float): Fraction of the input units to drop
+            name (str): Name of the layer
+            **kwargs: Additional arguments to pass to the layer
+
+        Returns:
+            GatedResidualNetwork: A GatedResidualNetwork layer instance
+        """
+        return GatedResidualNetwork(
+            units=units,
+            dropout_rate=dropout_rate,
             name=name,
             **kwargs,
         )

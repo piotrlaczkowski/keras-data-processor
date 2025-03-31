@@ -38,30 +38,7 @@ features = {
     # Basic text feature with custom settings
     "product_review": TextFeature(
         name="product_review",
-        feature_type=FeatureType.TEXT,
-        max_tokens=5000,                   # Maximum vocabulary size
-        sequence_length=128,               # Maximum sequence length
-        embedding_dim=64                   # Embedding dimension
-    ),
-
-    # Text with advanced tokenization options
-    "product_description": TextFeature(
-        name="product_description",
-        feature_type=FeatureType.TEXT,
-        max_tokens=10000,                  # Larger vocabulary
-        sequence_length=256,               # Longer sequences
-        embedding_dim=128,                 # Richer embeddings
-        ngrams=2,                          # Include bigrams
-        output_mode="int"                  # Output token indices
-    ),
-
-    # Text with special character handling
-    "search_query": TextFeature(
-        name="search_query",
-        feature_type=FeatureType.TEXT,
-        standardize="lower_and_strip_punctuation",  # Preprocessing
-        split="whitespace",                # Simple whitespace splitting
-        output_mode="count"                # Bag-of-words style output
+        feature_type=FeatureType.TEXT
     )
 }
 ```
@@ -70,14 +47,7 @@ features = {
 
 | Parameter | Description | Default | Suggested Range |
 |-----------|-------------|---------|----------------|
-| `max_tokens` | Maximum vocabulary size | 10,000 | 1,000-100,000 |
-| `sequence_length` | Maximum sequence length | 128 | 32-512 |
-| `embedding_dim` | Embedding dimension | 64 | 16-512 |
-| `ngrams` | N-gram size to include | 1 | 1-3 |
-| `output_mode` | Type of output | "int" | "int", "binary", "count", "tf_idf" |
-| `standardize` | Text preprocessing | "lower_and_strip_punctuation" | Various options |
-| `split` | Tokenization method | "whitespace" | "whitespace", "character" |
-| `output_sequence_length` | Fixed output length | `None` | Set for fixed-length output |
+| `feature_type` | Base feature type | `TEXT` | `TEXT` |
 
 ## 🔥 Power Features
 
@@ -88,29 +58,7 @@ Configure all text features at once:
 ```python
 # Global settings for all text features
 preprocessor = PreprocessingModel(
-    features_specs=features,
-    text_embedding_dim=128,         # Embedding dimension for all text
-    text_output_sequence_length=64, # Fixed sequence length for all text
-    text_standardize="lower_only"   # Same preprocessing for all text
-)
-```
-
-### Pre-trained Word Embeddings
-
-Use pre-trained word vectors for better text representation:
-
-```python
-# Use pre-trained GloVe embeddings
-preprocessor = PreprocessingModel(
-    features_specs={
-        "product_review": TextFeature(
-            name="product_review",
-            feature_type=FeatureType.TEXT,
-            pretrained_embeddings="glove",
-            embedding_dim=100,
-            trainable_embeddings=False  # Freeze embeddings
-        )
-    }
+    features_specs=features
 )
 ```
 
@@ -124,22 +72,13 @@ preprocessor = PreprocessingModel(
     features_specs={
         "review_text": TextFeature(
             name="review_text",
-            feature_type=FeatureType.TEXT,
-            max_tokens=15000,
-            sequence_length=256,
-            embedding_dim=128
+            feature_type=FeatureType.TEXT
         ),
         "review_title": TextFeature(
             name="review_title",
-            feature_type=FeatureType.TEXT,
-            max_tokens=5000,
-            sequence_length=32,
-            embedding_dim=64
+            feature_type=FeatureType.TEXT
         )
-    },
-    # Use a Transformer to capture context
-    transfo_nr_blocks=2,
-    transfo_nr_heads=4
+    }
 )
 ```
 
@@ -151,69 +90,41 @@ preprocessor = PreprocessingModel(
     features_specs={
         "search_query": TextFeature(
             name="search_query",
-            feature_type=FeatureType.TEXT,
-            max_tokens=8000,
-            sequence_length=16,
-            embedding_dim=64
+            feature_type=FeatureType.TEXT
         ),
         "product_name": TextFeature(
             name="product_name",
-            feature_type=FeatureType.TEXT,
-            max_tokens=10000,
-            sequence_length=32,
-            embedding_dim=64
+            feature_type=FeatureType.TEXT
         ),
         "product_description": TextFeature(
             name="product_description",
-            feature_type=FeatureType.TEXT,
-            max_tokens=20000,
-            sequence_length=256,
-            embedding_dim=128,
-            ngrams=2
+            feature_type=FeatureType.TEXT
         )
-    },
-    # Apply tabular attention to capture relevance
-    tabular_attention=True,
-    tabular_attention_dim=64,
-    tabular_attention_heads=4
+    }
 )
 ```
 
 ## 📊 Model Architecture
 
-KDP's text processing architecture handles tokenization, vocabulary management, and embedding:
+KDP's text processing architecture handles tokenization and vocabulary management:
 
 ### Basic Text Feature
 
 ![Basic Text Feature](imgs/models/basic_text.png)
 
-### Custom Text Feature
-
-For advanced configuration with the `TextFeature` class:
-
-![Custom Text Feature](imgs/models/custom_text_feature.png)
-
 ## 💡 Pro Tips
 
-1. **Tokenization Strategy**
-   - Use default settings for most Western languages
-   - For languages without word boundaries (Chinese, Japanese), consider character splitting
-   - Consider specific tokenizers for special domain text (medical, scientific)
+1. **Text Processing Strategy**
+   - KDP automatically handles text tokenization and vocabulary management
+   - The implementation uses standard text preprocessing techniques
 
-2. **Sequence Length**
-   - Choose based on your data: reviews (256), tweets (64), articles (512+)
-   - Shorter sequences = faster training and inference
-   - Check a histogram of your text lengths to set appropriate values
+2. **Feature Selection**
+   - Use feature selection to identify important text features
+   - This helps reduce dimensionality and improve model performance
 
-3. **Vocabulary Size**
-   - Start with 10,000 for general text
-   - Increase for domain-specific language with unique terminology
-   - For extremely large vocabularies, consider subword tokenization methods
-
-4. **Embedding Dimensions**
-   - A good rule of thumb: `sqrt(vocabulary_size)` or minimum 32
-   - More complex language benefits from larger dimensions (128-512)
-   - Start smaller and increase if needed
+3. **Cross Features**
+   - Consider using cross features to capture interactions between text and other features
+   - Example: Cross text features with categorical features for better context
 
 ## 🔗 Related Topics
 

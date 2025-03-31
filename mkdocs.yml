@@ -43,7 +43,6 @@ nav:
       - 🎯 Quick Start: getting-started/quick-start.md
       - 🌍 Why KDP?: getting-started/motivation.md
       - 🧩 Architecture Overview: getting-started/architecture.md
-      - 🏗️ System Overview: getting-started/overview.md
   - 📚 Feature Types:
       - 🛠️ Features Overview: features/overview.md
       - 🔢 Numerical Features: features/numerical-features.md
@@ -53,11 +52,11 @@ nav:
       - ➕ Cross Features: features/cross-features.md
   - 🧠 Advanced Features:
       - 📊 Distribution-Aware Encoding: advanced/distribution-aware-encoding.md
-      - 🔬 Distribution-Aware Testing: advanced/distribution-aware-testing.md
       - 🔢 Advanced Numerical Embeddings: advanced/numerical-embeddings.md
       - 👁️ Tabular Attention: advanced/tabular-attention.md
       - 🤖 Transformer Blocks: advanced/transformer-blocks.md
       - 🧩 Feature-wise Mixture of Experts: advanced/feature-moe.md
+      - 🛠️ Custom Preprocessing Pipelines: advanced/custom-preprocessing.md
   - ⚡ Optimization:
       - 🎯 Feature Selection: optimization/feature-selection.md
       - 📈 Tabular Optimization: optimization/tabular-optimization.md
@@ -119,6 +118,7 @@ plugins:
         'integrations.md': 'integrations/overview.md'
         'feature_moe.md': 'advanced/feature-moe.md'
         'transformer_blocks.md': 'advanced/transformer-blocks.md'
+        'custom_preprocessing.md': 'advanced/custom-preprocessing.md'
         'contributing.md': 'contributing/overview.md'
         # API reference redirects
         'reference/api-reference.md': 'generated/api_index.md'

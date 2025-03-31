@@ -111,7 +111,6 @@ The encoder automatically detects and handles these distribution types:
 | `embedding_dim` | int | None | Output dimension for feature projection |
 | `add_distribution_embedding` | bool | False | Add learned distribution type embedding |
 | `epsilon` | float | 1e-6 | Small value to prevent numerical issues |
-| `auto_detect` | bool | True | Automatically detect distribution type |
 | `transform_type` | str | "auto" | Type of transformation to apply |
 
 ## 🎯 Best Practices

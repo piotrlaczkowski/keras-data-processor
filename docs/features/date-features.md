@@ -4,7 +4,7 @@
 
 ## 📋 Quick Overview
 
-Date features transform timestamps and dates into ML-ready representations. KDP automatically extracts useful components like day of week, month, and year, and can even detect cyclical patterns and seasonality.
+Date features transform timestamps and dates into ML-ready representations. KDP provides basic date processing capabilities.
 
 ## 🚀 Basic Usage
 
@@ -35,38 +35,22 @@ For more control, use the `DateFeature` class:
 from kdp.features import DateFeature
 
 features = {
-    # Transaction date with full components
+    # Transaction date with basic configuration
     "transaction_date": DateFeature(
         name="transaction_date",
-        feature_type=FeatureType.DATE,
-        date_format="%Y-%m-%d",       # Input format
-        add_day_of_week=True,         # Add day of week (Mon, Tue, etc.)
-        add_day_of_month=True,        # Add day of month (1-31)
-        add_month=True,               # Add month (1-12)
-        add_year=True,                # Add year
-        add_quarter=True,             # Add quarter (1-4)
-        cyclical_encoding=True        # Use sine/cosine encoding
+        feature_type=FeatureType.DATE
     ),
 
-    # User signup date with seasonality
+    # User signup date
     "signup_date": DateFeature(
         name="signup_date",
-        feature_type=FeatureType.DATE,
-        add_season=True,              # Add season (Winter, Spring, etc.)
-        add_is_weekend=True,          # Add weekend indicator
-        add_age=True,                 # Add age of date in days
-        reference_date="2020-01-01"   # Reference for age calculation
+        feature_type=FeatureType.DATE
     ),
 
     # Event timestamp
     "event_timestamp": DateFeature(
         name="event_timestamp",
-        feature_type=FeatureType.DATE,
-        is_timestamp=True,            # Parse as timestamp
-        timestamp_unit="s",           # Seconds
-        add_hour=True,                # Add hour of day
-        add_minute=True,              # Add minute
-        timezone="UTC"                # Specify timezone
+        feature_type=FeatureType.DATE
     )
 }
 ```
@@ -75,62 +59,24 @@ features = {
 
 | Parameter | Description | Default | Suggested Range |
 |-----------|-------------|---------|----------------|
-| `date_format` | Input date format | Auto-detect | Standard format strings |
-| `is_timestamp` | Whether input is timestamp | `False` | `True`/`False` |
-| `timestamp_unit` | Unit for timestamps | "s" | "s", "ms", "us", "ns" |
-| `add_year` | Include year component | `True` | `True`/`False` |
-| `add_month` | Include month component | `True` | `True`/`False` |
-| `add_day_of_month` | Include day component | `True` | `True`/`False` |
-| `add_day_of_week` | Include day of week | `True` | `True`/`False` |
-| `add_hour` | Include hour component | `False` | `True`/`False` |
-| `add_minute` | Include minute component | `False` | `True`/`False` |
-| `add_second` | Include second component | `False` | `True`/`False` |
-| `add_quarter` | Include quarter | `False` | `True`/`False` |
-| `add_season` | Include season | `False` | `True`/`False` |
-| `add_is_weekend` | Include weekend flag | `False` | `True`/`False` |
-| `add_age` | Include age in days | `False` | `True`/`False` |
-| `reference_date` | Reference for age | Current date | Any date string |
-| `cyclical_encoding` | Use sine/cosine encoding | `False` | `True`/`False` |
-| `timezone` | Timezone for parsing | `None` | "UTC", "America/New_York", etc. |
+| `feature_type` | Base feature type | `DATE` | `DATE` |
 
 ## 🔥 Power Features
 
-### Cyclical Encoding
+### Date Processing
 
-Properly represent cyclical time components:
-
-```python
-# Better representation of cyclical features
-from kdp.features import DateFeature
-
-features = {
-    "purchase_date": DateFeature(
-        name="purchase_date",
-        feature_type=FeatureType.DATE,
-        add_hour=True,
-        add_day_of_week=True,
-        add_month=True,
-        cyclical_encoding=True         # Represent cyclical nature
-    )
-}
-```
-
-### Age and Time Deltas
-
-Calculate time since or until a reference date:
+KDP automatically handles date parsing and formatting:
 
 ```python
-# Calculate customer lifetime
-from kdp.features import DateFeature
-
-features = {
-    "signup_date": DateFeature(
-        name="signup_date",
-        feature_type=FeatureType.DATE,
-        add_age=True,                  # Add age feature
-        reference_date="2023-01-01"    # Reference point
-    )
-}
+# Basic date feature configuration
+preprocessor = PreprocessingModel(
+    features_specs={
+        "purchase_date": DateFeature(
+            name="purchase_date",
+            feature_type=FeatureType.DATE
+        )
+    }
+)
 ```
 
 ## 💼 Real-World Examples
@@ -143,18 +89,11 @@ preprocessor = PreprocessingModel(
     features_specs={
         "purchase_date": DateFeature(
             name="purchase_date",
-            feature_type=FeatureType.DATE,
-            add_day_of_week=True,     # Capture day-of-week patterns
-            add_month=True,           # Capture monthly patterns
-            add_is_weekend=True,      # Weekend vs weekday
-            add_quarter=True,         # Quarterly patterns
-            cyclical_encoding=True    # Proper cyclical representation
+            feature_type=FeatureType.DATE
         ),
         "user_signup_date": DateFeature(
             name="user_signup_date",
-            feature_type=FeatureType.DATE,
-            add_age=True,             # How long customer has been registered
-            reference_date="now"      # Relative to current date
+            feature_type=FeatureType.DATE
         )
     }
 )
@@ -168,60 +107,35 @@ preprocessor = PreprocessingModel(
     features_specs={
         "timestamp": DateFeature(
             name="timestamp",
-            feature_type=FeatureType.DATE,
-            is_timestamp=True,
-            timestamp_unit="s",
-            add_hour=True,            # Hourly patterns
-            add_day_of_week=True,     # Weekly patterns
-            add_month=True,           # Monthly patterns
-            add_year=True,            # Yearly trends
-            cyclical_encoding=True    # Sine/cosine encoding
+            feature_type=FeatureType.DATE
         ),
         # Additional features...
         "value": FeatureType.FLOAT_RESCALED
-    },
-    # Enable temporal attention
-    tabular_attention=True,
-    tabular_attention_heads=4
+    }
 )
 ```
 
 ## 📊 Model Architecture
 
-KDP's date processing extracts and encodes temporal information:
+KDP's date processing handles date parsing and formatting:
 
 ### Basic Date Feature
 
 ![Basic Date Feature](imgs/models/basic_date.png)
 
-### Custom Date Feature
-
-Configure advanced date extraction with the `DateFeature` class:
-
-![Custom Date Feature](imgs/models/custom_date_feature.png)
-
 ## 💡 Pro Tips
 
-1. **Choose the Right Components**
-   - Only include time components relevant to your problem
-   - For daily data, focus on day of week, month, quarter
-   - For hourly data, include hour of day and day of week
-   - For long-term patterns, include month, quarter, and year
+1. **Date Format Handling**
+   - KDP automatically handles common date formats
+   - The implementation uses standard date parsing techniques
 
-2. **Always Use Cyclical Encoding**
-   - Essential for cyclic time components (hour, day, month)
-   - Prevents artificial boundaries (Dec 31 → Jan 1)
-   - Creates smooth transitions between time periods
+2. **Feature Selection**
+   - Use feature selection to identify important temporal patterns
+   - This helps reduce dimensionality and improve model performance
 
-3. **Time Zone Handling**
-   - Always specify a timezone for consistent processing
-   - Use UTC for global applications
-   - Use local timezones for region-specific patterns
-
-4. **Combine with Feature Crosses**
-   - Cross day of week with hour for weekly patterns
-   - Cross month with year for seasonal year-over-year patterns
-   - Example: `feature_crosses=[("day_of_week", "hour", 8)]`
+3. **Cross Features**
+   - Consider using cross features to capture interactions between dates and other features
+   - Example: Cross date features with categorical features for better context
 
 ## 🔗 Related Topics
 

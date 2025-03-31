@@ -2,39 +2,39 @@
 
 > Get KDP up and running in your environment quickly and easily
 
-## Quick Installation
+## 🚀 Quick Installation
 
 For most users, installing KDP is as simple as:
 
 ```bash
-pip install keras-data-processor
+pip install kdp
 ```
 
 This will install KDP and all its required dependencies.
 
-## Installation Methods
+## 🛠️ Installation Methods
 
-### Using pip (Recommended)
+### 🔄 Using pip (Recommended)
 
 ```bash
 # Basic installation
-pip install keras-data-processor
+pip install kdp
 
 # Install with optional dependencies
-pip install "keras-data-processor[all]"
+pip install "kdp[all]"
 ```
 
-### Using Poetry
+### 📝 Using Poetry
 
 ```bash
 # Add to your project
-poetry add keras-data-processor
+poetry add kdp
 
 # With extras
-poetry add "keras-data-processor[all]"
+poetry add "kdp[all]"
 ```
 
-### From Source
+### 💻 From Source
 
 ```bash
 # Clone the repository
@@ -48,27 +48,27 @@ pip install -e .
 poetry install
 ```
 
-## Dependencies
+## 🧩 Dependencies
 
 KDP requires the following core dependencies:
 
-- Python 3.7+
-- TensorFlow 2.5+
-- NumPy 1.19+
-- Pandas 1.2+
+- 🐍 Python 3.7+
+- 🔄 TensorFlow 2.5+
+- 🔢 NumPy 1.19+
+- 📊 Pandas 1.2+
 
-## Optional Dependencies
+## ✨ Optional Dependencies
 
 Depending on your use case, you might want to install these optional dependencies:
 
 | Package | Purpose | Install Command |
 |---------|---------|----------------|
-| `scikit-learn` | For additional preprocessing capabilities | `pip install "keras-data-processor[sklearn]"` |
-| `plotly` | For visualization utilities | `pip install "keras-data-processor[viz]"` |
-| `xgboost` | For integration with XGBoost | `pip install "keras-data-processor[xgboost]"` |
-| All extras | Complete installation | `pip install "keras-data-processor[all]"` |
+| `scikit-learn` | 🧪 For additional preprocessing capabilities | `pip install "keras-data-processor[sklearn]"` |
+| `plotly` | 📈 For visualization utilities | `pip install "keras-data-processor[viz]"` |
+| `xgboost` | 🚀 For integration with XGBoost | `pip install "keras-data-processor[xgboost]"` |
+| All extras | 🎁 Complete installation | `pip install "keras-data-processor[all]"` |
 
-## GPU Support
+## 🖥️ GPU Support
 
 KDP leverages TensorFlow's GPU support. To enable GPU acceleration:
 
@@ -80,7 +80,7 @@ KDP leverages TensorFlow's GPU support. To enable GPU acceleration:
 pip install tensorflow-gpu
 ```
 
-## Verifying Your Installation
+## ✅ Verifying Your Installation
 
 You can verify your installation by running:
 
@@ -97,37 +97,11 @@ model = PreprocessingModel(features_specs=features)
 print("Installation successful!")
 ```
 
-## Troubleshooting
+## 👣 Next Steps
 
-### Common Issues
-
-1. **Dependency Conflicts**
-
-   If you encounter dependency conflicts, try creating a fresh virtual environment:
-
-   ```bash
-   python -m venv kdp-env
-   source kdp-env/bin/activate  # On Windows: kdp-env\Scripts\activate
-   pip install keras-data-processor
-   ```
-
-2. **TensorFlow Installation Problems**
-
-   If you have issues with TensorFlow installation, refer to the [official TensorFlow installation guide](https://www.tensorflow.org/install).
-
-3. **Version Compatibility**
-
-   Check version compatibility if you encounter errors:
-
-   ```bash
-   pip list | grep -E "tensorflow|keras|numpy|pandas|kdp"
-   ```
-
-## Next Steps
-
-- [Quick Start Guide](quick-start.md) - Learn the basics of KDP
-- [Architecture Overview](architecture.md) - Understand KDP's components
-- [Feature Processing](../features/overview.md) - Explore KDP's feature processing capabilities
+- 🏁 [Quick Start Guide](quick-start.md) - Learn the basics of KDP
+- 🏗️ [Architecture Overview](architecture.md) - Understand KDP's components
+- 🔍 [Feature Processing](../features/overview.md) - Explore KDP's feature processing capabilities
 
 ---
 

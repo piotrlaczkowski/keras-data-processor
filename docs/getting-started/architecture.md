@@ -2,6 +2,10 @@
 
 > Ever wondered what happens behind the scenes when KDP transforms your raw data into ML-ready features? This guide takes you under the hood.
 
+## 📋 Quick Overview
+
+KDP's architecture consists of interconnected components that work together to make preprocessing faster, smarter, and more efficient. This guide will walk you through each component and show you how they transform raw data into powerful ML features.
+
 ## 🧩 KDP's Building Blocks
 
 ![KDP Architecture Diagram](imgs/Model_Architecture.png)
@@ -110,20 +114,93 @@ loaded = PreprocessingModel.load_model("customer_preprocess_model")
 
 ## 🧠 Smart Decision Making
 
-KDP makes intelligent decisions at multiple points:
+KDP makes intelligent decisions at multiple points to optimize your preprocessing pipeline:
 
-1. **Feature Type Detection**
-   ```python
-   # KDP detects the best type when you don't specify
-   auto_detected_features = {
-       "mystery_column": None  # KDP will analyze and decide
-   }
-   ```
+### 🔍 Feature Type Detection
 
-2. **Distribution Detection**
-   ```python
-   # KDP examines numerical features and applies the right transformation
-   # - Normal distributions get standard scaling
-   # - Log-normal distributions get log transformations
-   # - Multimodal distributions get specialized encoding
-   ```
+KDP can automatically analyze your data to determine the most appropriate feature types:
+
+```python
+# KDP detects the best type when you don't specify
+auto_detected_features = {
+    "mystery_column": None  # KDP will analyze and decide
+}
+
+# Behind the scenes, KDP:
+# 1. Examines sample distribution and uniqueness
+# 2. Detects data patterns (numbers, text, dates)
+# 3. Recommends optimal encoding strategy
+```
+
+### 📊 Distribution Detection & Handling
+
+KDP examines the statistical properties of each numerical feature to apply appropriate transformations:
+
+```python
+# Enable distribution-aware processing
+preprocessor = PreprocessingModel(
+    features_specs=features,
+    use_distribution_aware=True,
+    distribution_aware_bins=1000  # Higher resolution for complex distributions
+)
+
+# KDP automatically detects and handles:
+# - Normal distributions → Standard scaling
+# - Skewed distributions → Log transformations
+# - Multimodal distributions → Specialized encoding
+# - Outliers → Robust scaling techniques
+# - Missing values → Imputation strategies
+```
+
+### ⚙️ Optimization Strategies
+
+KDP dynamically optimizes preprocessing for both efficiency and effectiveness:
+
+```python
+# KDP automatically:
+# - Caches intermediate results for faster processing
+# - Uses batch processing for memory efficiency
+# - Parallelizes operations when possible
+# - Reduces dimensionality when beneficial
+```
+
+Processing strategies are determined based on:
+- Data size and complexity
+- Available computational resources
+- Feature interdependencies
+- Statistical significance of features
+
+### 🛑 Edge Case Handling
+
+KDP implements sophisticated handling for challenging data situations:
+
+```python
+# KDP handles these edge cases automatically:
+preprocessor = PreprocessingModel(
+    features_specs=features,
+    # No additional configuration needed!
+)
+```
+
+Edge cases managed by KDP include:
+- **Out-of-vocabulary** values in categorical features
+- **Previously unseen patterns** in text data
+- **Date values outside training range**
+- **Missing values** or **unexpected nulls**
+- **Extreme outliers** in numerical columns
+
+### 🔄 Adaptive Learning
+
+KDP continually refines its understanding of your data:
+
+```python
+# Analyze additional data after initial build
+preprocessor.update_statistics(new_data)
+
+# Preprocessor automatically adapts to:
+# - Shifting distributions
+# - New categorical values
+# - Changing relationships between features
+```
+
+This adaptive approach ensures your preprocessing remains optimal even as data evolves over time.

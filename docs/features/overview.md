@@ -1,6 +1,6 @@
 # 🛠️ Feature Types Overview
 
-> KDP makes feature processing intuitive and powerful by transforming your raw data into the optimal format for machine learning.
+> ✨ KDP makes feature processing intuitive and powerful by transforming your raw data into the optimal format for machine learning.
 
 ## 💪 Feature Types at a Glance
 
@@ -22,77 +22,51 @@ The simplest way to define features is with the `FeatureType` enum:
 ```python
 from kdp import PreprocessingModel, FeatureType
 
-# Quick and easy feature definition
+# ✨ Quick and easy feature definition
 features = {
-    # Numerical features - different processing strategies
-    "age": FeatureType.FLOAT_NORMALIZED,        # [0,1] range normalization
-    "income": FeatureType.FLOAT_RESCALED,       # Standard scaling
-    "transaction_count": FeatureType.FLOAT,     # No preprocessing
+    # 🔢 Numerical features - different processing strategies
+    "age": FeatureType.FLOAT_NORMALIZED,        # 📊 [0,1] range normalization
+    "income": FeatureType.FLOAT_RESCALED,       # 📈 Standard scaling
+    "transaction_count": FeatureType.FLOAT,     # 🧮 Default normalization (same as FLOAT_NORMALIZED)
 
-    # Categorical features - automatic encoding
-    "occupation": FeatureType.STRING_CATEGORICAL,
-    "education_level": FeatureType.INTEGER_CATEGORICAL,
+    # 🏷️ Categorical features - automatic encoding
+    "occupation": FeatureType.STRING_CATEGORICAL,      # 👔 Job titles, roles
+    "education_level": FeatureType.INTEGER_CATEGORICAL, # 🎓 Education codes
 
-    # Text and dates - specialized processing
-    "product_review": FeatureType.TEXT,
-    "signup_date": FeatureType.DATE,
+    # 📝 Text and dates - specialized processing
+    "product_review": FeatureType.TEXT,         # 💬 Customer feedback
+    "signup_date": FeatureType.DATE,            # 📆 User registration date
 
-    # Passthrough feature - use with pre-processed data
-    "embedding_vector": FeatureType.PASSTHROUGH
+    # 🔍 Passthrough feature - use without any processing
+    "embedding_vector": FeatureType.PASSTHROUGH # 🔄 Pre-processed data passes directly to output
 }
 
-# Create your preprocessor
+# 🏗️ Create your preprocessor
 preprocessor = PreprocessingModel(
     path_data="customer_data.csv",
     features_specs=features
 )
 ```
 
-## 🔍 Automatic Feature Detection
-
-Don't know what feature types to use? KDP can detect them automatically:
-
-```python
-from kdp import PreprocessingModel
-
-# Let KDP analyze and decide
-preprocessor = PreprocessingModel(
-    path_data="customer_data.csv",
-    auto_detect_features=True
-)
-
-# Or specify some features and let KDP handle the rest
-features = {
-    "income": FeatureType.FLOAT_RESCALED,  # I know this one
-    "product_id": None,                   # Let KDP figure this out
-    "description": None                   # Let KDP figure this out
-}
-
-preprocessor = PreprocessingModel(
-    path_data="customer_data.csv",
-    features_specs=features
-)
-```
-
-## 💪 Why Strong Feature Types Matter
+## ⭐ Why Strong Feature Types Matter
 
 KDP's type system provides several advantages:
 
-1. **Optimized Processing**: Each feature type gets specialized handling for better ML performance
-2. **Reduced Errors**: Catch type mismatches early in development, not during training
-3. **Clearer Code**: Self-documenting feature definitions make your code more maintainable
-4. **Enhanced Performance**: Type-specific optimizations improve preprocessing speed
+1. **🎯 Optimized Processing**: Each feature type gets specialized handling for better ML performance
+2. **🐛 Reduced Errors**: Catch type mismatches early in development, not during training
+3. **📝 Clearer Code**: Self-documenting feature definitions make your code more maintainable
+4. **⚡ Enhanced Performance**: Type-specific optimizations improve preprocessing speed
 
 ## 📚 Feature Type Documentation
 
 Learn about each feature type in detail:
 
-- [Numerical Features](numerical-features.md) - Handle continuous values
-- [Categorical Features](categorical-features.md) - Process discrete categories
-- [Text Features](text-features.md) - Work with free-form text
-- [Date Features](date-features.md) - Extract temporal patterns
-- [Cross Features](cross-features.md) - Model feature interactions
-- [Passthrough Features](passthrough-features.md) - Include unmodified data
+- [🔢 Numerical Features](numerical-features.md) - Handle continuous values
+- [🏷️ Categorical Features](categorical-features.md) - Process discrete categories
+- [📝 Text Features](text-features.md) - Work with free-form text
+- [📅 Date Features](date-features.md) - Extract temporal patterns
+- [➕ Cross Features](cross-features.md) - Model feature interactions
+- [🔍 Passthrough Features](passthrough-features.md) - Include unmodified data
 
 ## 👨‍💻 Advanced Feature Configuration
 
@@ -102,9 +76,9 @@ For more control, use specialized feature classes:
 from kdp.features import NumericalFeature, CategoricalFeature, TextFeature, DateFeature, PassthroughFeature
 import tensorflow as tf
 
-# Advanced feature configuration
+# 🔧 Advanced feature configuration
 features = {
-    # Numerical with advanced embedding
+    # 💰 Numerical with advanced embedding
     "income": NumericalFeature(
         name="income",
         feature_type=FeatureType.FLOAT_RESCALED,
@@ -112,7 +86,7 @@ features = {
         embedding_dim=32
     ),
 
-    # Categorical with hashing
+    # 🏪 Categorical with hashing
     "product_id": CategoricalFeature(
         name="product_id",
         feature_type=FeatureType.STRING_CATEGORICAL,
@@ -120,7 +94,7 @@ features = {
         category_encoding="hashing"
     ),
 
-    # Text with custom tokenization
+    # 📋 Text with custom tokenization
     "description": TextFeature(
         name="description",
         max_tokens=5000,
@@ -129,7 +103,7 @@ features = {
         ngrams=2
     ),
 
-    # Date with cyclical encoding
+    # 🗓️ Date with cyclical encoding
     "purchase_date": DateFeature(
         name="purchase_date",
         add_day_of_week=True,
@@ -137,7 +111,7 @@ features = {
         cyclical_encoding=True
     ),
 
-    # Passthrough feature
+    # 🧠 Passthrough feature
     "embedding": PassthroughFeature(
         name="embedding",
         dtype=tf.float32
@@ -147,58 +121,58 @@ features = {
 
 ## 💡 Pro Tips for Feature Definition
 
-1. **Start Simple**: Begin with basic `FeatureType` definitions
-2. **Add Complexity Gradually**: Refactor to specialized feature classes when needed
-3. **Combine Approaches**: Mix distribution-aware, attention, embeddings for best results
-4. **Check Distributions**: Review your data distribution before choosing feature types
-5. **Experiment with Types**: Sometimes a different encoding provides better results
-6. **Consider Passthrough**: Use passthrough features for pre-processed data or custom vectors
+1. **🔰 Start Simple**: Begin with basic `FeatureType` definitions
+2. **📈 Add Complexity Gradually**: Refactor to specialized feature classes when needed
+3. **🔄 Combine Approaches**: Mix distribution-aware, attention, embeddings for best results
+4. **📊 Check Distributions**: Review your data distribution before choosing feature types
+5. **🧪 Experiment with Types**: Sometimes a different encoding provides better results
+6. **⏩ Consider Passthrough**: Use passthrough features for pre-processed data or custom vectors
 
 ## 📊 Model Architecture Diagrams
 
 KDP creates optimized preprocessing architectures based on your feature definitions. Here are examples of different model configurations:
 
-### Basic Feature Combinations
+### 🔄 Basic Feature Combinations
 
 When combining numerical and categorical features:
 
 ![Numeric and Categorical Features](imgs/models/numeric_and_categorical.png)
 
-### All Feature Types Combined
+### 🌟 All Feature Types Combined
 
 KDP can handle all feature types in a single model:
 
 ![All Feature Types Combined](imgs/models/all_basic_types.png)
 
-### Advanced Configurations
+### 🔋 Advanced Configurations
 
-#### Tabular Attention
+#### ✨ Tabular Attention
 
 Enhance feature interactions with tabular attention:
 
 ![Tabular Attention](imgs/models/tabular_attention.png)
 
-#### Transformer Blocks
+#### 🔄 Transformer Blocks
 
 Process categorical features with transformer blocks:
 
 ![Transformer Blocks](imgs/models/transformer_blocks.png)
 
-#### Feature MoE (Mixture of Experts)
+#### 🧠 Feature MoE (Mixture of Experts)
 
 Specialized feature processing with Mixture of Experts:
 
 ![Feature MoE](imgs/models/feature_moe.png)
 
-#### Output Modes
+#### 📤 Output Modes
 
 KDP supports different output modes for your preprocessed features:
 
-**Concatenated Output:**
+**🔗 Concatenated Output:**
 
 ![Concat Output Mode](imgs/models/output_mode_concat.png)
 
-**Dictionary Output:**
+**📦 Dictionary Output:**
 
 ![Dict Output Mode](imgs/models/output_mode_dict.png)
 

@@ -49,24 +49,14 @@ features = {
         name="occupation",
         feature_type=FeatureType.STRING_CATEGORICAL,
         category_encoding=CategoryEncodingOptions.EMBEDDING,  # Use embeddings
-        embedding_dim=16,                  # Custom embedding dimension
-        vocabulary_size=1000               # Limit vocabulary size
-    ),
-
-    # High-cardinality feature with hashing
-    "product_id": CategoricalFeature(
-        name="product_id",
-        feature_type=FeatureType.STRING_CATEGORICAL,
-        category_encoding=CategoryEncodingOptions.HASHING,  # Use hashing for high cardinality
-        num_hash_bins=10000,              # Number of hash buckets
-        embedding_dim=32                   # Embedding dimension after hashing
+        embedding_size=16                  # Custom embedding size
     ),
 
     # One-hot encoding for low-cardinality feature
     "day_of_week": CategoricalFeature(
         name="day_of_week",
         feature_type=FeatureType.STRING_CATEGORICAL,
-        category_encoding=CategoryEncodingOptions.ONE_HOT,  # One-hot encoding
+        category_encoding=CategoryEncodingOptions.ONE_HOT_ENCODING,  # One-hot encoding
         vocabulary=["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]  # Pre-defined vocabulary
     )
 }
@@ -77,16 +67,13 @@ features = {
 | Parameter | Description | Default | Suggested Range |
 |-----------|-------------|---------|----------------|
 | `feature_type` | Base feature type | Based on data | `STRING_CATEGORICAL`, `INTEGER_CATEGORICAL` |
-| `category_encoding` | Encoding method | `EMBEDDING` | `EMBEDDING`, `ONE_HOT`, `HASHING` |
-| `embedding_dim` | Dimensionality of embedding | Auto-scaled | 8-128 |
-| `vocabulary_size` | Maximum vocabulary size | 10,000 | 100-1,000,000 |
+| `category_encoding` | Encoding method | `EMBEDDING` | `EMBEDDING`, `ONE_HOT_ENCODING` |
+| `embedding_size` | Dimensionality of embedding | Auto-scaled | 8-128 |
 | `vocabulary` | Pre-defined vocabulary | `None` | List of categories |
-| `num_hash_bins` | Number of hash buckets | 10,000 | 1,000-100,000 |
-| `hash_key` | Hash seed for deterministic hashing | `None` | Integer seed |
 
 ## 🔥 Power Features
 
-### Automatic Vocabulary Sizing
+### Automatic Embedding Sizing
 
 KDP automatically determines optimal embedding sizes based on cardinality:
 
@@ -100,38 +87,19 @@ preprocessor = PreprocessingModel(
 
 ### Handling High-Cardinality Features
 
-When dealing with millions of categories:
+When dealing with many categories, KDP automatically adjusts the embedding size:
 
 ```python
-# For features with huge numbers of categories
+# For features with many categories
 preprocessor = PreprocessingModel(
     features_specs={
         "user_id": CategoricalFeature(
             name="user_id",
             feature_type=FeatureType.STRING_CATEGORICAL,
-            category_encoding=CategoryEncodingOptions.HASHING,
-            num_hash_bins=100000,      # Large number of buckets
-            embedding_dim=64           # Rich representation
+            category_encoding=CategoryEncodingOptions.EMBEDDING,
+            # embedding size will be automatically determined based on cardinality
         )
     }
-)
-```
-
-### Cross-Category Features
-
-Capture interactions between categorical features:
-
-```python
-# Create interactions between categories
-preprocessor = PreprocessingModel(
-    features_specs={
-        "product_category": FeatureType.STRING_CATEGORICAL,
-        "user_country": FeatureType.STRING_CATEGORICAL
-    },
-    # Define cross features
-    feature_crosses=[
-        ("product_category", "user_country", 32)  # Names and embedding dimension
-    ]
 )
 ```
 
@@ -156,18 +124,16 @@ For more control, you can use the `CategoricalFeature` class:
 ## 💡 Pro Tips
 
 1. **Choose the Right Encoding**
-   - Use `ONE_HOT` for very low cardinality (< 10 categories)
-   - Use `EMBEDDING` for medium cardinality (10-10,000 categories)
-   - Use `HASHING` for high cardinality (> 10,000 categories)
+   - Use `ONE_HOT_ENCODING` for very low cardinality (< 10 categories)
+   - Use `EMBEDDING` for medium to high cardinality (≥ 10 categories)
 
 2. **Embedding Dimension Rules of Thumb**
-   - A good starting point: `embedding_dim = 1.6 * num_categories^0.56`
-   - For very important features, increase this by 50%
-   - Cap around 512 dimensions even for extremely high cardinality
+   - KDP automatically calculates optimal embedding size using the rule: `min(500, 1.6 * num_categories^0.56)`
+   - For very important features, you can override with custom `embedding_size`
 
 3. **Vocabulary Management**
-   - Limit vocabulary size for memory efficiency
-   - Consider the "minimum_frequency" parameter to drop rare categories
+   - For low-cardinality features, consider providing a pre-defined vocabulary
+   - This ensures consistent encoding across different datasets
 
 4. **Cross Features for Interactions**
    - Use cross features when combinations have special meaning
