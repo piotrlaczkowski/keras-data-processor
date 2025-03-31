@@ -2435,5 +2435,190 @@ class TestPreprocessingModel_GlobalNumericalEmbedding(unittest.TestCase):
             next(invalid_ppr.batch_predict(dataset))
 
 
+class TestPreprocessingModel_FeatureMoE(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls._base_path = Path(cls.temp_dir.name)
+        cls._path_data = cls._base_path / "fake_data.csv"
+        cls.features_stats_path = cls._base_path / "features_stats.json"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.temp_dir.cleanup()
+
+    def setUp(self):
+        self.base_path = Path(self.temp_dir.name)
+
+    def test_preprocessor_with_feature_moe(self):
+        """Test that when feature MoE is enabled, the preprocessor model contains the MoE layer."""
+        # Simple feature set for testing (only numerical features to avoid string conversion issues)
+        features = {
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "num2": NumericalFeature(
+                name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "num3": NumericalFeature(
+                name="num3", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor with MoE enabled
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            use_feature_moe=True,
+            feature_moe_num_experts=4,
+            feature_moe_expert_dim=32,
+            feature_moe_routing="learned",
+            output_mode=OutputModeOptions.CONCAT,
+        )
+
+        # Build preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Verify model config contains FeatureMoE layer
+        config = result["model"].get_config()
+        layers_config = config.get("layers", [])
+
+        moe_layer_found = any(
+            "FeatureMoE" in layer.get("class_name", "") for layer in layers_config
+        )
+
+        self.assertTrue(
+            moe_layer_found,
+            "The model config should include FeatureMoE when enabled.",
+        )
+
+        # Test model prediction works
+        test_data = generate_fake_data(features, num_rows=10)
+        # Format test data for prediction
+        input_dict = {
+            name: test_data[name].values.reshape(-1, 1) for name in features.keys()
+        }
+        prediction = result["model"].predict(input_dict)
+        self.assertIsNotNone(prediction)
+
+    def test_preprocessor_with_feature_moe_dict_mode(self):
+        """Test feature MoE in dictionary output mode."""
+        # Simple feature set for testing (only numerical features to avoid string conversion issues)
+        features = {
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "num2": NumericalFeature(
+                name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor with MoE enabled and dict mode
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            use_feature_moe=True,
+            feature_moe_num_experts=3,
+            feature_moe_expert_dim=16,
+            output_mode=OutputModeOptions.DICT,
+        )
+
+        # Build preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Test model prediction works in dict mode
+        test_data = generate_fake_data(features, num_rows=5)
+        # Format test data for prediction
+        input_dict = {
+            name: test_data[name].values.reshape(-1, 1) for name in features.keys()
+        }
+        prediction = result["model"].predict(input_dict)
+
+        # Verify prediction format
+        self.assertIsInstance(prediction, dict)
+        self.assertEqual(len(prediction), len(features))
+
+        # Each feature should have been processed
+        for feature_name in features:
+            self.assertIn(feature_name, prediction)
+            self.assertIsNotNone(prediction[feature_name])
+
+    def test_feature_moe_configuration_preservation(self):
+        """Test that feature MoE configuration is preserved in saved models."""
+        # Simple feature set for testing (only numerical features to avoid string conversion issues)
+        features = {
+            "num1": NumericalFeature(
+                name="num1", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+            "num2": NumericalFeature(
+                name="num2", feature_type=FeatureType.FLOAT_NORMALIZED
+            ),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features, num_rows=100)
+        df.to_csv(self._path_data, index=False)
+
+        # MoE configuration
+        moe_config = {
+            "use_feature_moe": True,
+            "feature_moe_num_experts": 5,
+            "feature_moe_expert_dim": 24,
+            "feature_moe_routing": "learned",
+            "feature_moe_sparsity": 0.8,
+        }
+
+        # Create preprocessor with MoE enabled
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            **moe_config,
+        )
+
+        # Build preprocessor
+        result = ppr.build_preprocessor()
+        self.assertIsNotNone(result["model"])
+
+        # Save model
+        save_path = self.base_path / "moe_model"
+        ppr.save_model(save_path)
+
+        # Load model and check configuration
+        loaded_model, metadata = PreprocessingModel.load_model(save_path)
+
+        # Verify MoE configuration is preserved in metadata
+        self.assertTrue(metadata.get("use_feature_moe", False))
+        self.assertIn("feature_moe_config", metadata)
+        moe_config_meta = metadata.get("feature_moe_config", {})
+        self.assertEqual(
+            moe_config_meta.get("num_experts"), moe_config["feature_moe_num_experts"]
+        )
+        self.assertEqual(
+            moe_config_meta.get("expert_dim"), moe_config["feature_moe_expert_dim"]
+        )
+        self.assertEqual(
+            moe_config_meta.get("routing"), moe_config["feature_moe_routing"]
+        )
+        self.assertEqual(
+            moe_config_meta.get("sparsity"), moe_config["feature_moe_sparsity"]
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

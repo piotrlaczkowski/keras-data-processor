@@ -34,6 +34,7 @@ KDP is a high-performance preprocessing library for tabular data built on Tensor
     <ul>
       <li><a href="advanced/distribution-aware-encoding.md">Distribution-Aware Encoding</a></li>
       <li><a href="advanced/tabular-attention.md">Tabular Attention</a></li>
+      <li><a href="advanced/feature-moe.md">Feature-wise Mixture of Experts</a></li>
       <li><a href="advanced/feature-selection.md">Feature Selection</a></li>
       <li><a href="advanced/numerical-embeddings.md">Advanced Numerical Embeddings</a></li>
       <li><a href="advanced/transformer-blocks.md">Transformer Blocks</a></li>
@@ -84,6 +85,7 @@ KDP is a high-performance preprocessing library for tabular data built on Tensor
     <ul>
       <li>✅ Smart distribution detection</li>
       <li>✅ Neural feature interactions</li>
+      <li>✅ Feature-wise Mixture of Experts</li>
       <li>✅ Memory-efficient processing</li>
       <li>✅ Single-pass optimization</li>
       <li>✅ Production-ready scaling</li>
@@ -97,6 +99,7 @@ KDP is a high-performance preprocessing library for tabular data built on Tensor
 |-----------|---------------------|----------------|
 | Complex Distributions | Fixed binning strategies | 📊 **Distribution-Aware Encoding** that adapts to your specific data |
 | Interaction Discovery | Manual feature crosses | 👁️ **Tabular Attention** that automatically finds important relationships |
+| Heterogeneous Features | Uniform processing | 🧩 **Feature-wise Mixture of Experts** that specializes processing per feature |
 | Feature Importance | Post-hoc analysis | 🎯 **Built-in Feature Selection** during training |
 | Performance at Scale | Memory issues with large datasets | ⚡ **Optimized Processing Pipeline** with batching and caching |
 
@@ -118,7 +121,9 @@ preprocessor = PreprocessingModel(
     path_data="data.csv",
     features_specs=features,
     use_distribution_aware=True,  # Smart distribution handling
-    tabular_attention=True        # Automatic feature interactions
+    tabular_attention=True,       # Automatic feature interactions
+    use_feature_moe=True,         # Specialized processing per feature
+    feature_moe_num_experts=4     # Number of specialized experts
 )
 
 # Build and use

@@ -1,4 +1,3 @@
-import json
 import os
 import time
 import gc
@@ -8,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import Enum
 from functools import wraps
 from typing import Any, Dict, List, Optional, Tuple, Union
+from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
@@ -26,6 +26,7 @@ from kdp.features import (
 from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.pipeline import FeaturePreprocessor
 from kdp.stats import DatasetStatistics
+from kdp.moe import FeatureMoE, StackFeaturesLayer, UnstackLayer
 
 
 class OutputModeOptions(str, Enum):
@@ -213,6 +214,16 @@ class PreprocessingModel:
         global_dropout_rate: float = 0.1,
         global_use_batch_norm: bool = True,
         global_pooling: str = "average",
+        use_feature_moe: bool = False,
+        feature_moe_num_experts: int = 4,
+        feature_moe_expert_dim: int = 64,
+        feature_moe_hidden_dims: list[int] = None,
+        feature_moe_routing: str = "learned",
+        feature_moe_sparsity: int = 2,
+        feature_moe_assignments: dict[str, int] = None,
+        feature_moe_dropout: float = 0.1,
+        feature_moe_freeze_experts: bool = False,
+        feature_moe_use_residual: bool = True,
     ) -> None:
         """Initialize a preprocessing model.
 
@@ -305,6 +316,18 @@ class PreprocessingModel:
         self.global_dropout_rate = global_dropout_rate
         self.global_use_batch_norm = global_use_batch_norm
         self.global_pooling = global_pooling
+
+        # MoE control
+        self.use_feature_moe = use_feature_moe
+        self.feature_moe_num_experts = feature_moe_num_experts
+        self.feature_moe_expert_dim = feature_moe_expert_dim
+        self.feature_moe_hidden_dims = feature_moe_hidden_dims
+        self.feature_moe_routing = feature_moe_routing
+        self.feature_moe_sparsity = feature_moe_sparsity
+        self.feature_moe_assignments = feature_moe_assignments
+        self.feature_moe_dropout = feature_moe_dropout
+        self.feature_moe_freeze_experts = feature_moe_freeze_experts
+        self.feature_moe_use_residual = feature_moe_use_residual
 
         # PLACEHOLDERS
         self.preprocessors = {}
@@ -1223,6 +1246,9 @@ class PreprocessingModel:
         self._combine_all_features(concat_num, concat_cat)
 
         # Apply transformations if needed
+        if self.use_feature_moe:
+            self._apply_feature_moe()
+
         if self.tabular_attention:
             self._apply_tabular_attention(concat_num, concat_cat)
 
@@ -1612,12 +1638,87 @@ class PreprocessingModel:
     def _prepare_dict_mode_outputs(self) -> None:
         """Prepare outputs for dictionary mode."""
         # Dictionary mode
+        if self.use_feature_moe:
+            self._apply_feature_moe_dict_mode()
+
         outputs = OrderedDict(
             [(k, None) for k in self.inputs if k in self.processed_features]
         )
         outputs.update(OrderedDict(self.processed_features))
         self.outputs = outputs
         logger.info("OrderedDict outputs mode enabled")
+
+    def _apply_feature_moe_dict_mode(self) -> None:
+        """Apply Feature-wise Mixture of Experts in dictionary output mode.
+
+        This method enhances individual feature representations using MoE
+        and updates the processed_features dictionary with the enhanced versions.
+        """
+        logger.info(
+            f"Applying Feature-wise Mixture of Experts (dict mode) with {self.feature_moe_num_experts} experts"
+        )
+
+        # Get feature names and corresponding processed features
+        feature_names = []
+        individual_features = []
+
+        for feature_name in self.inputs.keys():
+            if feature_name in self.processed_features:
+                feature_names.append(feature_name)
+                individual_features.append(self.processed_features[feature_name])
+
+        if not individual_features:
+            logger.warning("No individual features found for Feature MoE in dict mode.")
+            return
+
+        # Stack the features along a new axis
+        stacked_features = StackFeaturesLayer(name="stacked_features_for_moe_dict")(
+            individual_features
+        )
+
+        # Create the Feature MoE layer
+        moe = FeatureMoE(
+            num_experts=self.feature_moe_num_experts,
+            expert_dim=self.feature_moe_expert_dim,
+            expert_hidden_dims=self.feature_moe_hidden_dims,
+            routing=self.feature_moe_routing,
+            sparsity=self.feature_moe_sparsity,
+            feature_names=feature_names,
+            predefined_assignments=self.feature_moe_assignments,
+            freeze_experts=self.feature_moe_freeze_experts,
+            dropout_rate=self.feature_moe_dropout,
+            use_batch_norm=True,
+            name="feature_moe_dict",
+        )
+
+        # Apply Feature MoE
+        moe_outputs = moe(stacked_features)
+
+        # Unstack the outputs and update processed features
+        unstacked_outputs = UnstackLayer(axis=1)(moe_outputs)
+
+        # Update processed features with MoE enhanced versions
+        for i, feature_name in enumerate(feature_names):
+            if i < len(unstacked_outputs):
+                expert_output = unstacked_outputs[i]
+                original_output = individual_features[i]
+
+                # Add residual connection if shapes match
+                if (
+                    self.feature_moe_use_residual
+                    and original_output.shape[-1] == expert_output.shape[-1]
+                ):
+                    self.processed_features[feature_name] = tf.keras.layers.Add(
+                        name=f"{feature_name}_moe_residual_dict"
+                    )([original_output, expert_output])
+                else:
+                    # Otherwise use a projection
+                    self.processed_features[feature_name] = tf.keras.layers.Dense(
+                        self.feature_moe_expert_dim,
+                        name=f"{feature_name}_moe_projection_dict",
+                    )(expert_output)
+
+        logger.info("Feature MoE applied successfully in dict mode")
 
     @_monitor_performance
     def _cleanup_intermediate_tensors(self) -> None:
@@ -1979,15 +2080,19 @@ class PreprocessingModel:
             raise
 
     @_monitor_performance
-    def save_model(self, model_path: str) -> None:
+    def save_model(self, model_path: Union[str, Path]) -> None:
         """Save the preprocessor model.
+
+        This method saves the model to disk, including all metadata necessary
+        for reconstructing it later. It ensures the model and its associated
+        feature statistics and configurations are properly serialized.
 
         Args:
             model_path: Path to save the model to.
 
         Raises:
             ValueError: If the model has not been built yet
-            IOError: If there's an issue saving the model
+            IOError: If there's an issue saving the model.
         """
         if not hasattr(self, "model") or self.model is None:
             raise ValueError("Model has not been built. Call build_preprocessor first.")
@@ -1995,17 +2100,6 @@ class PreprocessingModel:
         logger.info(f"Saving preprocessor model to: {model_path}")
 
         try:
-            # Add feature statistics to model metadata
-            stats_metadata = {
-                "feature_statistics": self.features_stats,
-                "numeric_features": self.numeric_features,
-                "categorical_features": self.categorical_features,
-                "text_features": self.text_features,
-                "date_features": self.date_features,
-                "feature_crosses": self.feature_crosses,
-                "output_mode": self.output_mode,
-            }
-
             # Convert metadata to JSON-serializable format
             def serialize_dtype(obj: Any) -> Union[str, Any]:
                 """Serialize TensorFlow dtype to string representation.
@@ -2020,28 +2114,94 @@ class PreprocessingModel:
                     return obj.name
                 return obj
 
-            stats_metadata = json.loads(
-                json.dumps(stats_metadata, default=serialize_dtype),
-            )
+            # Create a clean copy without circular references
+            serializable_metadata = {}
 
-            # Create serving signatures based on model inputs and outputs
-            if self.signature:
-                serving_signatures = {"serving_default": self._get_serving_signature()}
+            # Handle feature_statistics specially to avoid circular references
+            if self.features_stats:
+                serializable_stats = {}
+                for stat_type, stat_dict in self.features_stats.items():
+                    serializable_stats[stat_type] = {}
+                    for feat_name, feat_stats in stat_dict.items():
+                        serializable_stats[stat_type][feat_name] = {
+                            k: serialize_dtype(v) for k, v in feat_stats.items()
+                        }
+                serializable_metadata["feature_statistics"] = serializable_stats
             else:
-                serving_signatures = None
+                serializable_metadata["feature_statistics"] = {}
 
-            # Save the model
-            self.model.save(
-                model_path,
-                save_format="tf",
-                signatures=serving_signatures,
-                options=tf.saved_model.SaveOptions(
-                    experimental_custom_gradients=False,
-                    save_debug_info=False,
-                ),
-                metadata=stats_metadata,
+            # Debug type info
+            logger.debug(f"numeric_features type: {type(self.numeric_features)}")
+            logger.debug(f"numeric_features value: {self.numeric_features}")
+
+            # Handle different collection types safely
+            serializable_metadata["numeric_features"] = (
+                list(self.numeric_features.keys())
+                if isinstance(self.numeric_features, dict)
+                else self.numeric_features
+                if isinstance(self.numeric_features, list)
+                else []
             )
-            logger.info("Model saved successfully")
+
+            logger.debug(
+                f"categorical_features type: {type(self.categorical_features)}"
+            )
+            serializable_metadata["categorical_features"] = (
+                list(self.categorical_features.keys())
+                if isinstance(self.categorical_features, dict)
+                else self.categorical_features
+                if isinstance(self.categorical_features, list)
+                else []
+            )
+
+            serializable_metadata["text_features"] = (
+                list(self.text_features.keys())
+                if isinstance(self.text_features, dict)
+                else self.text_features
+                if isinstance(self.text_features, list)
+                else []
+            )
+
+            serializable_metadata["date_features"] = (
+                list(self.date_features.keys())
+                if isinstance(self.date_features, dict)
+                else self.date_features
+                if isinstance(self.date_features, list)
+                else []
+            )
+
+            serializable_metadata["output_mode"] = self.output_mode
+            serializable_metadata["use_feature_moe"] = self.use_feature_moe
+
+            # Add MoE configuration if enabled
+            if self.use_feature_moe:
+                serializable_metadata["feature_moe_config"] = {
+                    "num_experts": self.feature_moe_num_experts,
+                    "expert_dim": self.feature_moe_expert_dim,
+                    "routing": self.feature_moe_routing,
+                    "sparsity": self.feature_moe_sparsity,
+                }
+            else:
+                serializable_metadata["feature_moe_config"] = None
+
+            # Convert model_path to string to handle PosixPath objects
+            model_path_str = str(model_path)
+            model_path_with_extension = model_path_str
+            if not model_path_str.endswith(".keras"):
+                model_path_with_extension = f"{model_path_str}.keras"
+
+            # Store metadata in model directly (this is the Keras 3 way)
+            # Important: use the metadata attribute, not _metadata which might be private
+            self.model.metadata = serializable_metadata
+
+            # Log message about metadata
+            logger.info(
+                f"Added metadata to model with keys: {list(serializable_metadata.keys())}"
+            )
+
+            # Use simpler model.save format for Keras 3
+            self.model.save(model_path_with_extension)
+            logger.info(f"Model saved successfully to {model_path_with_extension}")
         except (IOError, OSError) as e:
             logger.error(f"Error saving model to {model_path}: {str(e)}")
             raise IOError(f"Failed to save model to {model_path}: {str(e)}") from e
@@ -2090,6 +2250,17 @@ class PreprocessingModel:
         Returns:
             dict: Dictionary containing feature statistics for all feature types
         """
+        # Create MoE config if feature MoE is enabled
+        moe_config = None
+        if self.use_feature_moe:
+            moe_config = {
+                "num_experts": self.feature_moe_num_experts,
+                "expert_dim": self.feature_moe_expert_dim,
+                "routing": self.feature_moe_routing,
+                "sparsity": self.feature_moe_sparsity,
+                "assignments": self.feature_moe_assignments,
+            }
+
         return {
             "feature_statistics": self.features_stats,
             "numeric_features": self.numeric_features,
@@ -2098,6 +2269,8 @@ class PreprocessingModel:
             "date_features": self.date_features,
             "feature_crosses": self.feature_crosses,
             "output_mode": self.output_mode,
+            "use_feature_moe": self.use_feature_moe,
+            "feature_moe_config": moe_config,
         }
 
     def get_feature_importances(self) -> dict[str, float]:
@@ -2138,9 +2311,18 @@ class PreprocessingModel:
         """
         logger.info(f"Loading preprocessor model from: {model_path}")
 
+        # Convert model_path to string to handle PosixPath objects
+        model_path_str = str(model_path)
+        model_path_with_extension = model_path_str
+
+        # Check for .keras extension and add if missing
+        if not model_path_str.endswith(".keras") and not os.path.exists(model_path_str):
+            model_path_with_extension = f"{model_path_str}.keras"
+            logger.info(f"Trying with .keras extension: {model_path_with_extension}")
+
         # Check if path exists
-        if not os.path.exists(model_path):
-            error_msg = f"Model path {model_path} does not exist"
+        if not os.path.exists(model_path_with_extension):
+            error_msg = f"Model path {model_path_with_extension} does not exist"
             logger.error(error_msg)
             raise FileNotFoundError(error_msg)
 
@@ -2169,22 +2351,68 @@ class PreprocessingModel:
                     "Could not import distribution_aware_encoder_layer, model may not load correctly if it uses this layer"
                 )
 
-            # Load the model
-            model = tf.keras.models.load_model(
-                model_path,
-                custom_objects=custom_objects,
-                compile=True,
-                options=None,
+            # Add custom objects for Feature MoE layers
+            from kdp.moe import (
+                FeatureMoE,
+                ExpertBlock,
+                StackFeaturesLayer,
+                UnstackLayer,
             )
 
-            # Extract statistics from model metadata
-            if hasattr(model, "_metadata") and model._metadata:
-                stats = model._metadata.get("feature_statistics", {})
+            custom_objects.update(
+                {
+                    "FeatureMoE": FeatureMoE,
+                    "ExpertBlock": ExpertBlock,
+                    "StackFeaturesLayer": StackFeaturesLayer,
+                    "UnstackLayer": UnstackLayer,
+                }
+            )
+
+            # Load the model with simpler options for Keras 3
+            model = tf.keras.models.load_model(
+                model_path_with_extension,
+                custom_objects=custom_objects,
+                compile=True,
+            )
+
+            # Extract statistics from model metadata - in Keras 3, use model.metadata
+            stats = {}
+            if hasattr(model, "metadata") and model.metadata:
+                stats = model.metadata
+                logger.info(f"Found model metadata: {list(stats.keys())}")
+            elif hasattr(model, "_metadata") and model._metadata:
+                # For backward compatibility
+                stats = model._metadata
+                logger.info(f"Found model _metadata: {list(stats.keys())}")
             else:
-                logger.warning(
-                    "No metadata found in the model, returning empty statistics"
-                )
-                stats = {}
+                logger.warning("No metadata found in model.metadata")
+
+                # Try to detect Feature MoE in the model layers
+                if any("feature_moe" in layer.name for layer in model.layers):
+                    logger.info(
+                        "Detected Feature MoE in model but not in metadata, adding it"
+                    )
+                    stats["use_feature_moe"] = True
+
+                    # Try to extract MoE config from the model
+                    feature_moe_layers = [
+                        layer for layer in model.layers if isinstance(layer, FeatureMoE)
+                    ]
+                    if feature_moe_layers:
+                        moe_layer = feature_moe_layers[0]
+                        stats["feature_moe_config"] = {
+                            "num_experts": moe_layer.num_experts,
+                            "expert_dim": moe_layer.expert_dim,
+                            "routing": moe_layer.routing,
+                            "sparsity": moe_layer.sparsity,
+                        }
+                        logger.info(
+                            f"Extracted MoE config from layer: {stats['feature_moe_config']}"
+                        )
+                else:
+                    logger.warning(
+                        "No metadata found in the model, returning empty statistics"
+                    )
 
             logger.info("Model and statistics loaded successfully")
             return model, stats
@@ -2201,3 +2429,94 @@ class PreprocessingModel:
             error_msg = f"Unexpected error loading model from {model_path}: {str(e)}"
             logger.error(error_msg)
             raise
+
+    def _apply_feature_moe(self) -> None:
+        """Apply Feature-wise Mixture of Experts to all processed features.
+
+        This method applies MoE after features have been combined but before
+        other transformations like tabular attention or transformer blocks.
+        """
+        logger.info(
+            f"Applying Feature-wise Mixture of Experts with {self.feature_moe_num_experts} experts"
+        )
+
+        # Get feature names from the processed features
+        feature_names = list(self.inputs.keys())
+
+        # Get individual processed features
+        individual_features = []
+        for feature_name in feature_names:
+            if feature_name in self.processed_features:
+                individual_features.append(self.processed_features[feature_name])
+
+        if not individual_features:
+            logger.warning(
+                "No individual features found for Feature MoE. Using concatenated features."
+            )
+            return
+
+        # Stack the features along a new axis
+        stacked_features = StackFeaturesLayer(name="stacked_features_for_moe")(
+            individual_features
+        )
+
+        # Create the Feature MoE layer
+        moe = FeatureMoE(
+            num_experts=self.feature_moe_num_experts,
+            expert_dim=self.feature_moe_expert_dim,
+            expert_hidden_dims=self.feature_moe_hidden_dims,
+            routing=self.feature_moe_routing,
+            sparsity=self.feature_moe_sparsity,
+            feature_names=feature_names,
+            predefined_assignments=self.feature_moe_assignments,
+            freeze_experts=self.feature_moe_freeze_experts,
+            dropout_rate=self.feature_moe_dropout,
+            use_batch_norm=True,
+            name="feature_moe",
+        )
+
+        # Apply Feature MoE
+        moe_outputs = moe(stacked_features)
+
+        # Unstack the outputs for each feature
+        unstacked_outputs = UnstackLayer(axis=1)(moe_outputs)
+
+        # Create new outputs with optional residual connections
+        enhanced_features = []
+        for i, (feature_name, original_output) in enumerate(
+            zip(feature_names, individual_features)
+        ):
+            if i < len(unstacked_outputs):  # Safety check
+                expert_output = unstacked_outputs[i]
+
+                # Add residual connection if shapes match
+                if (
+                    self.feature_moe_use_residual
+                    and original_output.shape[-1] == expert_output.shape[-1]
+                ):
+                    combined = tf.keras.layers.Add(name=f"{feature_name}_moe_residual")(
+                        [original_output, expert_output]
+                    )
+                else:
+                    # Otherwise just use the expert output
+                    combined = tf.keras.layers.Dense(
+                        self.feature_moe_expert_dim,
+                        name=f"{feature_name}_moe_projection",
+                    )(expert_output)
+
+                enhanced_features.append(combined)
+            else:
+                enhanced_features.append(original_output)
+
+        # Combine the enhanced features
+        self.concat_all = tf.keras.layers.Concatenate(
+            name="ConcatenateFeatureMoE",
+            axis=-1,
+        )(enhanced_features)
+
+        # Update the processed features with enhanced versions
+        for i, feature_name in enumerate(feature_names):
+            if i < len(enhanced_features):
+                self.processed_features[feature_name] = enhanced_features[i]
+
+        logger.info("Feature MoE applied successfully")

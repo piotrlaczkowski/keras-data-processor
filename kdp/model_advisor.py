@@ -487,6 +487,7 @@ class ModelAdvisor:
                 "preprocessing": [],
                 "config": {},
                 "advanced_options": {},
+                "notes": [],
             }
 
             # Extract statistics
@@ -549,16 +550,136 @@ class ModelAdvisor:
                 "Mixed feature distributions detected, using distribution-aware processing"
             )
 
+        # Recommend Feature MoE for heterogeneous feature sets
+        feature_types = set()
+        for rec in self.recommendations.values():
+            feature_types.add(rec.get("feature_type", "Unknown"))
+
+        # If we have multiple feature types or complex distributions, recommend MoE
+        has_complex_distributions = any(
+            rec.get("detected_distribution")
+            in ["multimodal", "heavy_tailed", "sparse", "periodic"]
+            for rec in self.recommendations.values()
+        )
+
+        # Recommend Feature MoE if we have diverse feature types or complex distributions
+        if len(feature_types) >= 3 or has_complex_distributions:
+            self.global_config["use_feature_moe"] = True
+            self.global_config[
+                "feature_moe_num_experts"
+            ] = self._calculate_optimal_experts()
+            self.global_config["feature_moe_expert_dim"] = 64
+            self.global_config["feature_moe_routing"] = "learned"
+
+            if has_complex_distributions:
+                self.global_config["notes"].append(
+                    "Complex feature distributions detected, Feature MoE recommended for specialized processing"
+                )
+            else:
+                self.global_config["notes"].append(
+                    "Heterogeneous feature types detected, Feature MoE recommended for specialized processing"
+                )
+
     def _calculate_attention_heads(self) -> int:
         """Calculate optimal number of attention heads based on feature count."""
         feature_count = len(self.recommendations)
         return min(8, max(2, feature_count // 4))
 
+    def _calculate_optimal_experts(self) -> int:
+        """Calculate optimal number of experts for Feature MoE based on data characteristics."""
+        feature_count = len(self.recommendations)
+        feature_types = set(
+            rec.get("feature_type", "Unknown") for rec in self.recommendations.values()
+        )
+
+        # Base number on feature types with some adjustment for feature count
+        return min(8, max(len(feature_types) + 1, feature_count // 5))
+
     def generate_code_snippet(self) -> str:
-        """Generate ready-to-use code implementing the recommendations."""
-        # Implementation would generate actual code based on recommendations
-        # For now, return a placeholder
-        return "# Code generation not implemented yet"
+        """Generate a code snippet implementing the recommendations."""
+        # TODO: Placeholder. Actual code generation not implemented yet.
+        # In the future, this will generate Python code based on self.recommendations
+        # and self.global_config
+
+        # Start with imports
+        code = [
+            "from kdp.processor import PreprocessingModel",
+            "from kdp.featurizer import FeaturizerFactory",
+            "",
+            "# Define feature specifications",
+            "feature_specs = {",
+        ]
+
+        # Add feature specs
+        for feature_name, rec in self.recommendations.items():
+            feature_type = rec.get("feature_type", "Unknown")
+            if feature_type == "Numerical":
+                code.append(f"    '{feature_name}': {{'type': 'numerical'}},")
+            elif feature_type == "Categorical":
+                code.append(f"    '{feature_name}': {{'type': 'categorical'}},")
+            elif feature_type == "Text":
+                code.append(f"    '{feature_name}': {{'type': 'text'}},")
+            elif feature_type == "Date":
+                code.append(f"    '{feature_name}': {{'type': 'datetime'}},")
+            else:
+                code.append(f"    '{feature_name}': {{'type': 'auto'}},")
+
+        code.append("}")
+        code.append("")
+
+        # Create preprocessing model
+        code.append("# Create preprocessing model with recommended configuration")
+        code.append("model = PreprocessingModel(")
+        code.append("    features=feature_specs,")
+
+        # Add global configs
+        code.append(
+            f"    output_mode='{self.global_config.get('output_mode', 'CONCAT')}',"
+        )
+
+        if self.global_config.get("use_distribution_aware", False):
+            code.append("    use_distribution_aware=True,")
+
+        if self.global_config.get("tabular_attention", False):
+            code.append("    use_tabular_attention=True,")
+            code.append(
+                f"    tabular_attention_heads={self.global_config.get('tabular_attention_heads', 4)},"
+            )
+
+        if self.global_config.get("feature_interaction_aware", False):
+            code.append("    feature_interaction_aware=True,")
+
+        # Add Feature MoE configuration if recommended
+        if self.global_config.get("use_feature_moe", False):
+            code.append("    use_feature_moe=True,")
+            code.append(
+                f"    feature_moe_num_experts={self.global_config.get('feature_moe_num_experts', 4)},"
+            )
+            code.append(
+                f"    feature_moe_expert_dim={self.global_config.get('feature_moe_expert_dim', 64)},"
+            )
+            code.append(
+                f"    feature_moe_routing='{self.global_config.get('feature_moe_routing', 'learned')}',"
+            )
+
+        code.append(")")
+        code.append("")
+
+        # Add notes if any
+        if self.global_config.get("notes"):
+            code.append("# Notes from analysis:")
+            for note in self.global_config.get("notes", []):
+                code.append(f"# - {note}")
+            code.append("")
+
+        # Add fit example
+        code.append("# Fit the model to your data")
+        code.append("model.fit(train_data)")
+        code.append("")
+        code.append("# Transform your data")
+        code.append("transformed_data = model.transform(test_data)")
+
+        return "\n".join(code)
 
 
 def recommend_model_configuration(features_stats: Dict[str, Any]) -> Dict[str, Any]:

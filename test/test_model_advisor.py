@@ -53,6 +53,7 @@ class TestModelAdvisor(unittest.TestCase):
                     "var_month_sin": 0.5,
                     "mean_month_cos": 0.2,
                     "var_month_cos": 0.6,
+                    "cyclical_patterns": ["month", "dayofweek"],
                 }
             },
         }
@@ -122,12 +123,15 @@ class TestModelAdvisor(unittest.TestCase):
         # Verify date feature recommendations
         date_rec = self.advisor.recommendations["date1"]
         self.assertEqual(date_rec["feature_type"], "DateFeature")
-        self.assertIn("DATE_CYCLICAL", date_rec["preprocessing"])
-        self.assertIn("add_season", date_rec["config"])
-        self.assertIn("date_format", date_rec["config"])
+        self.assertIn("DATE_FEATURES", date_rec["preprocessing"])
+        self.assertIn("extract", date_rec["config"])
+
+        # Check for cyclical encoding in advanced options
+        self.assertIn("advanced_options", date_rec)
+        self.assertTrue(date_rec["advanced_options"].get("cyclical_encoding", False))
 
         # Since var_year is > 0.1, should recommend including year
-        self.assertTrue(date_rec["config"]["add_year"])
+        self.assertIn("year", date_rec["config"]["extract"])
 
     def test_generate_global_recommendations(self):
         """Test generation of global recommendations."""
@@ -164,16 +168,16 @@ class TestModelAdvisor(unittest.TestCase):
 
         # Verify code snippet content
         self.assertIn("from kdp.processor import PreprocessingModel", code_snippet)
-        self.assertIn("from kdp.features import", code_snippet)
-        self.assertIn("features_specs = {", code_snippet)
+        self.assertIn("from kdp.featurizer import FeaturizerFactory", code_snippet)
+        self.assertIn("feature_specs = {", code_snippet)
 
         # Check that all features are included in the snippet
         for feature in ["num1", "num2", "cat1", "cat2", "text1", "date1"]:
-            self.assertIn(f'"{feature}":', code_snippet)
+            self.assertIn(f"'{feature}'", code_snippet)
 
         # Check that the model initialization is included
-        self.assertIn("ppr = PreprocessingModel(", code_snippet)
-        self.assertIn("ppr.build_preprocessor()", code_snippet)
+        self.assertIn("model = PreprocessingModel(", code_snippet)
+        self.assertIn("model.fit(train_data)", code_snippet)
 
     def test_analyze_feature_stats_with_empty_stats(self):
         """Test behavior when no feature statistics are provided."""
