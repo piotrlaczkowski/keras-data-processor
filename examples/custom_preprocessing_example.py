@@ -9,18 +9,15 @@ import os
 import sys
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import logging
-import tempfile
 import tensorflow as tf
-from tensorflow import keras
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 
 # Add the project root to the Python path to allow module imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from kdp.processor import PreprocessingModel, PreprocessingModelFactory, OutputModeOptions
+from kdp.processor import PreprocessingModel
 from kdp.features import (
     NumericalFeature,
     CategoricalFeature,
@@ -28,7 +25,6 @@ from kdp.features import (
     FeatureType,
     CategoryEncodingOptions,
 )
-from kdp.custom_preprocessing import CustomPreprocessingFunction
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

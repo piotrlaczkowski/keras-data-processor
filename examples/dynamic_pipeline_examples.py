@@ -6,7 +6,6 @@ a flexible pipeline of preprocessing layers, with customizable transformations.
 """
 
 import numpy as np
-import pandas as pd
 import tensorflow as tf
 import logging
 import os
