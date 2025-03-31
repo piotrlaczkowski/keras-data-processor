@@ -101,17 +101,15 @@ preprocessor = PreprocessingModel(
 
 ### Advanced Numerical Embeddings
 
-Create deep neural embeddings for complex patterns:
+Using advanced numerical embeddings:
 
-```python
-# Add neural embeddings to all numerical features
-preprocessor = PreprocessingModel(
-    features_specs=features,
-    use_numerical_embedding=True,     # Enable neural embeddings
-    numerical_embedding_dim=64,       # Embedding dimension
-    numerical_hidden_units=[128, 64]  # MLP layer sizes
-)
-```
+![Advanced Numerical Embeddings](imgs/models/advanced_numerical_embedding.png)
+
+### Custom Numerical Feature
+
+Using the `NumericalFeature` class for additional control:
+
+![Custom Numerical Feature](imgs/models/custom_numerical_feature.png)
 
 ## 💼 Real-World Examples
 
@@ -195,6 +193,41 @@ preprocessor = PreprocessingModel(
 - [Distribution-Aware Encoding](../advanced/distribution-aware-encoding.md) - Smart numerical handling
 - [Advanced Numerical Embeddings](../advanced/numerical-embeddings.md) - Neural representations
 - [Feature Selection](../advanced/feature-selection.md) - Finding important features
+
+## 💡 Types of Numerical Features
+
+KDP supports different types of numerical features, each with specialized processing:
+
+1. **FLOAT**: Basic floating-point features without normalization or scaling
+2. **FLOAT_NORMALIZED**: Values normalized to the [0,1] range using min-max scaling
+3. **FLOAT_RESCALED**: Values rescaled using standardization (mean=0, std=1)
+4. **FLOAT_DISCRETIZED**: Continuous values binned into discrete buckets
+
+## Architecture Diagrams
+
+### Normalized Numerical Feature
+
+Below is a visualization of a model with a normalized numerical feature:
+
+![Normalized Numerical Feature](imgs/models/basic_numeric_normalized.png)
+
+### Rescaled Numerical Feature
+
+Below is a visualization of a model with a rescaled numerical feature:
+
+![Rescaled Numerical Feature](imgs/models/basic_numeric_rescaled.png)
+
+### Discretized Numerical Feature
+
+Below is a visualization of a model with a discretized numerical feature:
+
+![Discretized Numerical Feature](imgs/models/basic_numeric_discretized.png)
+
+### Advanced Numerical Embeddings
+
+When using advanced numerical embeddings, the model architecture looks like this:
+
+![Advanced Numerical Embeddings](imgs/models/advanced_numerical_embedding.png)
 
 ---
 

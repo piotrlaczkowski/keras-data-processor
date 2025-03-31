@@ -41,12 +41,24 @@ model = result["model"]
 
 KDP's Feature MoE uses a "divide and conquer" approach with smart routing:
 
-![Feature MoE Architecture](imgs/feature_moe_architecture.png)
+![Feature MoE Architecture](imgs/feature_moe.png)
 
 1. **Expert Networks**: Each expert is a specialized neural network that processes features in its own unique way.
 2. **Router Network**: Determines which experts should process each feature.
 3. **Adaptive Weighting**: Features can use multiple experts with different weights.
 4. **Residual Connections**: Preserve the original feature information while adding expert insights.
+
+## 📊 Model Architecture
+
+The Feature-wise Mixture of Experts in KDP works by:
+
+1. Applying different specialized "expert" networks to each feature
+2. Using a gating mechanism to determine how much each expert contributes
+3. Combining the expert outputs to produce the final feature representation
+
+![Feature MoE Architecture](imgs/feature_moe.png)
+
+The diagram illustrates how different features are processed by specialized expert networks, with a gating mechanism determining which experts handle each feature.
 
 ## ⚙️ Configuration Options
 

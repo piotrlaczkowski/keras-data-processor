@@ -150,6 +150,16 @@ The `MultiResolutionTabularAttention` layer:
                      Outputs
 ```
 
+## 📊 Model Architecture
+
+KDP's tabular attention mechanism:
+
+![Tabular Attention Architecture](imgs/tabular_attention.png)
+
+The diagram shows how tabular attention transforms features through a multi-head attention mechanism, allowing the model to learn complex patterns across features.
+
+## 💡 How to Enable
+
 ## ⚙️ Configuration Options
 
 ### General Options

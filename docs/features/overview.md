@@ -154,6 +154,54 @@ features = {
 5. **Experiment with Types**: Sometimes a different encoding provides better results
 6. **Consider Passthrough**: Use passthrough features for pre-processed data or custom vectors
 
+## 📊 Model Architecture Diagrams
+
+KDP creates optimized preprocessing architectures based on your feature definitions. Here are examples of different model configurations:
+
+### Basic Feature Combinations
+
+When combining numerical and categorical features:
+
+![Numeric and Categorical Features](imgs/models/numeric_and_categorical.png)
+
+### All Feature Types Combined
+
+KDP can handle all feature types in a single model:
+
+![All Feature Types Combined](imgs/models/all_basic_types.png)
+
+### Advanced Configurations
+
+#### Tabular Attention
+
+Enhance feature interactions with tabular attention:
+
+![Tabular Attention](imgs/models/tabular_attention.png)
+
+#### Transformer Blocks
+
+Process categorical features with transformer blocks:
+
+![Transformer Blocks](imgs/models/transformer_blocks.png)
+
+#### Feature MoE (Mixture of Experts)
+
+Specialized feature processing with Mixture of Experts:
+
+![Feature MoE](imgs/models/feature_moe.png)
+
+#### Output Modes
+
+KDP supports different output modes for your preprocessed features:
+
+**Concatenated Output:**
+
+![Concat Output Mode](imgs/models/output_mode_concat.png)
+
+**Dictionary Output:**
+
+![Dict Output Mode](imgs/models/output_mode_dict.png)
+
 ---
 
 <div class="prev-next">

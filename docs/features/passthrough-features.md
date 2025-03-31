@@ -58,6 +58,16 @@ Unlike other feature types that undergo normalization, encoding, or other transf
 3. **No Transformation**: Pass through the pipeline without normalization or encoding
 4. **Feature Selection (Optional)**: Can still use feature selection if enabled
 
+### Model Diagram
+
+Below is a visualization of a model with a passthrough feature:
+
+![Passthrough Feature Model](imgs/models/basic_passthrough.png)
+
+When used with other feature types, passthrough features maintain their original values:
+
+![Combined Feature Model](imgs/models/custom_passthrough_feature.png)
+
 ## 🔧 Configuration Options
 
 The `PassthroughFeature` class supports these parameters:

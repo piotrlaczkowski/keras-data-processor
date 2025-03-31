@@ -65,8 +65,10 @@ generate_doc_content:
 	mkdir -p docs/generated/api
 	poetry run python scripts/generate_docstring_docs.py
 	@echo "Generating model architecture diagrams"
-	mkdir -p docs/imgs/architectures
-	poetry run python scripts/generate_model_architectures.py
+	mkdir -p docs/features/imgs/models
+	poetry run python scripts/generate_model_diagrams.py
+	@echo "Organizing documentation images"
+	./scripts/organize_docs_images.sh
 	@echo "Documentation content generation complete"
 
 .PHONY: docs_deploy
@@ -107,9 +109,26 @@ serve_doc: generate_doc_content
 # Clean All
 # ------------------------------------
 
+.PHONY: identify_unused_diagrams
+## Identify potentially unused diagram files
+identify_unused_diagrams:
+	@echo "Scanning for potentially unused diagram files"
+	poetry run python scripts/cleanup_unused_diagrams.py
+	@echo "Scan complete. Check unused_diagrams_report.txt for details"
+
+.PHONY: clean_old_diagrams
+## Remove obsolete diagram directories and unused diagram files
+clean_old_diagrams: identify_unused_diagrams
+	@echo "Cleaning up old diagram directories"
+	rm -rf docs/imgs/architectures
+	@echo "Organizing documentation images"
+	./scripts/organize_docs_images.sh
+	@echo "Old diagram directories cleaned up"
+	@echo "NOTE: Review unused_diagrams_report.txt to identify additional files to remove manually"
+
 .PHONY: clean
 ## Remove cache, built package, and docs directories after build or installation
-clean:
+clean: clean_old_diagrams
 	find . -type d -name dist -exec rm -r {} +
 	find . -type f -name '*.rst' ! -name 'index.rst' -delete
 	find . -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete

@@ -207,6 +207,16 @@ preprocessor = PreprocessingModel(
 )
 ```
 
+## 📊 Model Architecture
+
+The distribution-aware encoder architecture automatically adapts to your data's distribution:
+
+![Distribution-Aware Architecture](imgs/distribution_aware.png)
+
+The diagram shows how distribution-aware encoding transforms numerical features to better match their underlying distribution, improving model performance.
+
+## 💡 How to Enable
+
 ## 🔗 Related Topics
 
 - [Numerical Features](../features/numerical-features.md)

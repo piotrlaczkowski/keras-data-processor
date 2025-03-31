@@ -179,6 +179,20 @@ preprocessor = PreprocessingModel(
 )
 ```
 
+## 📊 Model Architecture
+
+KDP's text processing architecture handles tokenization, vocabulary management, and embedding:
+
+### Basic Text Feature
+
+![Basic Text Feature](imgs/models/basic_text.png)
+
+### Custom Text Feature
+
+For advanced configuration with the `TextFeature` class:
+
+![Custom Text Feature](imgs/models/custom_text_feature.png)
+
 ## 💡 Pro Tips
 
 1. **Tokenization Strategy**

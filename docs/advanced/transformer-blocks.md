@@ -306,3 +306,13 @@ preprocessor = PreprocessingModel(
   background-color: #ddd;
 }
 </style>
+
+## 📊 Model Architecture
+
+KDP's transformer blocks architecture applied to tabular data:
+
+![Transformer Blocks Architecture](imgs/transformer_blocks.png)
+
+The diagram illustrates how transformer blocks process features, using multi-head attention and feed-forward networks to capture sophisticated patterns.
+
+## 💡 How to Enable

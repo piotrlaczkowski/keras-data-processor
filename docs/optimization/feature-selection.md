@@ -51,18 +51,21 @@ print("Top features:", sorted(
 )[:3])  # Shows your 3 most important features
 ```
 
-## 🧩 How Feature Selection Works
+## 🧩 Architecture
 
-KDP's feature selection system uses a powerful neural architecture that:
+Feature Selection can be applied at different points in your KDP pipeline:
 
-![Feature Selection Architecture](imgs/feature_selection.png)
+```python
+# Apply feature selection to all features
+preprocessor = PreprocessingModel(
+    features_specs=features,
+    feature_selection_placement="all_features",
+    feature_selection_method="correlation",
+    feature_selection_threshold=0.01
+)
+```
 
-1. **Creates Feature Embeddings**: Converts each feature into a rich representation
-2. **Applies Gated Units**: Uses neural gates to control information flow
-3. **Calculates Importance Scores**: Learns weights that represent feature importance
-4. **Produces Optimized Features**: Combines features based on their importance
-
-The best part? It all happens automatically during model training!
+*Note: Feature selection integrates directly into your model architecture. The importance scores are calculated during training and can be visualized using the provided utility methods.*
 
 ## 🎛️ Configuration Options
 
@@ -144,35 +147,22 @@ preprocessor = PreprocessingModel(
 )
 ```
 
-## 📈 Visualizing Feature Importance
+## 📊 Visualizing Feature Importance
 
-Once you've trained your model, use these snippets to visualize what KDP discovered:
+KDP provides utilities to visualize which features are most important:
 
 ```python
-import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
+# After building and training your preprocessor
+feature_importance = preprocessor.get_feature_importance()
 
-# Get importance scores
-importances = preprocessor.get_feature_importances()
+# Visualize the importance scores
+preprocessor.plot_feature_importance()
 
-# Create sorted DataFrame for visualization
-importance_df = pd.DataFrame({
-    'Feature': list(importances.keys()),
-    'Importance': list(importances.values())
-}).sort_values('Importance', ascending=False)
-
-# Create beautiful visualization
-plt.figure(figsize=(10, 6))
-sns.barplot(x='Importance', y='Feature', data=importance_df, palette='viridis')
-plt.title('Feature Importance Scores', fontsize=16)
-plt.xlabel('Relative Importance', fontsize=12)
-plt.tight_layout()
-plt.savefig('feature_importance.png', dpi=300)
-plt.show()
+# Get the top N most important features
+top_features = preprocessor.get_top_features(n=10)
 ```
 
-![Feature Importance Visualization](imgs/feature_importance_example.png)
+*Note: The feature importance visualization shows a bar chart with features sorted by their importance scores, helping you identify which features contribute most to your model's performance.*
 
 ## 💡 Pro Tips for Feature Selection
 

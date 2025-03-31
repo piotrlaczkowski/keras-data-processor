@@ -1,7 +1,7 @@
 # 🌟 Keras Data Processor (KDP)
 
 <p align="center">
-  <img src="assets/images/kdp_logo.png" width="350" alt="Keras Data Processor Logo"/>
+  <img src="getting-started/imgs/kdp_logo.png" width="350" alt="Keras Data Processor Logo"/>
 </p>
 
 > **Transform your raw data into powerful ML-ready features**

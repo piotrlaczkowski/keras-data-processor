@@ -135,66 +135,23 @@ preprocessor = PreprocessingModel(
 )
 ```
 
-## 💼 Real-World Examples
+## 📊 Model Architecture
 
-### E-commerce Product Categorization
+Below are visualizations of categorical feature processing in KDP:
 
-```python
-# E-commerce product categorization
-preprocessor = PreprocessingModel(
-    features_specs={
-        "product_category": CategoricalFeature(
-            name="product_category",
-            feature_type=FeatureType.STRING_CATEGORICAL,
-            embedding_dim=32
-        ),
-        "brand": CategoricalFeature(
-            name="brand",
-            feature_type=FeatureType.STRING_CATEGORICAL,
-            embedding_dim=16
-        ),
-        "seller_id": CategoricalFeature(
-            name="seller_id",
-            feature_type=FeatureType.STRING_CATEGORICAL,
-            category_encoding=CategoryEncodingOptions.HASHING,
-            num_hash_bins=50000
-        )
-    },
-    # Create cross features between brand and category
-    feature_crosses=[("product_category", "brand", 24)]
-)
-```
+### String Categorical Feature
 
-### User Segmentation
+![String Categorical Feature](imgs/models/basic_categorical_string.png)
 
-```python
-# User segmentation with multiple categorical features
-preprocessor = PreprocessingModel(
-    features_specs={
-        "age_group": CategoricalFeature(
-            name="age_group",
-            feature_type=FeatureType.STRING_CATEGORICAL,
-            vocabulary=["18-24", "25-34", "35-44", "45-54", "55+"],
-            category_encoding=CategoryEncodingOptions.ONE_HOT
-        ),
-        "occupation": CategoricalFeature(
-            name="occupation",
-            feature_type=FeatureType.STRING_CATEGORICAL,
-            embedding_dim=16
-        ),
-        "region": CategoricalFeature(
-            name="region",
-            feature_type=FeatureType.STRING_CATEGORICAL,
-            embedding_dim=8
-        )
-    },
-    # Create relevant cross features
-    feature_crosses=[
-        ("age_group", "occupation", 16),
-        ("region", "occupation", 16)
-    ]
-)
-```
+### Integer Categorical Feature
+
+![Integer Categorical Feature](imgs/models/basic_categorical_integer.png)
+
+### Custom Categorical Feature
+
+For more control, you can use the `CategoricalFeature` class:
+
+![Custom Categorical Feature](imgs/models/custom_categorical_feature.png)
 
 ## 💡 Pro Tips
 

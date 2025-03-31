@@ -7,7 +7,7 @@ KDP includes tools to automatically generate documentation from code docstrings 
 The following tools are included in the `scripts/` directory:
 
 1. **`generate_docstring_docs.py`**: Extracts docstrings from classes and functions in the codebase and converts them to Markdown documentation.
-2. **`generate_model_architectures.py`**: Creates visualizations of various model architectures for different preprocessing configurations.
+2. **`generate_model_diagrams.py`**: Creates visualizations of model diagrams for different feature types and preprocessing configurations.
 
 ## 🚀 Generating Documentation
 
@@ -19,27 +19,23 @@ make generate_doc_content
 
 This will:
 - Extract API documentation from docstrings and save it to `docs/generated/api/`
-- Generate model architecture diagrams and save them to `docs/imgs/architectures/`
+- Generate model diagrams and save them to `docs/features/imgs/models/`
 - Create an API index at `docs/generated/api_index.md`
-- Generate a model architectures overview at `docs/model_architectures.md`
 
-## 🏗️ Model Architecture Configurations
+## 🏗️ Model Diagram Types
 
 The script generates visualizations for a variety of model configurations, including:
 
-- Basic models with different output modes (CONCAT and DICT)
-- Models with transformer blocks
-- Models with tabular attention
-- Models with multi-resolution attention
-- Models with distribution-aware encoding
-- Models with advanced numerical embedding
-- Models with global numerical embedding
-- Complex models combining multiple features
+- Basic feature types (numerical, categorical, text, date, passthrough)
+- Feature combinations and cross-features
+- Different output modes (CONCAT and DICT)
+- Advanced features like tabular attention and transformer blocks
+- Distribution-aware encoding and numerical embeddings
 
-Each configuration includes:
-- Feature specifications
-- Model configuration parameters
-- A visualization of the generated model architecture
+Each diagram shows:
+- The full TensorFlow model architecture
+- Input and output shapes
+- Layer connections and data flow
 
 ## 📚 API Documentation from Docstrings
 
@@ -108,3 +104,17 @@ class DynamicPreprocessingPipeline:
 ```
 
 This class analyzes dependencies between layers and ensures that each layer receives the outputs it needs from previous layers.
+
+## 🧹 Cleaning Up Old Diagrams
+
+When updating the model diagram generation process, you may need to clean up old diagrams or directories. Use the Makefile target:
+
+```bash
+make clean_old_diagrams
+```
+
+This will:
+- Remove obsolete diagram directories
+- Clean up unused diagram files
+
+This target is also automatically included when running `make clean`.

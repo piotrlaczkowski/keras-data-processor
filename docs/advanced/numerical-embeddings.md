@@ -336,3 +336,17 @@ preprocessor = PreprocessingModel(
   background-color: #ddd;
 }
 </style>
+
+## 📊 Model Architecture
+
+Advanced numerical embeddings transform your numerical features into rich representations:
+
+![Advanced Numerical Embeddings](imgs/advanced_numerical_embedding.png)
+
+Global numerical embeddings allow coordinated embeddings across all features:
+
+![Global Numerical Embeddings](imgs/global_numerical_embedding.png)
+
+These diagrams illustrate how KDP transforms numerical features into rich embedding spaces, capturing complex patterns and non-linear relationships.
+
+## 💡 How to Enable

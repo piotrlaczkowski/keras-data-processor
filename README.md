@@ -1,7 +1,7 @@
 # 🌟 Keras Data Processor (KDP) - Powerful Data Preprocessing for TensorFlow
 
 <p align="center">
-  <img src="docs/kdp_logo.png" width="350"/>
+  <img src="docs/getting-started/imgs/kdp_logo.png" width="350"/>
 </p>
 
 **Transform your raw data into ML-ready features with just a few lines of code!**
@@ -90,7 +90,7 @@ We've built an extensive documentation system to help you get the most from KDP:
 Your preprocessing pipeline is built as a Keras model that can be used independently or as the first layer of any model:
 
 <p align="center">
-  <img src="docs/imgs/Model_Architecture.png" width="800"/>
+  <img src="docs/features/imgs/models/all_basic_types.png" width="800"/>
 </p>
 
 ## 📊 Performance
@@ -98,13 +98,24 @@ Your preprocessing pipeline is built as a Keras model that can be used independe
 KDP outperforms alternative preprocessing approaches, especially as data size increases:
 
 <p align="center">
-  <img src="docs/imgs/time_vs_nr_data.png" width="400"/>
-  <img src="docs/imgs/time_vs_nr_features.png" width="400"/>
+  <img src="docs/getting-started/imgs/time_vs_nr_data.png" width="400"/>
+  <img src="docs/getting-started/imgs/time_vs_nr_features.png" width="400"/>
 </p>
 
 ## 🤝 Contributing
 
 We welcome contributions! Please check out our [Contributing Guide](docs/contributing.md) for guidelines on how to proceed.
+
+## 🛠️ Development Tools
+
+KDP includes tools to help developers:
+
+- **Documentation Generation**: Automatically generate API docs from docstrings
+- **Model Diagram Generation**: Visualize model architectures with `make generate_doc_content` or run:
+  ```bash
+  python scripts/generate_model_diagrams.py
+  ```
+  This creates diagram images in `docs/features/imgs/models/` for all feature types and configurations.
 
 ## 📄 License
 

@@ -186,6 +186,20 @@ preprocessor = PreprocessingModel(
 )
 ```
 
+## 📊 Model Architecture
+
+KDP's date processing extracts and encodes temporal information:
+
+### Basic Date Feature
+
+![Basic Date Feature](imgs/models/basic_date.png)
+
+### Custom Date Feature
+
+Configure advanced date extraction with the `DateFeature` class:
+
+![Custom Date Feature](imgs/models/custom_date_feature.png)
+
 ## 💡 Pro Tips
 
 1. **Choose the Right Components**

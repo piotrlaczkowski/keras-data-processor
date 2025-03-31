@@ -93,7 +93,15 @@ transformed_data = ppr.model.predict(test_batch)
 # Get feature importances
 feature_importances = ppr.get_feature_importances()
 ```
-Here is the plot of the model:
+
+### Visualize the model architecture
+
+You can visualize the model architecture to understand how the features are processed:
+
+```python
+ppr.plot_model("numerical_example_model.png")
+```
+
 ![Complex Model](imgs/numerical_example_model.png)
 
 
@@ -177,6 +185,12 @@ transformed_data = ppr.model.predict(test_batch)
 
 # Get feature importances
 feature_importances = ppr.get_feature_importances()
+```
+
+You can visualize the model architecture:
+
+```python
+ppr.plot_model("categorical_example_model.png")
 ```
 
 ![Categorical Model](imgs/categorical_example_model.png)
@@ -267,26 +281,12 @@ ppr = PreprocessingModel(
 result = ppr.build_preprocessor()
 ```
 
-Now if one wants to plot the a block diagram of the model or get the outout of the NN or get the importance weights of the features, use the following:
+You can visualize the model architecture:
 
 ```python
-# Plot the model architecture
 ppr.plot_model("complex_model.png")
-
-# Transform data using direct model prediction
-transformed_data = ppr.model.predict(test_batch)
-
-# Transform data using batch_predict
-transformed_data = ppr.batch_predict(test_batch)
-transformed_batches = list(transformed_data)  # For better visualization
-
-# Get feature importances
-feature_importances = ppr.get_feature_importances()
-print("Feature importances:", feature_importances)
 ```
 
-
-Here is the plot of the model:
 ![Complex Model](imgs/complex_model.png)
 
 
@@ -360,7 +360,11 @@ transformed_data = ppr.model.predict(test_batch)
 # Get feature importances
 feature_importances = ppr.get_feature_importances()
 ```
-Here is the plot of the model:
+
+```python
+ppr.plot_model("model_with_distribution_aware.png")
+```
+
 ![Complex Model](imgs/numerical_example_model_with_distribution_aware.png)
 
 
@@ -423,5 +427,9 @@ transformed_data = ppr.model.predict(test_batch)
 # Get feature importances
 feature_importances = ppr.get_feature_importances()
 ```
-Here is the plot of the model:
+
+```python
+ppr.plot_model("model_with_advanced_numerical_embedding.png")
+```
+
 ![Complex Model](imgs/numerical_example_model_with_advanced_numerical_embedding.png)

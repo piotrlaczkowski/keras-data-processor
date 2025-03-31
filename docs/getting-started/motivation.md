@@ -24,13 +24,17 @@ KDP fundamentally reimagines tabular data preprocessing:
 
 Our benchmarks show the dramatic impact on real-world workloads:
 
-![Processing Time Comparison](../assets/images/time_vs_nr_data.png)
+## Performance Benchmarks
+
+KDP outperforms alternative preprocessing approaches, especially as data size increases:
+
+![Processing Time Comparison](imgs/time_vs_nr_data.png)
+
+KDP's scaling is nearly linear with feature count:
+
+![Feature Scaling Performance](imgs/time_vs_nr_features.png)
 
 **As your data grows**: Traditional tools scale linearly or worse, while KDP stays efficient.
-
-![Feature Scaling Performance](../assets/images/time_vs_nr_features.png)
-
-**More features, same speed**: KDP's parallel architecture handles feature count increases gracefully.
 
 ## 👨‍💻 From Real-World Pain to Real-World Solution
 

@@ -113,60 +113,15 @@ preprocessor = PreprocessingModel(
 )
 ```
 
-## 💼 Real-World Examples
+## 📊 Model Architecture
 
-### E-commerce Recommendation
+Feature crosses enable KDP to model interactions between features:
 
-```python
-# Cross features for e-commerce recommendation
-preprocessor = PreprocessingModel(
-    features_specs={
-        "user_id": FeatureType.STRING_CATEGORICAL,
-        "product_id": FeatureType.STRING_CATEGORICAL,
-        "product_category": FeatureType.STRING_CATEGORICAL,
-        "user_country": FeatureType.STRING_CATEGORICAL,
-        "device_type": FeatureType.STRING_CATEGORICAL
-    },
-    # Create meaningful crosses
-    feature_crosses=[
-        # Capture user-product affinity
-        ("user_id", "product_id", 64),
-        # Regional product preferences
-        ("user_country", "product_category", 32),
-        # Device-specific browsing patterns
-        ("device_type", "product_category", 16)
-    ]
-)
-```
+### Feature Crosses
 
-### Temporal Pattern Analysis
+![Feature Crosses](imgs/models/feature_crosses.png)
 
-```python
-# Cross features for temporal patterns
-from kdp.features import DateFeature
-
-preprocessor = PreprocessingModel(
-    features_specs={
-        "event_time": DateFeature(
-            name="event_time",
-            add_day_of_week=True,
-            add_hour=True,
-            add_is_weekend=True
-        ),
-        "event_type": FeatureType.STRING_CATEGORICAL,
-        "user_type": FeatureType.STRING_CATEGORICAL
-    },
-    # Create temporal crosses
-    feature_crosses=[
-        # Weekend vs weekday patterns by event
-        ("event_time_is_weekend", "event_type", 16),
-        # Hourly patterns for different user types
-        ("event_time_hour", "user_type", 24),
-        # Day of week preferences by user type
-        ("event_time_day_of_week", "user_type", 16)
-    ]
-)
-```
+These visual representations show how KDP processes cross features, embedding them to capture meaningful interactions.
 
 ## 💡 Pro Tips
 
