@@ -962,7 +962,11 @@ class PreprocessingModel:
         """
         # Get the feature object and its vocabulary
         _feature = self.features_specs[feature_name]
-        vocab = stats["vocab"]
+
+        # For hashing, we don't need a vocabulary
+        vocab = []
+        if _feature.category_encoding != CategoryEncodingOptions.HASHING:
+            vocab = stats.get("vocab", [])
 
         # Initialize preprocessor
         preprocessor = FeaturePreprocessor(name=feature_name)
@@ -1010,6 +1014,10 @@ class PreprocessingModel:
             feature: Feature object with settings
             vocab: Vocabulary for the feature
         """
+        # Skip lookup for hashing - hashing doesn't need a vocabulary
+        if feature.category_encoding == CategoryEncodingOptions.HASHING:
+            return
+
         # Default behavior if no specific preprocessing is defined
         if feature.feature_type == FeatureType.STRING_CATEGORICAL:
             preprocessor.add_processing_step(
@@ -1064,6 +1072,48 @@ class PreprocessingModel:
                 output_mode="one_hot",
                 name=f"one_hot_{feature_name}",
             )
+            # for concatenation we need the same format
+            # so the cast to float 32 is necessary
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                name=f"cast_to_float_{feature_name}",
+            )
+        elif feature.category_encoding == CategoryEncodingOptions.HASHING:
+            # Get hash bucket size from kwargs or calculate it based on vocab size
+            hash_bucket_size = feature.kwargs.get(
+                "hash_bucket_size",
+                min(1024, max(100, len(vocab) * 2)),  # Default sizing strategy
+            )
+            logger.debug(
+                f"Feature {feature_name} using hashing with {hash_bucket_size} buckets"
+            )
+
+            # Add hashing layer
+            preprocessor.add_processing_step(
+                layer_class="Hashing",
+                num_bins=hash_bucket_size,
+                salt=feature.kwargs.get("salt", None),  # Optional salt for hashing
+                name=f"hash_{feature_name}",
+            )
+
+            # Add embedding on top of hashing if specified
+            if feature.kwargs.get("hash_with_embedding", False):
+                emb_size = feature.kwargs.get("embedding_size", 8)
+                preprocessor.add_processing_step(
+                    layer_class="Embedding",
+                    input_dim=hash_bucket_size,
+                    output_dim=emb_size,
+                    name=f"hash_embed_{feature_name}",
+                )
+            else:
+                # One-hot encode the hash output if no embedding is used
+                preprocessor.add_processing_step(
+                    layer_class="CategoryEncoding",
+                    num_tokens=hash_bucket_size,
+                    output_mode="multi_hot",  # Multi-hot because hashing can cause collisions
+                    name=f"hash_encode_{feature_name}",
+                )
+
             # for concatenation we need the same format
             # so the cast to float 32 is necessary
             preprocessor.add_processing_step(

@@ -16,6 +16,7 @@ class TextVectorizerOutputOptions(Enum):
 class CategoryEncodingOptions:
     ONE_HOT_ENCODING = "ONE_HOT_ENCODING"
     EMBEDDING = "EMBEDDING"
+    HASHING = "HASHING"
 
 
 class CrossFeatureOutputOptions(Enum):

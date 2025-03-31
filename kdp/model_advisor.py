@@ -332,73 +332,151 @@ class ModelAdvisor:
         return 0.0
 
     def _analyze_categorical_features(self):
-        """Analyze categorical features and generate specific recommendations."""
-        categorical_stats = self.features_stats.get("categorical_stats", {})
-
-        for feature, stats in categorical_stats.items():
-            recommendation = {
-                "feature_type": "CategoricalFeature",
-                "preprocessing": [],
-                "config": {},
-                "advanced_options": {},
-            }
-
-            # Extract statistics
-            vocab_size = stats.get("size", 0)
-            value_counts = stats.get("value_counts", {})
+        """Analyze categorical features and generate recommendations."""
+        for feature, stats in self.features_stats.get("categorical", {}).items():
+            vocabulary_size = stats.get("vocabulary_size", 0)
             rare_value_ratio = stats.get("rare_value_ratio", 0)
 
-            # Determine encoding strategy based on multiple factors
-            if vocab_size < 5:
-                recommendation["preprocessing"].append("ONE_HOT")
-                recommendation["notes"] = [
-                    f"Small vocabulary ({vocab_size} categories), one-hot encoding recommended"
-                ]
+            if feature not in self.recommendations:
+                self.recommendations[feature] = {}
 
-            elif vocab_size < 50 and rare_value_ratio < 0.1:
-                recommendation["preprocessing"].append("EMBEDDING")
-                recommendation["config"][
-                    "embedding_dim"
-                ] = self._calculate_embedding_dim(vocab_size)
-                recommendation["notes"] = [
-                    f"Medium vocabulary ({vocab_size} categories), embedding recommended"
-                ]
+            # Calculate unique count based on value counts if available
+            unique_count = 0
+            if "value_counts" in stats:
+                unique_count = len(stats["value_counts"])
 
+            # If vocabulary size is 0, use unique count
+            if vocabulary_size == 0 and unique_count > 0:
+                vocabulary_size = unique_count
+
+            # Set feature type and default configuration
+            self.recommendations[feature]["feature_type"] = "CategoricalFeature"
+            self.recommendations[feature]["preprocessing"] = []
+            self.recommendations[feature]["config"] = {
+                "feature_type": "STRING_CATEGORICAL"
+            }
+            self.recommendations[feature]["notes"] = []
+
+            # Check if ordinal (ordered) data
+            if stats.get("is_ordinal", False):
+                self.recommendations[feature]["notes"].append(
+                    "Ordinal feature, preserving order"
+                )
+                self.recommendations[feature]["config"]["is_ordinal"] = True
+
+            # Generate encoding recommendations based on vocabulary size
+            if vocabulary_size < 50:
+                encoding = "ONE_HOT_ENCODING"
+                self.recommendations[feature]["preprocessing"].append(
+                    "ONE_HOT_ENCODING"
+                )
+                self.recommendations[feature]["config"][
+                    "category_encoding"
+                ] = "ONE_HOT_ENCODING"
+                self.recommendations[feature]["notes"].append(
+                    f"Small vocabulary ({vocabulary_size} categories), one-hot encoding recommended"
+                )
+            elif vocabulary_size < 1000:
+                encoding = "EMBEDDING"
+                self.recommendations[feature]["preprocessing"].append("EMBEDDING")
+                self.recommendations[feature]["config"][
+                    "category_encoding"
+                ] = "EMBEDDING"
+                embedding_size = min(
+                    max(4, vocabulary_size // 8), 64
+                )  # Scale embedding size with vocabulary
+                self.recommendations[feature]["config"][
+                    "embedding_size"
+                ] = embedding_size
+                self.recommendations[feature]["notes"].append(
+                    f"Medium vocabulary ({vocabulary_size} categories), embedding recommended"
+                )
             else:
-                recommendation["preprocessing"].append("HASHING")
-                recommendation["config"]["hash_bins"] = self._calculate_hash_bins(
-                    vocab_size
-                )
-                recommendation["config"]["rare_value_handling"] = "special"
-                recommendation["notes"] = [
-                    f"Large vocabulary ({vocab_size} categories), hashing recommended"
-                ]
+                encoding = "HASHING"
+                self.recommendations[feature]["preprocessing"].append("HASHING")
+                self.recommendations[feature]["config"]["category_encoding"] = "HASHING"
 
-            # Add advanced options for categorical features
+                # Calculate optimal hash bucket size based on vocabulary
+                if vocabulary_size < 5000:
+                    hash_bucket_size = (
+                        vocabulary_size * 3 // 10 * 10
+                    )  # Round to nearest 10
+                    hash_bucket_size = max(
+                        hash_bucket_size, 100
+                    )  # At least 100 buckets
+                elif vocabulary_size < 50000:
+                    hash_bucket_size = (
+                        vocabulary_size // 5 // 50 * 50
+                    )  # Round to nearest 50
+                    hash_bucket_size = max(
+                        hash_bucket_size, 1000
+                    )  # At least 1000 buckets
+                else:
+                    hash_bucket_size = (
+                        vocabulary_size // 10 // 100 * 100
+                    )  # Round to nearest 100
+                    hash_bucket_size = max(
+                        hash_bucket_size, 5000
+                    )  # At least 5000 buckets
+
+                self.recommendations[feature]["config"][
+                    "hash_bucket_size"
+                ] = hash_bucket_size
+
+                # For very large vocabularies, recommend hash with embedding
+                if vocabulary_size > 10000:
+                    self.recommendations[feature]["config"][
+                        "hash_with_embedding"
+                    ] = True
+                    embedding_size = min(max(8, hash_bucket_size // 128), 32)
+                    self.recommendations[feature]["config"][
+                        "embedding_size"
+                    ] = embedding_size
+                    self.recommendations[feature]["notes"].append(
+                        f"Large vocabulary ({vocabulary_size} categories), hashing with embedding recommended"
+                    )
+                else:
+                    self.recommendations[feature]["notes"].append(
+                        f"Large vocabulary ({vocabulary_size} categories), hashing recommended"
+                    )
+
+                # Assign a salt value if multiple hashed features are present
+                # This avoids hash collisions between different features
+                salt_index = len(
+                    [
+                        r
+                        for r in self.recommendations.values()
+                        if r.get("preprocessing", [])
+                        and "HASHING" in r["preprocessing"]
+                    ]
+                )
+                if (
+                    salt_index > 0
+                ):  # Only add salt if there's more than one hashing feature
+                    self.recommendations[feature]["config"]["salt"] = salt_index
+                    self.recommendations[feature]["notes"].append(
+                        f"Hash salt: {salt_index} to avoid collisions with other features"
+                    )
+
+                self.recommendations[feature]["notes"].append(
+                    f"Hash bucket size: {hash_bucket_size}"
+                )
+
+            # Handle rare values if significant
             if rare_value_ratio > 0.1:
-                recommendation["advanced_options"]["rare_value_handling"] = True
-                recommendation["advanced_options"]["rare_threshold"] = 0.01
-                recommendation["notes"].append(
-                    "High ratio of rare values detected, special handling recommended"
+                self.recommendations[feature]["notes"].append(
+                    f"High rare value ratio ({rare_value_ratio:.2f}), special handling recommended"
                 )
 
-            if self._is_ordinal_feature(value_counts):
-                recommendation["advanced_options"]["ordinal_encoding"] = True
-                recommendation["notes"].append(
-                    "Ordinal pattern detected, using ordinal encoding"
-                )
+                if encoding == "ONE_HOT_ENCODING" or encoding == "EMBEDDING":
+                    self.recommendations[feature]["config"]["oov_buckets"] = min(
+                        max(2, int(vocabulary_size * rare_value_ratio / 10)), 10
+                    )
 
-            self.recommendations[feature] = recommendation
-
-    def _calculate_hash_bins(self, vocab_size: int) -> int:
-        """Calculate optimal number of hash bins."""
-        return min(1024, max(100, vocab_size * 2))
-
-    def _is_ordinal_feature(self, value_counts: Dict[str, int]) -> bool:
-        """Check if a categorical feature has ordinal properties."""
-        # Implementation would analyze value patterns to detect ordinal nature
-        # For now, return a placeholder
-        return False
+                    self.recommendations[feature]["advanced_options"] = {
+                        "handle_rare_values": True,
+                        "rare_value_threshold": max(0.001, 1.0 / vocabulary_size),
+                    }
 
     def _analyze_text_features(self):
         """Analyze text features and generate specific recommendations."""
@@ -525,6 +603,22 @@ class ModelAdvisor:
 
     def _generate_global_recommendations(self):
         """Generate global configuration recommendations based on feature analysis."""
+        # Count features by type and encoding strategy
+        categorical_features = self.features_stats.get("categorical_stats", {})
+        num_high_cardinality = 0
+        num_hashing_recommended = 0
+
+        # Analyze recommended encoding strategies
+        for feature, stats in categorical_features.items():
+            vocab_size = stats.get("size", 0)
+            if vocab_size > 100:
+                num_high_cardinality += 1
+
+            # Check if we recommended hashing for this feature
+            if feature in self.recommendations:
+                if "HASHING" in self.recommendations[feature].get("preprocessing", []):
+                    num_hashing_recommended += 1
+
         self.global_config = {
             "output_mode": "CONCAT",
             "use_distribution_aware": True,
@@ -534,150 +628,185 @@ class ModelAdvisor:
             "notes": [],
         }
 
-        # Add feature interaction awareness
-        if self.feature_interactions:
-            self.global_config["feature_interaction_aware"] = True
+        # Add recommendations for high-cardinality features
+        if num_high_cardinality > 0:
             self.global_config["notes"].append(
-                "Strong feature interactions detected, using interaction-aware processing"
+                f"Dataset contains {num_high_cardinality} high-cardinality categorical features"
             )
 
-        # Add distribution-aware processing if needed
-        if any(
-            rec.get("detected_distribution") != "normal"
-            for rec in self.recommendations.values()
-        ):
-            self.global_config["notes"].append(
-                "Mixed feature distributions detected, using distribution-aware processing"
-            )
+            if num_hashing_recommended > 0:
+                self.global_config["notes"].append(
+                    f"Hashing recommended for {num_hashing_recommended} features to efficiently handle high cardinality"
+                )
 
-        # Recommend Feature MoE for heterogeneous feature sets
-        feature_types = set()
-        for rec in self.recommendations.values():
-            feature_types.add(rec.get("feature_type", "Unknown"))
+                # Consider memory optimization when many hash features
+                if num_hashing_recommended >= 3:
+                    self.global_config["notes"].append(
+                        "Consider using hash_with_embedding=True for memory optimization with multiple hashed features"
+                    )
 
-        # If we have multiple feature types or complex distributions, recommend MoE
-        has_complex_distributions = any(
-            rec.get("detected_distribution")
-            in ["multimodal", "heavy_tailed", "sparse", "periodic"]
-            for rec in self.recommendations.values()
+        # Add feature interaction recommendations
+        num_features = len(self.features_stats.get("categorical_stats", {})) + len(
+            self.features_stats.get("numeric_stats", {})
         )
-
-        # Recommend Feature MoE if we have diverse feature types or complex distributions
-        if len(feature_types) >= 3 or has_complex_distributions:
-            self.global_config["use_feature_moe"] = True
-            self.global_config[
-                "feature_moe_num_experts"
-            ] = self._calculate_optimal_experts()
-            self.global_config["feature_moe_expert_dim"] = 64
-            self.global_config["feature_moe_routing"] = "learned"
-
-            if has_complex_distributions:
-                self.global_config["notes"].append(
-                    "Complex feature distributions detected, Feature MoE recommended for specialized processing"
-                )
-            else:
-                self.global_config["notes"].append(
-                    "Heterogeneous feature types detected, Feature MoE recommended for specialized processing"
-                )
+        if num_features > 5:
+            self.global_config["tabular_attention"] = True
+            self.global_config["notes"].append(
+                "Tabular attention recommended for capturing feature interactions"
+            )
 
     def _calculate_attention_heads(self) -> int:
         """Calculate optimal number of attention heads based on feature count."""
         feature_count = len(self.recommendations)
         return min(8, max(2, feature_count // 4))
 
-    def _calculate_optimal_experts(self) -> int:
-        """Calculate optimal number of experts for Feature MoE based on data characteristics."""
-        feature_count = len(self.recommendations)
-        feature_types = set(
-            rec.get("feature_type", "Unknown") for rec in self.recommendations.values()
-        )
-
-        # Base number on feature types with some adjustment for feature count
-        return min(8, max(len(feature_types) + 1, feature_count // 5))
-
     def generate_code_snippet(self) -> str:
         """Generate a code snippet implementing the recommendations."""
-        # TODO: Placeholder. Actual code generation not implemented yet.
-        # In the future, this will generate Python code based on self.recommendations
-        # and self.global_config
+        code = []
+        code.append("from kdp.features import (")
+        code.append(
+            "    NumericalFeature, CategoricalFeature, TextFeature, DateFeature,"
+        )
+        code.append("    FeatureType, CategoryEncodingOptions")
+        code.append(")")
+        code.append("from kdp.processor import PreprocessingModel")
+        code.append("")
+        code.append("# Define features based on recommendations")
+        code.append("features = {")
 
-        # Start with imports
-        code = [
-            "from kdp.processor import PreprocessingModel",
-            "from kdp.featurizer import FeaturizerFactory",
-            "",
-            "# Define feature specifications",
-            "feature_specs = {",
-        ]
-
-        # Add feature specs
+        # Generate feature definitions
         for feature_name, rec in self.recommendations.items():
-            feature_type = rec.get("feature_type", "Unknown")
-            if feature_type == "Numerical":
-                code.append(f"    '{feature_name}': {{'type': 'numerical'}},")
-            elif feature_type == "Categorical":
-                code.append(f"    '{feature_name}': {{'type': 'categorical'}},")
-            elif feature_type == "Text":
-                code.append(f"    '{feature_name}': {{'type': 'text'}},")
-            elif feature_type == "Date":
-                code.append(f"    '{feature_name}': {{'type': 'datetime'}},")
-            else:
-                code.append(f"    '{feature_name}': {{'type': 'auto'}},")
+            feature_type = rec.get("feature_type", "Feature")
+            config = rec.get("config", {})
+            preprocessing = rec.get("preprocessing", [])
+
+            if feature_type == "NumericalFeature":
+                code.append(f'    # {", ".join(rec.get("notes", [""]))}')
+                code.append(f'    "{feature_name}": NumericalFeature(')
+                code.append(f'        name="{feature_name}",')
+                if "FLOAT_NORMALIZED" in preprocessing:
+                    code.append("        feature_type=FeatureType.FLOAT_NORMALIZED,")
+                elif "FLOAT_RESCALED" in preprocessing:
+                    code.append("        feature_type=FeatureType.FLOAT_RESCALED,")
+                elif "FLOAT_DISCRETIZED" in preprocessing:
+                    code.append("        feature_type=FeatureType.FLOAT_DISCRETIZED,")
+                if config.get("use_embedding", False):
+                    code.append("        use_embedding=True,")
+                    code.append(
+                        f"        embedding_dim={config.get('embedding_dim', 8)},"
+                    )
+                if config.get("bin_boundaries"):
+                    boundaries_str = (
+                        "[" + ", ".join(map(str, config["bin_boundaries"])) + "]"
+                    )
+                    code.append(f"        bin_boundaries={boundaries_str},")
+                code.append("    ),")
+
+            elif feature_type == "CategoricalFeature":
+                code.append(f'    # {", ".join(rec.get("notes", [""]))}')
+                code.append(f'    "{feature_name}": CategoricalFeature(')
+                code.append(f'        name="{feature_name}",')
+
+                # Set feature type
+                if (
+                    config.get("feature_type", "STRING_CATEGORICAL")
+                    == "STRING_CATEGORICAL"
+                ):
+                    code.append("        feature_type=FeatureType.STRING_CATEGORICAL,")
+                else:
+                    code.append("        feature_type=FeatureType.INTEGER_CATEGORICAL,")
+
+                # Handle different encoding types
+                encoding = config.get("category_encoding")
+                if (
+                    encoding == "ONE_HOT_ENCODING"
+                    or "ONE_HOT_ENCODING" in preprocessing
+                ):
+                    code.append(
+                        "        category_encoding=CategoryEncodingOptions.ONE_HOT_ENCODING,"
+                    )
+                elif encoding == "HASHING" or "HASHING" in preprocessing:
+                    code.append(
+                        "        category_encoding=CategoryEncodingOptions.HASHING,"
+                    )
+
+                    # Add hashing specific parameters
+                    if "hash_bucket_size" in config:
+                        code.append(
+                            f"        hash_bucket_size={config['hash_bucket_size']},"
+                        )
+                    if config.get("hash_with_embedding"):
+                        code.append("        hash_with_embedding=True,")
+                        if "embedding_size" in config:
+                            code.append(
+                                f"        embedding_size={config['embedding_size']},"
+                            )
+                    if "salt" in config:
+                        code.append(f"        salt={config['salt']},")
+                else:
+                    # Default to embedding
+                    code.append(
+                        "        category_encoding=CategoryEncodingOptions.EMBEDDING,"
+                    )
+                    if "embedding_size" in config:
+                        code.append(
+                            f"        embedding_size={config['embedding_size']},"
+                        )
+
+                code.append("    ),")
+
+            elif feature_type == "TextFeature":
+                code.append(f'    # {", ".join(rec.get("notes", [""]))}')
+                code.append(f'    "{feature_name}": TextFeature(')
+                code.append(f'        name="{feature_name}",')
+                code.append("        feature_type=FeatureType.TEXT,")
+                if "max_tokens" in config:
+                    code.append(f"        max_tokens={config['max_tokens']},")
+                if "output_sequence_length" in config:
+                    code.append(
+                        f"        output_sequence_length={config['output_sequence_length']},"
+                    )
+                if "embedding_dim" in config:
+                    code.append(f"        embedding_dim={config['embedding_dim']},")
+                code.append("    ),")
+
+            elif feature_type == "DateFeature":
+                code.append(f'    # {", ".join(rec.get("notes", [""]))}')
+                code.append(f'    "{feature_name}": DateFeature(')
+                code.append(f'        name="{feature_name}",')
+                code.append("        feature_type=FeatureType.DATE,")
+                if "date_format" in config:
+                    code.append(f'        date_format="{config["date_format"]}",')
+                if "output_format" in config:
+                    code.append(f'        output_format="{config["output_format"]}",')
+                if config.get("extract", []):
+                    extract_str = (
+                        "[" + ", ".join([f'"{e}"' for e in config["extract"]]) + "]"
+                    )
+                    code.append(f"        extract={extract_str},")
+                code.append("    ),")
 
         code.append("}")
         code.append("")
-
-        # Create preprocessing model
         code.append("# Create preprocessing model with recommended configuration")
         code.append("model = PreprocessingModel(")
-        code.append("    features=feature_specs,")
+        code.append("    features_specs=features,")
 
-        # Add global configs
-        code.append(
-            f"    output_mode='{self.global_config.get('output_mode', 'CONCAT')}',"
-        )
-
-        if self.global_config.get("use_distribution_aware", False):
-            code.append("    use_distribution_aware=True,")
-
-        if self.global_config.get("tabular_attention", False):
-            code.append("    use_tabular_attention=True,")
+        # Add global configuration
+        if "output_mode" in self.global_config:
+            code.append(f"    output_mode=\"{self.global_config['output_mode']}\",")
+        if self.global_config.get("tabular_attention"):
+            code.append("    tabular_attention=True,")
             code.append(
                 f"    tabular_attention_heads={self.global_config.get('tabular_attention_heads', 4)},"
             )
-
-        if self.global_config.get("feature_interaction_aware", False):
-            code.append("    feature_interaction_aware=True,")
-
-        # Add Feature MoE configuration if recommended
-        if self.global_config.get("use_feature_moe", False):
-            code.append("    use_feature_moe=True,")
             code.append(
-                f"    feature_moe_num_experts={self.global_config.get('feature_moe_num_experts', 4)},"
+                f"    tabular_attention_placement=\"{self.global_config.get('tabular_attention_placement', 'multi_resolution')}\","
             )
-            code.append(
-                f"    feature_moe_expert_dim={self.global_config.get('feature_moe_expert_dim', 64)},"
-            )
-            code.append(
-                f"    feature_moe_routing='{self.global_config.get('feature_moe_routing', 'learned')}',"
-            )
+        if self.global_config.get("use_distribution_aware"):
+            code.append("    use_distribution_aware=True,")
 
         code.append(")")
-        code.append("")
-
-        # Add notes if any
-        if self.global_config.get("notes"):
-            code.append("# Notes from analysis:")
-            for note in self.global_config.get("notes", []):
-                code.append(f"# - {note}")
-            code.append("")
-
-        # Add fit example
-        code.append("# Fit the model to your data")
-        code.append("model.fit(train_data)")
-        code.append("")
-        code.append("# Transform your data")
-        code.append("transformed_data = model.transform(test_data)")
 
         return "\n".join(code)
 

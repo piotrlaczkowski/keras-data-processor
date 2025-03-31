@@ -155,6 +155,18 @@ preprocessor = PreprocessingModel(
         <td>Larger values reduce collisions but increase dimensionality</td>
       </tr>
       <tr>
+        <td><code>salt</code></td>
+        <td>Salt value for hash function</td>
+        <td>None</td>
+        <td>Custom salt to make hash values unique across features</td>
+      </tr>
+      <tr>
+        <td><code>hash_with_embedding</code></td>
+        <td>Apply embedding after hashing</td>
+        <td>False</td>
+        <td>Combines hashing with embeddings for large vocabularies</td>
+      </tr>
+      <tr>
         <td><code>vocabulary_size</code></td>
         <td>Maximum number of categories to keep</td>
         <td>None</td>
@@ -230,18 +242,193 @@ user_id_limited = CategoricalFeature(
 # Method 2: Hash features to buckets (fast, fixed memory)
 user_id_hashed = CategoricalFeature(
     name="user_id",
-    feature_type=FeatureType.STRING_HASHED,
+    feature_type=FeatureType.STRING_CATEGORICAL,
+    category_encoding=CategoryEncodingOptions.HASHING,
     hash_bucket_size=5000  # Hash into 5K buckets
 )
 
-# Method 3: Hierarchical embeddings (best for very large sets)
-user_id_hierarchical = CategoricalFeature(
+# Method 3: Hash with embeddings (best balance)
+user_id_hash_embed = CategoricalFeature(
     name="user_id",
     feature_type=FeatureType.STRING_CATEGORICAL,
-    use_hierarchical_embedding=True,
-    hierarchical_levels=3,
-    embedding_dim=64
+    category_encoding=CategoryEncodingOptions.HASHING,
+    hash_bucket_size=2048,
+    hash_with_embedding=True,
+    embedding_size=16
 )
+```
+
+    </div>
+  </div>
+
+  <div class="power-feature-card">
+    <h3>🧮 Feature Hashing</h3>
+    <p>Feature hashing transforms categorical values into a fixed-size vector representation, ideal for very high-cardinality features. It's now fully integrated with the ModelAdvisor for automatic configuration:</p>
+    <div class="code-container">
+
+```python
+# Basic feature hashing
+product_id = CategoricalFeature(
+    name="product_id",
+    feature_type=FeatureType.STRING_CATEGORICAL,
+    category_encoding=CategoryEncodingOptions.HASHING,
+    hash_bucket_size=1024  # Number of hash buckets
+)
+
+# Advanced feature hashing with custom salt
+# The salt ensures different features use different hash spaces
+session_id = CategoricalFeature(
+    name="session_id",
+    feature_type=FeatureType.STRING_CATEGORICAL,
+    category_encoding=CategoryEncodingOptions.HASHING,
+    hash_bucket_size=2048,
+    salt=42  # Custom salt value
+)
+
+# Feature hashing followed by embedding
+user_id = CategoricalFeature(
+    name="user_id",
+    feature_type=FeatureType.STRING_CATEGORICAL,
+    category_encoding=CategoryEncodingOptions.HASHING,
+    hash_bucket_size=2048,
+    hash_with_embedding=True,
+    embedding_size=16  # Embedding dimension after hashing
+)
+```
+
+    </div>
+  </div>
+
+  <div class="power-feature-card">
+    <h3>🤖 Auto-configuration with ModelAdvisor</h3>
+    <p>KDP's ModelAdvisor now intelligently recommends hashing for high-cardinality features:</p>
+    <div class="code-container">
+
+```python
+from kdp.model_advisor import recommend_model_configuration
+from kdp.stats import DatasetStatistics
+
+# Analyze dataset statistics
+stats_calculator = DatasetStatistics("high_cardinality_data.csv")
+stats_calculator.compute_statistics()
+
+# Get recommendations from ModelAdvisor
+recommendations = recommend_model_configuration(stats_calculator.features_stats)
+
+# The recommendations will include HASHING for high-cardinality features
+# Example output:
+'''
+{
+  "features": {
+    "user_id": {
+      "feature_type": "CategoricalFeature",
+      "preprocessing": ["HASHING"],
+      "config": {
+        "category_encoding": "HASHING",
+        "hash_bucket_size": 2048,
+        "hash_with_embedding": true,
+        "embedding_size": 16
+      },
+      "notes": ["High cardinality feature (10K+ values)", "Using hashing for efficiency"]
+    },
+    ...
+  }
+}
+'''
+
+# Generate code from recommendations
+code_snippet = recommendations["code_snippet"]
+print(code_snippet)
+```
+
+    </div>
+  </div>
+
+  <div class="power-feature-card">
+    <h3>🔍 Choosing Between Encoding Options</h3>
+    <p>KDP offers multiple encoding options for categorical features. Here's how to choose:</p>
+
+    <table class="encoding-comparison">
+      <thead>
+        <tr>
+          <th>Encoding</th>
+          <th>Vocabulary Size</th>
+          <th>Memory Usage</th>
+          <th>New Categories</th>
+          <th>Semantic Information</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>One-Hot Encoding</td>
+          <td>Small (< 50)</td>
+          <td>High</td>
+          <td>❌ Requires retraining</td>
+          <td>❌ No relationship capture</td>
+        </tr>
+        <tr>
+          <td>Embeddings</td>
+          <td>Medium (50-10K)</td>
+          <td>Medium</td>
+          <td>⚠️ Limited by OOV handling</td>
+          <td>✅ Captures relationships</td>
+        </tr>
+        <tr>
+          <td>Hashing</td>
+          <td>Very Large (10K+)</td>
+          <td>Low (fixed)</td>
+          <td>✅ Handles new values</td>
+          <td>❌ No relationship capture</td>
+        </tr>
+        <tr>
+          <td>Hashing with Embeddings</td>
+          <td>Very Large (10K+)</td>
+          <td>Low-Medium</td>
+          <td>✅ Handles new values</td>
+          <td>✅ Some relationship capture</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>The ModelAdvisor analyzes your data and automatically recommends the optimal encoding based on these criteria.</p>
+    <div class="code-container">
+
+```python
+# End-to-end example with automatic encoding selection
+from kdp.features import CategoricalFeature, FeatureType, CategoryEncodingOptions
+from kdp.processor import PreprocessingModel
+from kdp.stats import DatasetStatistics
+from kdp.model_advisor import recommend_model_configuration
+
+# 1. Analyze dataset
+stats = DatasetStatistics("product_dataset.csv")
+stats.compute_statistics()
+
+# 2. Get recommendations
+recommendations = recommend_model_configuration(stats.features_stats)
+
+# 3. Create preprocessing model using recommended config
+features = {}
+for name, feature_rec in recommendations["features"].items():
+    if feature_rec["feature_type"] == "CategoricalFeature":
+        # Extract configuration for this categorical feature
+        config = feature_rec["config"]
+        features[name] = CategoricalFeature(
+            name=name,
+            feature_type=getattr(FeatureType, config.get("feature_type", "STRING_CATEGORICAL")),
+            category_encoding=getattr(CategoryEncodingOptions, config.get("category_encoding", "EMBEDDING")),
+            hash_bucket_size=config.get("hash_bucket_size"),
+            hash_with_embedding=config.get("hash_with_embedding", False),
+            embedding_size=config.get("embedding_size"),
+            salt=config.get("salt")
+        )
+
+# 4. Create and build the preprocessing model
+model = PreprocessingModel(
+    path_data="product_dataset.csv",
+    features_specs=features
+)
+preprocessor = model.build_preprocessor()
 ```
 
     </div>

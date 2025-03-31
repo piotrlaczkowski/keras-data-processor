@@ -22,6 +22,7 @@ from kdp.features import (
     NumericalFeature,
     TextFeature,
     PassthroughFeature,
+    CategoryEncodingOptions,
 )
 from kdp.processor import FeatureSpaceConverter, OutputModeOptions, PreprocessingModel
 
@@ -2714,6 +2715,227 @@ class TestPreprocessingModel_FeatureMoE(unittest.TestCase):
         self.assertEqual(
             moe_config_meta.get("sparsity"), moe_config["feature_moe_sparsity"]
         )
+
+    def test_preprocessor_categorical_with_hashing(self):
+        """Test the preprocessing model with categorical hashing."""
+        # Create features with all three categorical encoding options
+        features_specs = {
+            "one_hot_cat": CategoricalFeature(
+                name="one_hot_cat",
+                feature_type=FeatureType.STRING_CATEGORICAL,
+                category_encoding="ONE_HOT_ENCODING",
+            ),
+            "embedded_cat": CategoricalFeature(
+                name="embedded_cat",
+                feature_type=FeatureType.STRING_CATEGORICAL,
+                category_encoding="EMBEDDING",
+                embedding_size=8,
+            ),
+            "hashed_cat": CategoricalFeature(
+                name="hashed_cat",
+                feature_type=FeatureType.STRING_CATEGORICAL,
+                category_encoding="HASHING",
+                hash_bucket_size=64,
+            ),
+            "hashed_with_embedding_cat": CategoricalFeature(
+                name="hashed_with_embedding_cat",
+                feature_type=FeatureType.STRING_CATEGORICAL,
+                category_encoding="HASHING",
+                hash_bucket_size=128,
+                hash_with_embedding=True,
+                embedding_size=16,
+            ),
+        }
+
+        # Generate fake data
+        df = generate_fake_data(features_specs, num_rows=100)
+
+        # Create temporary file and save the data
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as temp_csv:
+            df.to_csv(temp_csv.name, index=False)
+            temp_csv_path = temp_csv.name
+
+        # Create a simple features_stats dictionary instead of relying on CSV loading
+        features_stats = {
+            "categorical_stats": {
+                "one_hot_cat": {
+                    "vocab": list(df["one_hot_cat"].unique()),
+                    "size": len(df["one_hot_cat"].unique()),
+                },
+                "embedded_cat": {
+                    "vocab": list(df["embedded_cat"].unique()),
+                    "size": len(df["embedded_cat"].unique()),
+                },
+                # For hashing features, we don't need the vocabulary
+            }
+        }
+
+        # Create the preprocessing model with provided stats
+        model = PreprocessingModel(
+            features_specs=features_specs,
+            path_data=temp_csv_path,
+            output_mode=OutputModeOptions.DICT,
+            features_stats=features_stats,  # Pre-computed stats
+        )
+
+        # Build the preprocessor
+        result = model.build_preprocessor()
+        preprocessor = result["model"]
+
+        # Test with a single sample using tensor inputs
+        sample = {
+            "one_hot_cat": tf.constant(["cat"]),
+            "embedded_cat": tf.constant(["dog"]),
+            "hashed_cat": tf.constant(["fish"]),
+            "hashed_with_embedding_cat": tf.constant(["bird"]),
+        }
+        result = preprocessor(sample)
+
+        # Check that all features are present in the result
+        self.assertIn("one_hot_cat", result)
+        self.assertIn("embedded_cat", result)
+        self.assertIn("hashed_cat", result)
+        self.assertIn("hashed_with_embedding_cat", result)
+
+        # Check output shapes
+        # One-hot encoding should have shape (1, n_unique+1) where n_unique is the number of unique values
+        self.assertEqual(
+            result["one_hot_cat"].shape[1], 5
+        )  # 4 unique values in test data + 1 OOV
+
+        # Embedding should have shape (1, embedding_size)
+        self.assertEqual(result["embedded_cat"].shape[1], 8)
+
+        # Hashing should have shape (1, hash_bucket_size)
+        self.assertEqual(result["hashed_cat"].shape[1], 64)
+
+        # Hashing with embedding should have shape (1, embedding_size)
+        self.assertEqual(result["hashed_with_embedding_cat"].shape[1], 16)
+
+        # Test batch prediction
+        batch = {
+            "one_hot_cat": tf.constant(["cat", "dog", "fish", "bird", "cat"]),
+            "embedded_cat": tf.constant(["cat", "dog", "fish", "bird", "cat"]),
+            "hashed_cat": tf.constant(["cat", "dog", "fish", "bird", "cat"]),
+            "hashed_with_embedding_cat": tf.constant(
+                ["cat", "dog", "fish", "bird", "cat"]
+            ),
+        }
+        batch_result = preprocessor(batch)
+
+        # Check batch output shapes
+        self.assertEqual(batch_result["one_hot_cat"].shape, (5, 5))
+        self.assertEqual(batch_result["embedded_cat"].shape, (5, 8))
+        self.assertEqual(batch_result["hashed_cat"].shape, (5, 64))
+        self.assertEqual(batch_result["hashed_with_embedding_cat"].shape, (5, 16))
+
+        # Clean up
+        Path(temp_csv_path).unlink()
+
+    def test_preprocessor_categorical_hashing_with_salt(self):
+        """Test preprocessing with hashed categorical feature with salt"""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv") as temp_file:
+            # Define the features
+            features_specs = {
+                "categorical1": CategoricalFeature(
+                    name="categorical1",
+                    feature_type=FeatureType.STRING_CATEGORICAL,
+                    category_encoding=CategoryEncodingOptions.HASHING,
+                    hash_bucket_size=10,
+                    salt=1,
+                ),
+                "categorical2": CategoricalFeature(
+                    name="categorical2",
+                    feature_type=FeatureType.STRING_CATEGORICAL,
+                    category_encoding=CategoryEncodingOptions.HASHING,
+                    hash_bucket_size=10,
+                    salt=2,
+                ),
+                "categorical3": CategoricalFeature(
+                    name="categorical3",
+                    feature_type=FeatureType.STRING_CATEGORICAL,
+                    category_encoding=CategoryEncodingOptions.HASHING,
+                    hash_bucket_size=10,
+                    salt=3,
+                ),
+            }
+
+            # Create test data with identical values
+            df = pd.DataFrame(
+                {
+                    "categorical1": ["value1"],
+                    "categorical2": ["value1"],
+                    "categorical3": ["value1"],
+                }
+            )
+            df.to_csv(temp_file.name, index=False)
+
+            # Create feature statistics to avoid loading from CSV
+            features_stats = {
+                "categorical": {
+                    "categorical1": {},
+                    "categorical2": {},
+                    "categorical3": {},
+                }
+            }
+
+            # Create preprocessor model
+            model = PreprocessingModel(
+                features_specs=features_specs,
+                path_data=temp_file.name,
+                output_mode="CONCAT",
+                features_stats=features_stats,
+            )
+
+            # Build the preprocessor
+            preprocessor = model.build_preprocessor()
+
+            # Test with a single value
+            test_input = {
+                "categorical1": ["value1"],
+                "categorical2": ["value1"],
+                "categorical3": ["value1"],
+            }
+            # Call preprocessor but we don't need to check the single value result
+            # We'll validate with the batch result
+            preprocessor(test_input)  # Test that it runs without errors
+
+            # Test with a batch of identical values
+            batch_input = {
+                "categorical1": ["value1", "value1", "value1"],
+                "categorical2": ["value1", "value1", "value1"],
+                "categorical3": ["value1", "value1", "value1"],
+            }
+            batch_result = preprocessor(batch_input)
+
+            # Check that different salt values produce different hash outputs
+            # Even though the input values are identical
+            self.assertEqual(batch_result.shape[0], 3)  # Batch size
+
+            # Since we're using different salt values, the hashed outputs should be different
+            # We can't check exact values, but we can verify they're not all the same
+            # at different positions in the output tensor
+            salt1_pos = 0
+            salt2_pos = 10
+            salt3_pos = 20
+
+            # Get first row of batch result
+            row = batch_result[0]
+
+            # Check that hashing with different salts produces different results
+            # even for the same input values
+            self.assertNotEqual(
+                np.argmax(row[salt1_pos : salt1_pos + 10]),
+                np.argmax(row[salt2_pos : salt2_pos + 10]),
+            )
+            self.assertNotEqual(
+                np.argmax(row[salt1_pos : salt1_pos + 10]),
+                np.argmax(row[salt3_pos : salt3_pos + 10]),
+            )
+            self.assertNotEqual(
+                np.argmax(row[salt2_pos : salt2_pos + 10]),
+                np.argmax(row[salt3_pos : salt3_pos + 10]),
+            )
 
 
 if __name__ == "__main__":

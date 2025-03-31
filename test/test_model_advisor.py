@@ -93,8 +93,10 @@ class TestModelAdvisor(unittest.TestCase):
         self.assertIn("cat2", self.advisor.recommendations)
 
         # Verify specific recommendations based on vocabulary size
-        # cat1 has small vocab (4), should recommend ONE_HOT
-        self.assertIn("ONE_HOT", self.advisor.recommendations["cat1"]["preprocessing"])
+        # cat1 has small vocab (4), should recommend ONE_HOT_ENCODING
+        self.assertIn(
+            "ONE_HOT_ENCODING", self.advisor.recommendations["cat1"]["preprocessing"]
+        )
 
         # cat2 has large vocab (100), should recommend HASHING
         self.assertIn("HASHING", self.advisor.recommendations["cat2"]["preprocessing"])
@@ -167,17 +169,22 @@ class TestModelAdvisor(unittest.TestCase):
         code_snippet = self.advisor.generate_code_snippet()
 
         # Verify code snippet content
+        self.assertIn("from kdp.features import (", code_snippet)
+        self.assertIn(
+            "NumericalFeature, CategoricalFeature, TextFeature, DateFeature,",
+            code_snippet,
+        )
+        self.assertIn("FeatureType, CategoryEncodingOptions", code_snippet)
         self.assertIn("from kdp.processor import PreprocessingModel", code_snippet)
-        self.assertIn("from kdp.featurizer import FeaturizerFactory", code_snippet)
-        self.assertIn("feature_specs = {", code_snippet)
+        self.assertIn("features = {", code_snippet)
 
         # Check that all features are included in the snippet
         for feature in ["num1", "num2", "cat1", "cat2", "text1", "date1"]:
-            self.assertIn(f"'{feature}'", code_snippet)
+            self.assertIn(f'"{feature}"', code_snippet)
 
         # Check that the model initialization is included
         self.assertIn("model = PreprocessingModel(", code_snippet)
-        self.assertIn("model.fit(train_data)", code_snippet)
+        self.assertIn("features_specs=features", code_snippet)
 
     def test_analyze_feature_stats_with_empty_stats(self):
         """Test behavior when no feature statistics are provided."""
