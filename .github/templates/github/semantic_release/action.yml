@@ -61,7 +61,7 @@ runs:
     - name: "Setup Node"
       uses: actions/setup-node@v3
       with:
-        node-version: 16
+        node-version: 20
 
     - name: "Configure Git user"
       shell: bash
@@ -82,7 +82,7 @@ runs:
           @semantic-release/github \
           @semantic-release/git \
           @semantic-release/exec \
-          conventional-changelog-conventionalcommits@5.0.0
+          conventional-changelog-conventionalcommits@7.0.2
 
     - name: "Run Semantic Release"
       id: semantic-release
@@ -100,7 +100,7 @@ runs:
           @semantic-release/github
           @semantic-release/git
           @semantic-release/exec
-          conventional-changelog-conventionalcommits@5.0.0
+          conventional-changelog-conventionalcommits@7.0.2
 
     - name: "Export released version"
       id: export-released-version
