@@ -1,0 +1,64 @@
+name: "Manual PyPI Publish"
+
+on:
+  workflow_dispatch:
+    inputs:
+      RELEASE_VERSION:
+        required: true
+        type: string
+        description: "Release version to publish to PyPI"
+
+permissions:
+  contents: write
+
+jobs:
+  PYPI_PUBLISH:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry config virtualenvs.create false
+
+      - name: Install project dependencies
+        run: |
+          poetry install --all-extras --no-interaction
+
+      - name: Set version for publishing
+        run: |
+          echo "Setting package version to ${{ inputs.RELEASE_VERSION }}"
+          poetry version ${{ inputs.RELEASE_VERSION }}
+
+      - name: Build and publish to PyPI
+        id: publish_pypi
+        run: |
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+          poetry build
+          poetry publish
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}
+        continue-on-error: true
+
+      - name: Retry PyPI publish on failure
+        if: steps.publish_pypi.outcome == 'failure'
+        run: |
+          echo "First attempt failed, retrying..."
+          sleep 10
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+          poetry build
+          poetry publish
+        env:
+          POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_TOKEN }}

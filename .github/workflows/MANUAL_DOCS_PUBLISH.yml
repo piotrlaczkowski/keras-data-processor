@@ -1,0 +1,75 @@
+name: "Manual Documentation Publish"
+
+on:
+  workflow_dispatch:
+    inputs:
+      RELEASE_VERSION:
+        required: true
+        type: string
+        description: "Release version for documentation"
+      UPDATE_LATEST:
+        required: true
+        type: boolean
+        default: true
+        description: "Update the 'latest' alias to point to this version"
+
+permissions:
+  contents: write
+
+jobs:
+  UPDATE_DOCS:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry config virtualenvs.create false
+          poetry install --only doc --no-interaction
+
+      - name: Release documentation with mike
+        id: deploy_docs
+        run: |
+          echo "Deploying documentation for version ${{ inputs.RELEASE_VERSION }}"
+
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+          # Set up command based on whether to update latest alias
+          if [[ "${{ inputs.UPDATE_LATEST }}" == "true" ]]; then
+            echo "Updating 'latest' alias to point to version ${{ inputs.RELEASE_VERSION }}"
+            COMMAND="mike deploy --push --update-aliases ${{ inputs.RELEASE_VERSION }} latest"
+          else
+            echo "Not updating 'latest' alias"
+            COMMAND="mike deploy --push ${{ inputs.RELEASE_VERSION }}"
+          fi
+
+          # Execute the command
+          $COMMAND
+        continue-on-error: true
+
+      - name: Retry documentation release on failure
+        if: steps.deploy_docs.outcome == 'failure'
+        run: |
+          echo "First documentation deploy attempt failed, retrying..."
+          sleep 10
+          git pull --rebase
+
+          # Set up command based on whether to update latest alias
+          if [[ "${{ inputs.UPDATE_LATEST }}" == "true" ]]; then
+            mike deploy --push --update-aliases ${{ inputs.RELEASE_VERSION }} latest
+          else
+            mike deploy --push ${{ inputs.RELEASE_VERSION }}
+          fi
