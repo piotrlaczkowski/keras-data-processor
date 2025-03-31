@@ -1,10 +1,70 @@
 # 🛠️ Custom Preprocessing Pipelines
 
-> Create specialized preprocessing flows for your features
+<div class="feature-header">
+  <div class="feature-title">
+    <h2>Custom Preprocessing Pipelines</h2>
+    <p>Create specialized preprocessing flows for your features with complete control over transformations</p>
+  </div>
+</div>
 
-## 🌟 Overview
+## 📋 Overview
 
-KDP allows you to define custom preprocessing pipelines for your features, giving you complete control over how each feature is processed before being fed into your model. This is particularly useful when the standard preprocessing options don't meet your specific needs.
+<div class="overview-card">
+  <p>KDP allows you to define custom preprocessing pipelines for your features, giving you complete control over how each feature is processed before being fed into your model. This is particularly useful when the standard preprocessing options don't meet your specific needs.</p>
+</div>
+
+<div class="key-benefits">
+  <div class="benefit-card">
+    <span class="benefit-icon">🔍</span>
+    <h3>Specific Transformations</h3>
+    <p>Define custom preprocessing steps not covered by built-in options</p>
+  </div>
+  <div class="benefit-card">
+    <span class="benefit-icon">🔄</span>
+    <h3>Combined Techniques</h3>
+    <p>Combine multiple preprocessing techniques in a single pipeline</p>
+  </div>
+  <div class="benefit-card">
+    <span class="benefit-icon">🧪</span>
+    <h3>Domain-Specific</h3>
+    <p>Handle specialized data with custom preprocessing logic</p>
+  </div>
+  <div class="benefit-card">
+    <span class="benefit-icon">🔬</span>
+    <h3>Novel Approaches</h3>
+    <p>Experiment with new preprocessing methods</p>
+  </div>
+  <div class="benefit-card">
+    <span class="benefit-icon">🧩</span>
+    <h3>Legacy Integration</h3>
+    <p>Incorporate existing preprocessing logic</p>
+  </div>
+</div>
+
+## 🚀 Getting Started
+
+<div class="code-container">
+
+```python
+from kdp.features import NumericalFeature, FeatureType
+from tensorflow.keras.layers import Normalization, Dense, Activation
+
+# Create a feature with custom preprocessing steps
+log_transform_feature = NumericalFeature(
+    name="revenue",
+    feature_type=FeatureType.FLOAT_NORMALIZED,
+    preprocessors=[
+        "Lambda",  # Using a standard Keras layer by name
+        "Dense",   # Another standard layer
+        "ReLU"     # Activation function
+    ],
+    # Parameters for the layers
+    function=lambda x: tf.math.log1p(x),  # For Lambda layer
+    units=16,  # For Dense layer
+)
+```
+
+</div>
 
 ## 🤔 When to Use Custom Preprocessing
 

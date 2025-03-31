@@ -71,7 +71,6 @@ nav:
       - 📝 Auto-Documentation: contributing/development/auto-documentation.md
   - 📑 API Reference:
       - 🏭 Layers Factory: api/layers-factory.md
-      - 📚 Generated API: generated/api_index.md
 
 repo_name: Keras Data Preprocessor
 repo_url: https://github.com/piotrlaczkowski/keras-data-processor

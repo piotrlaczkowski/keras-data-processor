@@ -1,23 +1,66 @@
 # 🛠️ Feature Types Overview
 
-> ✨ KDP makes feature processing intuitive and powerful by transforming your raw data into the optimal format for machine learning.
+<div class="feature-overview-header">
+  <div class="overview-title">
+    <h2>Making Data ML-Ready</h2>
+    <p>KDP makes feature processing intuitive and powerful by transforming your raw data into the optimal format for machine learning.</p>
+  </div>
+</div>
 
 ## 💪 Feature Types at a Glance
 
-KDP supports six primary feature types, each with specialized processing:
-
-| Feature Type | What It's For | Processing Magic |
-|--------------|---------------|------------------|
-| 🔢 **Numerical** | Continuous values like age, income, scores | Normalization, scaling, embeddings, distribution analysis |
-| 🏷️ **Categorical** | Discrete values like occupation, product type | Embeddings, one-hot encoding, vocabulary management |
-| 📝 **Text** | Free-form text like reviews, descriptions | Tokenization, embeddings, sequence handling |
-| 📅 **Date** | Temporal data like signup dates, transactions | Component extraction, cyclical encoding, seasonality |
-| ➕ **Cross Features** | Feature interactions | Combined embeddings, interaction modeling |
-| 🔍 **Passthrough** | Pre-processed data, custom vectors | No modification, type casting only |
+<div class="features-overview-container">
+  <div class="table-container">
+    <table class="features-overview-table">
+      <thead>
+        <tr>
+          <th>Feature Type</th>
+          <th>What It's For</th>
+          <th>Processing Magic</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>🔢 <strong>Numerical</strong></td>
+          <td>Continuous values like age, income, scores</td>
+          <td>Normalization, scaling, embeddings, distribution analysis</td>
+        </tr>
+        <tr>
+          <td>🏷️ <strong>Categorical</strong></td>
+          <td>Discrete values like occupation, product type</td>
+          <td>Embeddings, one-hot encoding, vocabulary management</td>
+        </tr>
+        <tr>
+          <td>📝 <strong>Text</strong></td>
+          <td>Free-form text like reviews, descriptions</td>
+          <td>Tokenization, embeddings, sequence handling</td>
+        </tr>
+        <tr>
+          <td>📅 <strong>Date</strong></td>
+          <td>Temporal data like signup dates, transactions</td>
+          <td>Component extraction, cyclical encoding, seasonality</td>
+        </tr>
+        <tr>
+          <td>➕ <strong>Cross Features</strong></td>
+          <td>Feature interactions</td>
+          <td>Combined embeddings, interaction modeling</td>
+        </tr>
+        <tr>
+          <td>🔍 <strong>Passthrough</strong></td>
+          <td>Pre-processed data, custom vectors</td>
+          <td>No modification, type casting only</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
 
 ## 🚀 Getting Started
 
-The simplest way to define features is with the `FeatureType` enum:
+<div class="getting-started-container">
+  <p>The simplest way to define features is with the <code>FeatureType</code> enum:</p>
+
+  <div class="code-container">
 
 ```python
 from kdp import PreprocessingModel, FeatureType
@@ -48,29 +91,95 @@ preprocessor = PreprocessingModel(
 )
 ```
 
+  </div>
+</div>
+
 ## ⭐ Why Strong Feature Types Matter
 
-KDP's type system provides several advantages:
+<div class="benefits-grid">
+  <div class="benefit-card">
+    <span class="benefit-icon">🎯</span>
+    <h3>Optimized Processing</h3>
+    <p>Each feature type gets specialized handling for better ML performance</p>
+  </div>
 
-1. **🎯 Optimized Processing**: Each feature type gets specialized handling for better ML performance
-2. **🐛 Reduced Errors**: Catch type mismatches early in development, not during training
-3. **📝 Clearer Code**: Self-documenting feature definitions make your code more maintainable
-4. **⚡ Enhanced Performance**: Type-specific optimizations improve preprocessing speed
+  <div class="benefit-card">
+    <span class="benefit-icon">🐛</span>
+    <h3>Reduced Errors</h3>
+    <p>Catch type mismatches early in development, not during training</p>
+  </div>
+
+  <div class="benefit-card">
+    <span class="benefit-icon">📝</span>
+    <h3>Clearer Code</h3>
+    <p>Self-documenting feature definitions make your code more maintainable</p>
+  </div>
+
+  <div class="benefit-card">
+    <span class="benefit-icon">⚡</span>
+    <h3>Enhanced Performance</h3>
+    <p>Type-specific optimizations improve preprocessing speed</p>
+  </div>
+</div>
 
 ## 📚 Feature Type Documentation
 
-Learn about each feature type in detail:
+<div class="feature-types-grid">
+  <a href="numerical-features.md" class="feature-type-card">
+    <span class="feature-type-icon">🔢</span>
+    <div class="feature-type-content">
+      <h3>Numerical Features</h3>
+      <p>Handle continuous values with advanced normalization and distribution-aware processing</p>
+    </div>
+  </a>
 
-- [🔢 Numerical Features](numerical-features.md) - Handle continuous values
-- [🏷️ Categorical Features](categorical-features.md) - Process discrete categories
-- [📝 Text Features](text-features.md) - Work with free-form text
-- [📅 Date Features](date-features.md) - Extract temporal patterns
-- [➕ Cross Features](cross-features.md) - Model feature interactions
-- [🔍 Passthrough Features](passthrough-features.md) - Include unmodified data
+  <a href="categorical-features.md" class="feature-type-card">
+    <span class="feature-type-icon">🏷️</span>
+    <div class="feature-type-content">
+      <h3>Categorical Features</h3>
+      <p>Process discrete categories with smart embedding techniques and vocabulary management</p>
+    </div>
+  </a>
+
+  <a href="text-features.md" class="feature-type-card">
+    <span class="feature-type-icon">📝</span>
+    <div class="feature-type-content">
+      <h3>Text Features</h3>
+      <p>Work with free-form text using tokenization, embeddings, and sequence handling</p>
+    </div>
+  </a>
+
+  <a href="date-features.md" class="feature-type-card">
+    <span class="feature-type-icon">📅</span>
+    <div class="feature-type-content">
+      <h3>Date Features</h3>
+      <p>Extract temporal patterns from dates with component extraction and cyclical encoding</p>
+    </div>
+  </a>
+
+  <a href="cross-features.md" class="feature-type-card">
+    <span class="feature-type-icon">➕</span>
+    <div class="feature-type-content">
+      <h3>Cross Features</h3>
+      <p>Model feature interactions with combined embeddings and interaction modeling</p>
+    </div>
+  </a>
+
+  <a href="passthrough-features.md" class="feature-type-card">
+    <span class="feature-type-icon">🔍</span>
+    <div class="feature-type-content">
+      <h3>Passthrough Features</h3>
+      <p>Include unmodified data or pre-computed features directly in your model</p>
+    </div>
+  </a>
+</div>
 
 ## 👨‍💻 Advanced Feature Configuration
 
-For more control, use specialized feature classes:
+<div class="advanced-config-container">
+  <p>For more control, use specialized feature classes:</p>
+
+  <div class="code-container">
 
 ```python
 from kdp.features import NumericalFeature, CategoricalFeature, TextFeature, DateFeature, PassthroughFeature
@@ -119,84 +228,499 @@ features = {
 }
 ```
 
+  </div>
+</div>
+
 ## 💡 Pro Tips for Feature Definition
 
-1. **🔰 Start Simple**: Begin with basic `FeatureType` definitions
-2. **📈 Add Complexity Gradually**: Refactor to specialized feature classes when needed
-3. **🔄 Combine Approaches**: Mix distribution-aware, attention, embeddings for best results
-4. **📊 Check Distributions**: Review your data distribution before choosing feature types
-5. **🧪 Experiment with Types**: Sometimes a different encoding provides better results
-6. **⏩ Consider Passthrough**: Use passthrough features for pre-processed data or custom vectors
+<div class="pro-tips-grid">
+  <div class="pro-tip-card">
+    <span class="pro-tip-number">1</span>
+    <div class="pro-tip-content">
+      <h3>Start Simple</h3>
+      <p>Begin with basic <code>FeatureType</code> definitions</p>
+    </div>
+  </div>
+
+  <div class="pro-tip-card">
+    <span class="pro-tip-number">2</span>
+    <div class="pro-tip-content">
+      <h3>Add Complexity Gradually</h3>
+      <p>Refactor to specialized feature classes when needed</p>
+    </div>
+  </div>
+
+  <div class="pro-tip-card">
+    <span class="pro-tip-number">3</span>
+    <div class="pro-tip-content">
+      <h3>Combine Approaches</h3>
+      <p>Mix distribution-aware, attention, embeddings for best results</p>
+    </div>
+  </div>
+
+  <div class="pro-tip-card">
+    <span class="pro-tip-number">4</span>
+    <div class="pro-tip-content">
+      <h3>Check Distributions</h3>
+      <p>Review your data distribution before choosing feature types</p>
+    </div>
+  </div>
+
+  <div class="pro-tip-card">
+    <span class="pro-tip-number">5</span>
+    <div class="pro-tip-content">
+      <h3>Experiment with Types</h3>
+      <p>Sometimes a different encoding provides better results</p>
+    </div>
+  </div>
+
+  <div class="pro-tip-card">
+    <span class="pro-tip-number">6</span>
+    <div class="pro-tip-content">
+      <h3>Consider Passthrough</h3>
+      <p>Use passthrough features for pre-processed data or custom vectors</p>
+    </div>
+  </div>
+</div>
 
 ## 📊 Model Architecture Diagrams
 
-KDP creates optimized preprocessing architectures based on your feature definitions. Here are examples of different model configurations:
+<div class="architecture-container">
+  <p>KDP creates optimized preprocessing architectures based on your feature definitions. Here are examples of different model configurations:</p>
 
-### 🔄 Basic Feature Combinations
+  <div class="architecture-section">
+    <h3>🔄 Basic Feature Combinations</h3>
+    <p>When combining numerical and categorical features:</p>
+    <div class="architecture-image-container">
+      <img src="imgs/models/numeric_and_categorical.png" alt="Numeric and Categorical Features" class="architecture-image"/>
+    </div>
+  </div>
 
-When combining numerical and categorical features:
+  <div class="architecture-section">
+    <h3>🌟 All Feature Types Combined</h3>
+    <p>KDP can handle all feature types in a single model:</p>
+    <div class="architecture-image-container">
+      <img src="imgs/models/all_basic_types.png" alt="All Feature Types Combined" class="architecture-image"/>
+    </div>
+  </div>
 
-![Numeric and Categorical Features](imgs/models/numeric_and_categorical.png)
+  <div class="architecture-section">
+    <h3>🔋 Advanced Configurations</h3>
 
-### 🌟 All Feature Types Combined
+    <div class="advanced-architectures">
+      <div class="advanced-architecture-card">
+        <h4>✨ Tabular Attention</h4>
+        <p>Enhance feature interactions with tabular attention:</p>
+        <div class="architecture-image-container">
+          <img src="imgs/models/tabular_attention.png" alt="Tabular Attention" class="architecture-image"/>
+        </div>
+      </div>
 
-KDP can handle all feature types in a single model:
+      <div class="advanced-architecture-card">
+        <h4>🔄 Transformer Blocks</h4>
+        <p>Process categorical features with transformer blocks:</p>
+        <div class="architecture-image-container">
+          <img src="imgs/models/transformer_blocks.png" alt="Transformer Blocks" class="architecture-image"/>
+        </div>
+      </div>
 
-![All Feature Types Combined](imgs/models/all_basic_types.png)
+      <div class="advanced-architecture-card">
+        <h4>🧠 Feature MoE (Mixture of Experts)</h4>
+        <p>Specialized feature processing with Mixture of Experts:</p>
+        <div class="architecture-image-container">
+          <img src="imgs/models/feature_moe.png" alt="Feature MoE" class="architecture-image"/>
+        </div>
+      </div>
+    </div>
+  </div>
 
-### 🔋 Advanced Configurations
+  <div class="architecture-section">
+    <h3>📤 Output Modes</h3>
+    <p>KDP supports different output modes for your preprocessed features:</p>
 
-#### ✨ Tabular Attention
+    <div class="output-modes">
+      <div class="output-mode-card">
+        <h4>🔗 Concatenated Output</h4>
+        <div class="architecture-image-container">
+          <img src="imgs/models/output_mode_concat.png" alt="Concat Output Mode" class="architecture-image"/>
+        </div>
+      </div>
 
-Enhance feature interactions with tabular attention:
-
-![Tabular Attention](imgs/models/tabular_attention.png)
-
-#### 🔄 Transformer Blocks
-
-Process categorical features with transformer blocks:
-
-![Transformer Blocks](imgs/models/transformer_blocks.png)
-
-#### 🧠 Feature MoE (Mixture of Experts)
-
-Specialized feature processing with Mixture of Experts:
-
-![Feature MoE](imgs/models/feature_moe.png)
-
-#### 📤 Output Modes
-
-KDP supports different output modes for your preprocessed features:
-
-**🔗 Concatenated Output:**
-
-![Concat Output Mode](imgs/models/output_mode_concat.png)
-
-**📦 Dictionary Output:**
-
-![Dict Output Mode](imgs/models/output_mode_dict.png)
+      <div class="output-mode-card">
+        <h4>📦 Dictionary Output</h4>
+        <div class="architecture-image-container">
+          <img src="imgs/models/output_mode_dict.png" alt="Dict Output Mode" class="architecture-image"/>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 ---
 
-<div class="prev-next">
-  <a href="../getting-started/architecture.md" class="prev">← Architecture</a>
-  <a href="numerical-features.md" class="next">Numerical Features →</a>
+<div class="nav-container">
+  <a href="../getting-started/architecture.md" class="nav-button prev">
+    <span class="nav-icon">←</span>
+    <span class="nav-text">Architecture</span>
+  </a>
+  <a href="numerical-features.md" class="nav-button next">
+    <span class="nav-text">Numerical Features</span>
+    <span class="nav-icon">→</span>
+  </a>
 </div>
 
 <style>
-.prev-next {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 40px;
+/* Base styling */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  margin: 0;
+  padding: 0;
 }
-.prev-next a {
-  padding: 10px 15px;
-  background-color: #f1f1f1;
-  border-radius: 5px;
+
+/* Feature overview header */
+.feature-overview-header {
+  background: linear-gradient(135deg, #4a86e8 0%, #7dabf5 100%);
+  border-radius: 10px;
+  padding: 30px;
+  margin: 30px 0;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  color: white;
+}
+
+.overview-title h2 {
+  margin-top: 0;
+  font-size: 28px;
+}
+
+.overview-title p {
+  font-size: 18px;
+  margin-bottom: 0;
+  opacity: 0.9;
+}
+
+/* Features overview container */
+.features-overview-container {
+  margin: 30px 0;
+}
+
+/* Table styling */
+.table-container {
+  margin: 20px 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.features-overview-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.features-overview-table th {
+  background-color: #f0f7ff;
+  padding: 15px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #4a86e8;
+}
+
+.features-overview-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eaecef;
+}
+
+.features-overview-table tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.features-overview-table tr:hover {
+  background-color: #f0f7ff;
+}
+
+/* Getting started container */
+.getting-started-container {
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 30px 0;
+  border-left: 4px solid #4a86e8;
+}
+
+/* Code containers */
+.code-container {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  margin: 20px 0;
+}
+
+.code-container pre {
+  margin: 0;
+  padding: 20px;
+}
+
+/* Benefits grid */
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.benefit-card {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.benefit-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.benefit-icon {
+  font-size: 2.5em;
+  margin-bottom: 15px;
+}
+
+.benefit-card h3 {
+  margin: 0 0 10px 0;
+  color: #4a86e8;
+}
+
+.benefit-card p {
+  margin: 0;
+}
+
+/* Feature types grid */
+.feature-types-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.feature-type-card {
+  display: flex;
+  align-items: flex-start;
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   text-decoration: none;
   color: #333;
 }
-.prev-next a:hover {
-  background-color: #ddd;
+
+.feature-type-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.feature-type-icon {
+  font-size: 2.5em;
+  margin-right: 15px;
+}
+
+.feature-type-content {
+  flex: 1;
+}
+
+.feature-type-content h3 {
+  margin: 0 0 10px 0;
+  color: #4a86e8;
+}
+
+.feature-type-content p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Advanced config container */
+.advanced-config-container {
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 30px 0;
+  border-left: 4px solid #4a86e8;
+}
+
+/* Pro tips */
+.pro-tips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.pro-tip-card {
+  display: flex;
+  align-items: flex-start;
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.pro-tip-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.pro-tip-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background-color: #4a86e8;
+  color: white;
+  border-radius: 50%;
+  margin-right: 15px;
+  font-weight: bold;
+}
+
+.pro-tip-content {
+  flex: 1;
+}
+
+.pro-tip-content h3 {
+  margin: 0 0 5px 0;
+  color: #4a86e8;
+}
+
+.pro-tip-content p {
+  margin: 0;
+}
+
+/* Architecture container */
+.architecture-container {
+  margin: 30px 0;
+}
+
+.architecture-section {
+  margin: 30px 0;
+}
+
+.architecture-section h3 {
+  color: #4a86e8;
+  border-bottom: 1px solid #eaecef;
+  padding-bottom: 10px;
+}
+
+.architecture-image-container {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.architecture-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+}
+
+.architecture-image:hover {
+  transform: scale(1.02);
+}
+
+.advanced-architectures, .output-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+  margin: 20px 0;
+}
+
+.advanced-architecture-card, .output-mode-card {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.advanced-architecture-card h4, .output-mode-card h4 {
+  color: #4a86e8;
+  margin-top: 0;
+}
+
+/* Navigation */
+.nav-container {
+  display: flex;
+  justify-content: space-between;
+  margin: 40px 0;
+}
+
+.nav-button {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #333;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.nav-button:hover {
+  background-color: #f0f7ff;
+  transform: translateY(-2px);
+}
+
+.nav-button.prev {
+  padding-left: 10px;
+}
+
+.nav-button.next {
+  padding-right: 10px;
+}
+
+.nav-icon {
+  font-size: 1.2em;
+  margin: 0 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .benefits-grid,
+  .feature-types-grid,
+  .pro-tips-grid,
+  .advanced-architectures,
+  .output-modes {
+    grid-template-columns: 1fr;
+  }
+
+  .feature-type-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .feature-type-icon {
+    margin-right: 0;
+    margin-bottom: 15px;
+  }
+
+  .pro-tip-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .pro-tip-number {
+    margin-right: 0;
+    margin-bottom: 15px;
+  }
 }
 </style>

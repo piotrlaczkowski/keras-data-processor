@@ -102,7 +102,7 @@ You can visualize the model architecture to understand how the features are proc
 ppr.plot_model("numerical_example_model.png")
 ```
 
-![Complex Model](imgs/numerical_example_model.png)
+![Complex Model](imgs/complex_example.png)
 
 
 ## Example 2: Categorical features
@@ -193,7 +193,7 @@ You can visualize the model architecture:
 ppr.plot_model("categorical_example_model.png")
 ```
 
-![Categorical Model](imgs/categorical_example_model.png)
+![Categorical Model](imgs/attention_example_categorical.png)
 
 
 ## Example 3: Multi-feature model

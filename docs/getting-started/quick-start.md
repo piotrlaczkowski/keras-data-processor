@@ -1,10 +1,21 @@
 # 🚀 Quick Start Guide: KDP in 5 Minutes
 
-> Get your tabular data ML-ready in record time! This guide will have you transforming raw data into powerful features before your coffee gets cold.
+<div class="intro-container">
+  <div class="intro-content">
+    <h2>Get your tabular data ML-ready in record time!</h2>
+    <p>This guide will have you transforming raw data into powerful features before your coffee gets cold.</p>
+  </div>
+</div>
 
 ## 🏁 The KDP Experience in 3 Steps
 
-### Step 1: Define Your Features
+<div class="steps-container">
+  <div class="step-card">
+    <div class="step-header">
+      <span class="step-number">1</span>
+      <h3>Define Your Features</h3>
+    </div>
+    <div class="code-container">
 
 ```python
 from kdp import PreprocessingModel, FeatureType
@@ -25,7 +36,15 @@ features = {
 }
 ```
 
-### Step 2: Build Your Processor
+    </div>
+  </div>
+
+  <div class="step-card">
+    <div class="step-header">
+      <span class="step-number">2</span>
+      <h3>Build Your Processor</h3>
+    </div>
+    <div class="code-container">
 
 ```python
 # Create with smart defaults - one line setup
@@ -40,7 +59,15 @@ result = preprocessor.build_preprocessor()
 model = result["model"]                # This is your transformer!
 ```
 
-### Step 3: Process Your Data
+    </div>
+  </div>
+
+  <div class="step-card">
+    <div class="step-header">
+      <span class="step-number">3</span>
+      <h3>Process Your Data</h3>
+    </div>
+    <div class="code-container">
 
 ```python
 # Your data can be a dict, DataFrame, or tensors
@@ -59,9 +86,17 @@ processed_features = model(new_customer_data)
 # That's it! Your data is now ready for modeling
 ```
 
-## 🔥 Power Features (Optional)
+    </div>
+  </div>
+</div>
 
-Take your preprocessing to the next level with these one-liners:
+## 🔥 Power Features
+
+<div class="feature-showcase">
+  <div class="feature-header">
+    <h3>Take your preprocessing to the next level with these one-liners:</h3>
+  </div>
+  <div class="code-container">
 
 ```python
 # Create a more advanced preprocessor
@@ -81,9 +116,18 @@ preprocessor = PreprocessingModel(
 )
 ```
 
+  </div>
+</div>
+
 ## 💼 Real-World Examples
 
-### Customer Churn Prediction
+<div class="examples-container">
+  <div class="example-card">
+    <div class="example-header">
+      <span class="example-icon">👥</span>
+      <h3>Customer Churn Prediction</h3>
+    </div>
+    <div class="code-container">
 
 ```python
 # Perfect setup for churn prediction
@@ -103,7 +147,15 @@ preprocessor = PreprocessingModel(
 )
 ```
 
-### Financial Time Series
+    </div>
+  </div>
+
+  <div class="example-card">
+    <div class="example-header">
+      <span class="example-icon">📈</span>
+      <h3>Financial Time Series</h3>
+    </div>
+    <div class="code-container">
 
 ```python
 # Setup for financial forecasting
@@ -123,7 +175,14 @@ preprocessor = PreprocessingModel(
 )
 ```
 
+    </div>
+  </div>
+</div>
+
 ## 📱 Production Integration
+
+<div class="integration-container">
+  <div class="code-container">
 
 ```python
 # Save your preprocessor after building
@@ -143,79 +202,421 @@ features = preprocessor(new_customer)
 prediction = my_model(features)
 ```
 
+  </div>
+</div>
+
 ## 💡 Pro Tips
 
-1. **Start Simple First**
-   ```python
-   # Begin with basic configuration
-   basic = PreprocessingModel(features_specs=features)
+<div class="tips-container">
+  <div class="tip-card">
+    <div class="tip-header">
+      <span class="tip-number">1</span>
+      <h3>Start Simple First</h3>
+    </div>
+    <div class="code-container">
 
-   # Then add advanced features as needed
-   advanced = PreprocessingModel(
-       features_specs=features,
-       use_distribution_aware=True,
-       tabular_attention=True
-   )
-   ```
+```python
+# Begin with basic configuration
+basic = PreprocessingModel(features_specs=features)
 
-2. **Handle Big Data Efficiently**
-   ```python
-   # For large datasets
-   preprocessor = PreprocessingModel(
-       features_specs=features,
-       enable_caching=True,        # Speed up repeated processing
-       batch_size=10000            # Process in manageable chunks
-   )
-   ```
+# Then add advanced features as needed
+advanced = PreprocessingModel(
+    features_specs=features,
+    use_distribution_aware=True,
+    tabular_attention=True
+)
+```
 
-3. **Get Feature Importance**
-   ```python
-   # First enable feature selection when creating the model
-   preprocessor = PreprocessingModel(
-       features_specs=features,
-       feature_selection_placement="all_features",  # Required for feature importance
-       feature_selection_units=32
-   )
+    </div>
+  </div>
 
-   # Build the preprocessor
-   preprocessor.build_preprocessor()
+  <div class="tip-card">
+    <div class="tip-header">
+      <span class="tip-number">2</span>
+      <h3>Handle Big Data Efficiently</h3>
+    </div>
+    <div class="code-container">
 
-   # After building, you can get feature importances
-   importances = preprocessor.get_feature_importances()
-   print("Most important features:", sorted(
-       importances.items(), key=lambda x: x[1], reverse=True
-   )[:3])
-   ```
+```python
+# For large datasets
+preprocessor = PreprocessingModel(
+    features_specs=features,
+    enable_caching=True,        # Speed up repeated processing
+    batch_size=10000            # Process in manageable chunks
+)
+```
+
+    </div>
+  </div>
+
+  <div class="tip-card">
+    <div class="tip-header">
+      <span class="tip-number">3</span>
+      <h3>Get Feature Importance</h3>
+    </div>
+    <div class="code-container">
+
+```python
+# First enable feature selection when creating the model
+preprocessor = PreprocessingModel(
+    features_specs=features,
+    feature_selection_placement="all_features",  # Required for feature importance
+    feature_selection_units=32
+)
+
+# Build the preprocessor
+preprocessor.build_preprocessor()
+
+# After building, you can get feature importances
+importances = preprocessor.get_feature_importances()
+print("Most important features:", sorted(
+    importances.items(), key=lambda x: x[1], reverse=True
+)[:3])
+```
+
+    </div>
+  </div>
+</div>
 
 ## 🔗 Where to Next?
 
-- [🔍 Feature Processing Guide](../features/overview.md) - Deep dive into feature types
-- [📊 Distribution-Aware Encoding](../advanced/distribution-aware-encoding.md) - Smart numerical handling
-- [🧠 Advanced Numerical Embeddings](../advanced/numerical-embeddings.md) - Neural representations
-- [👁️ Tabular Attention](../advanced/tabular-attention.md) - Model feature relationships
-- [🛠️ Complex Examples](../examples/complex-examples.md) - Complete real-world scenarios
+<div class="next-steps-container">
+  <a href="../features/overview.md" class="next-step-card">
+    <span class="next-step-icon">🔍</span>
+    <div class="next-step-content">
+      <h3>Feature Processing Guide</h3>
+      <p>Deep dive into feature types</p>
+    </div>
+  </a>
+  <a href="../advanced/distribution-aware-encoding.md" class="next-step-card">
+    <span class="next-step-icon">📊</span>
+    <div class="next-step-content">
+      <h3>Distribution-Aware Encoding</h3>
+      <p>Smart numerical handling</p>
+    </div>
+  </a>
+  <a href="../advanced/numerical-embeddings.md" class="next-step-card">
+    <span class="next-step-icon">🧠</span>
+    <div class="next-step-content">
+      <h3>Advanced Numerical Embeddings</h3>
+      <p>Neural representations</p>
+    </div>
+  </a>
+  <a href="../advanced/tabular-attention.md" class="next-step-card">
+    <span class="next-step-icon">👁️</span>
+    <div class="next-step-content">
+      <h3>Tabular Attention</h3>
+      <p>Model feature relationships</p>
+    </div>
+  </a>
+  <a href="../examples/complex-examples.md" class="next-step-card">
+    <span class="next-step-icon">🛠️</span>
+    <div class="next-step-content">
+      <h3>Complex Examples</h3>
+      <p>Complete real-world scenarios</p>
+    </div>
+  </a>
+</div>
 
 ---
 
-<div class="prev-next">
-  <a href="installation.md" class="prev">← Installation</a>
-  <a href="architecture.md" class="next">Architecture Overview →</a>
+<div class="nav-container">
+  <a href="installation.md" class="nav-button prev">
+    <span class="nav-icon">←</span>
+    <span class="nav-text">Installation</span>
+  </a>
+  <a href="architecture.md" class="nav-button next">
+    <span class="nav-text">Architecture Overview</span>
+    <span class="nav-icon">→</span>
+  </a>
 </div>
 
 <style>
-.prev-next {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 40px;
+/* Base styling */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  margin: 0;
+  padding: 0;
 }
-.prev-next a {
-  padding: 10px 15px;
-  background-color: #f1f1f1;
-  border-radius: 5px;
-  text-decoration: none;
+
+/* Intro section */
+.intro-container {
+  background: linear-gradient(135deg, #f0f7ff 0%, #e9ecef 100%);
+  border-radius: 10px;
+  padding: 30px;
+  margin: 30px 0;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+
+.intro-content h2 {
+  margin-top: 0;
+  color: #4a86e8;
+}
+
+/* Step cards */
+.steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  margin: 30px 0;
+}
+
+.step-card {
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.step-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e9ecef 100%);
+  border-bottom: 1px solid #e9ecef;
+}
+
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background-color: #4a86e8;
+  color: white;
+  border-radius: 50%;
+  margin-right: 15px;
+  font-weight: bold;
+}
+
+.step-header h3 {
+  margin: 0;
   color: #333;
 }
-.prev-next a:hover {
-  background-color: #ddd;
+
+/* Code containers */
+.code-container {
+  padding: 0;
+  background-color: #f8f9fa;
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+}
+
+.code-container pre {
+  margin: 0;
+  padding: 20px;
+}
+
+/* Feature showcase */
+.feature-showcase {
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  margin: 30px 0;
+}
+
+.feature-header {
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e9ecef 100%);
+  border-bottom: 1px solid #e9ecef;
+}
+
+.feature-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+/* Example cards */
+.examples-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.example-card {
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.example-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.example-header {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e9ecef 100%);
+  border-bottom: 1px solid #e9ecef;
+}
+
+.example-icon {
+  font-size: 1.5em;
+  margin-right: 15px;
+}
+
+.example-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+/* Integration section */
+.integration-container {
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  margin: 30px 0;
+}
+
+/* Pro tips */
+.tips-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.tip-card {
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.tip-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.tip-header {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e9ecef 100%);
+  border-bottom: 1px solid #e9ecef;
+}
+
+.tip-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background-color: #4CAF50;
+  color: white;
+  border-radius: 50%;
+  margin-right: 15px;
+  font-weight: bold;
+}
+
+.tip-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+/* Next steps */
+.next-steps-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.next-step-card {
+  display: flex;
+  align-items: center;
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 15px 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  text-decoration: none;
+  color: #333;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.next-step-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+  background-color: #f0f7ff;
+}
+
+.next-step-icon {
+  font-size: 1.5em;
+  margin-right: 15px;
+}
+
+.next-step-content h3 {
+  margin: 0 0 5px 0;
+  color: #4a86e8;
+}
+
+.next-step-content p {
+  margin: 0;
+  font-size: 14px;
+  color: #555;
+}
+
+/* Navigation */
+.nav-container {
+  display: flex;
+  justify-content: space-between;
+  margin: 40px 0;
+}
+
+.nav-button {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #333;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+.nav-button:hover {
+  background-color: #f0f7ff;
+  transform: translateY(-2px);
+}
+
+.nav-button.prev {
+  padding-left: 10px;
+}
+
+.nav-button.next {
+  padding-right: 10px;
+}
+
+.nav-icon {
+  font-size: 1.2em;
+  margin: 0 8px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .examples-container {
+    grid-template-columns: 1fr;
+  }
+
+  .next-steps-container {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

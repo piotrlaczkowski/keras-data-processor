@@ -1,27 +1,49 @@
 # 👁️ Tabular Attention
 
-> Discover hidden relationships in your data with sophisticated attention mechanisms.
+<div class="feature-header">
+  <div class="feature-title">
+    <h2>Tabular Attention</h2>
+    <p>Discover hidden relationships in your data with sophisticated attention mechanisms</p>
+  </div>
+</div>
 
 ## 📋 Overview
 
-**Tabular Attention** is a powerful feature in KDP that enables your models to automatically discover complex interactions between features in tabular data. Based on attention mechanisms from transformers, it helps your models focus on the most important feature relationships without explicit feature engineering.
+<div class="overview-card">
+  <p>Tabular Attention is a powerful feature in KDP that enables your models to automatically discover complex interactions between features in tabular data. Based on attention mechanisms from transformers, it helps your models focus on the most important feature relationships without explicit feature engineering.</p>
+</div>
 
-KDP offers two types of tabular attention:
-
-1. **Standard Tabular Attention**: Processes all features together with a uniform attention mechanism
-2. **Multi-Resolution Attention**: Uses specialized attention for numerical and categorical features, with cross-attention between them
-
-### ✨ Key Benefits
-
-- **Automatic Interaction Discovery**: Finds complex feature relationships without manual feature engineering
-- **Context-Aware Processing**: Each feature is processed in the context of other features
-- **Improved Model Performance**: Often leads to better predictions through better feature understanding
-- **Flexible Integration**: Works seamlessly with other KDP processing techniques
-- **Hierarchical Learning**: Captures both low-level and high-level patterns in your data
+<div class="key-benefits">
+  <div class="benefit-card">
+    <span class="benefit-icon">🔍</span>
+    <h3>Automatic Interaction Discovery</h3>
+    <p>Finds complex feature relationships without manual engineering</p>
+  </div>
+  <div class="benefit-card">
+    <span class="benefit-icon">🎯</span>
+    <h3>Context-Aware Processing</h3>
+    <p>Each feature is processed in the context of other features</p>
+  </div>
+  <div class="benefit-card">
+    <span class="benefit-icon">📈</span>
+    <h3>Improved Performance</h3>
+    <p>Better predictions through enhanced feature understanding</p>
+  </div>
+  <div class="benefit-card">
+    <span class="benefit-icon">🔄</span>
+    <h3>Flexible Integration</h3>
+    <p>Works seamlessly with other KDP processing techniques</p>
+  </div>
+  <div class="benefit-card">
+    <span class="benefit-icon">📊</span>
+    <h3>Hierarchical Learning</h3>
+    <p>Captures both low-level and high-level patterns</p>
+  </div>
+</div>
 
 ## 🚀 Getting Started
 
-### Basic Usage
+<div class="code-container">
 
 ```python
 from kdp import PreprocessingModel, FeatureType
@@ -45,110 +67,56 @@ preprocessor = PreprocessingModel(
 )
 ```
 
-### Advanced Configuration with Multi-Resolution Attention
-
-```python
-from kdp import PreprocessingModel, FeatureType
-from kdp.enums import TabularAttentionPlacementOptions
-
-# Define features with specific types
-features_specs = {
-    "age": FeatureType.FLOAT_NORMALIZED,
-    "income": FeatureType.FLOAT_RESCALED,
-    "occupation": FeatureType.STRING_CATEGORICAL,
-    "education": FeatureType.INTEGER_CATEGORICAL,
-    "experience": FeatureType.FLOAT_NORMALIZED,
-    "location": FeatureType.STRING_CATEGORICAL
-}
-
-# Initialize model with multi-resolution attention
-preprocessor = PreprocessingModel(
-    path_data="data/my_data.csv",
-    features_specs=features_specs,
-    tabular_attention=True,
-    tabular_attention_heads=4,
-    tabular_attention_dim=64,
-    tabular_attention_dropout=0.1,
-    tabular_attention_embedding_dim=32,    # Dimension for categorical embeddings
-    tabular_attention_placement=TabularAttentionPlacementOptions.MULTI_RESOLUTION.value
-)
-```
+</div>
 
 ## 🧠 How It Works
 
+<div class="architecture-diagram">
+  <img src="imgs/tabular_attention.png" alt="Tabular Attention Architecture" class="architecture-image">
+  <div class="diagram-caption">
+    <p>KDP's tabular attention mechanism transforms features through a multi-head attention mechanism, allowing the model to learn complex patterns across features.</p>
+  </div>
+</div>
+
 ### Standard Tabular Attention
 
-The `TabularAttention` layer processes tabular data through:
-
-1. **Inter-Feature Attention**: Features attend to each other within each sample
-   - Captures dependencies between different features
-   - Learns which features are relevant to each other
-
-2. **Inter-Sample Attention**: Samples attend to each other for each feature
-   - Captures patterns across different samples
-   - Helps with understanding global context
-
-3. **Feed-Forward Networks**: Process attended features further
-   - Apply non-linear transformations
-   - Enhance representational capacity
-
-```
-                          Input Data
-                              │
-                  ┌───────────┴───────────┐
-                  ▼                       ▼
-         Feature Attention           Sample Attention
-         (across columns)             (across rows)
-                  │                       │
-                  └───────────┬───────────┘
-                              ▼
-                        Feed-Forward
-                              │
-                              ▼
-                        Layer Norm
-                              │
-                              ▼
-                          Output
-```
+<div class="process-steps">
+  <div class="process-step">
+    <span class="step-number">1</span>
+    <h3>Inter-Feature Attention</h3>
+    <p>Features attend to each other within each sample, capturing dependencies between different features.</p>
+  </div>
+  <div class="process-step">
+    <span class="step-number">2</span>
+    <h3>Inter-Sample Attention</h3>
+    <p>Samples attend to each other for each feature, capturing patterns across different samples.</p>
+  </div>
+  <div class="process-step">
+    <span class="step-number">3</span>
+    <h3>Feed-Forward Networks</h3>
+    <p>Process attended features further with non-linear transformations.</p>
+  </div>
+</div>
 
 ### Multi-Resolution Tabular Attention
 
-The `MultiResolutionTabularAttention` layer:
-
-1. **Specialized Processing**:
-   - **Numerical Features**: Processed through numerical-specific attention
-   - **Categorical Features**: Processed through categorical-specific attention
-
-2. **Cross-Attention**:
-   - Enables numerical features to attend to categorical features
-   - Captures interactions between different feature types
-
-3. **Type-Specific Projections**:
-   - Each feature type gets custom embedding dimensions
-   - Ensures optimal representation of each data type
-
-```
-       Numerical Features        Categorical Features
-              │                         │
-              ▼                         ▼
-     Numerical Projection       Categorical Projection
-              │                         │
-              ▼                         ▼
-     Numerical Attention        Categorical Attention
-              │                         │
-              ▼                         ▼
-    Numerical Feed-Forward     Categorical Feed-Forward
-              │                         │
-              ▼                         ▼
-              │                         │
-              └──────────┬──────────────┘
-                         │
-                         ▼
-                  Cross-Attention
-                         │
-                         ▼
-                     Outputs
-```
+<div class="process-steps">
+  <div class="process-step">
+    <span class="step-number">1</span>
+    <h3>Specialized Processing</h3>
+    <p>Numerical and categorical features processed through type-specific attention mechanisms.</p>
+  </div>
+  <div class="process-step">
+    <span class="step-number">2</span>
+    <h3>Cross-Attention</h3>
+    <p>Enables features to attend across different types, capturing complex interactions.</p>
+  </div>
+  <div class="process-step">
+    <span class="step-number">3</span>
+    <h3>Type-Specific Projections</h3>
+    <p>Each feature type gets custom embedding dimensions for optimal representation.</p>
+  </div>
+</div>
 
 ## 📊 Model Architecture
 
@@ -289,59 +257,335 @@ preprocessor = PreprocessingModel(
 
 ## 💡 Pro Tips
 
-1. **Head Count Selection**
-   - Start with 4 heads for most problems
-   - Increase for complex feature interactions
-   - Too many heads can lead to overfitting
+<div class="pro-tips-grid">
+  <div class="pro-tip-card">
+    <h3>Head Count Selection</h3>
+    <p>Start with 4 heads for most problems, increase for complex feature interactions, but beware of overfitting with too many heads.</p>
+  </div>
 
-2. **Dimension Tuning**
-   - Dimension should be divisible by number of heads
-   - Larger dimensions capture more complex patterns
-   - Balance with dataset size to avoid overfitting
+  <div class="pro-tip-card">
+    <h3>Dimension Tuning</h3>
+    <p>Choose dimensions divisible by number of heads, larger for complex patterns, but balance with dataset size to avoid overfitting.</p>
+  </div>
 
-3. **Placement Strategy**
-   - Use `ALL_FEATURES` for initial experimentation
-   - Try `MULTI_RESOLUTION` when you have mixed data types
-   - Experiment with `NUMERIC` or `CATEGORICAL` for targeted focus
-
-4. **Combining with Other Features**
-   - Pairs well with numerical embeddings for complex numerical data
-   - Works effectively with distribution-aware encoding
-   - Can enhance transformer blocks performance
-
-5. **Dropout Adjustment**
-   - Increase dropout (0.2-0.3) for small datasets
-   - Use moderate dropout (0.1-0.2) for medium datasets
-   - Reduce dropout (<0.1) for very large datasets
+  <div class="pro-tip-card">
+    <h3>Placement Strategy</h3>
+    <p>Use ALL_FEATURES for initial experimentation, MULTI_RESOLUTION for mixed data types, and NUMERIC/CATEGORICAL for targeted focus.</p>
+  </div>
+</div>
 
 ## 🔗 Related Topics
 
-- [Distribution-Aware Encoding](distribution-aware-encoding.md)
-- [Advanced Numerical Embeddings](numerical-embeddings.md)
-- [Transformer Blocks](transformer-blocks.md)
-- [Feature Selection](../feature-selection.md)
-
----
-
-<div class="prev-next">
-  <a href="numerical-embeddings.md" class="prev">← Advanced Numerical Embeddings</a>
-  <a href="transformer-blocks.md" class="next">Transformer Blocks →</a>
+<div class="related-topics">
+  <a href="distribution-aware-encoding.md" class="topic-link">
+    <span class="topic-icon">🔄</span>
+    <span class="topic-text">Distribution-Aware Encoding</span>
+  </a>
+  <a href="numerical-embeddings.md" class="topic-link">
+    <span class="topic-icon">🧮</span>
+    <span class="topic-text">Advanced Numerical Embeddings</span>
+  </a>
+  <a href="transformer-blocks.md" class="topic-link">
+    <span class="topic-icon">⚡</span>
+    <span class="topic-text">Transformer Blocks</span>
+  </a>
+  <a href="feature-selection.md" class="topic-link">
+    <span class="topic-icon">🎯</span>
+    <span class="topic-text">Feature Selection</span>
+  </a>
 </div>
 
 <style>
-.prev-next {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 40px;
+/* Base styling */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+  margin: 0;
+  padding: 0;
 }
-.prev-next a {
-  padding: 10px 15px;
-  background-color: #f1f1f1;
+
+/* Feature header */
+.feature-header {
+  background: linear-gradient(135deg, #2196f3 0%, #64b5f6 100%);
+  border-radius: 10px;
+  padding: 30px;
+  margin: 30px 0;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  color: white;
+}
+
+.feature-title h2 {
+  margin-top: 0;
+  font-size: 28px;
+}
+
+.feature-title p {
+  font-size: 18px;
+  margin-bottom: 0;
+  opacity: 0.9;
+}
+
+/* Overview card */
+.overview-card {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px 25px;
+  margin: 20px 0;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  border-left: 4px solid #2196f3;
+}
+
+.overview-card p {
+  margin: 0;
+  font-size: 16px;
+}
+
+/* Key benefits */
+.key-benefits {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.benefit-card {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.benefit-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.benefit-icon {
+  font-size: 2.5em;
+  margin-bottom: 15px;
+}
+
+.benefit-card h3 {
+  margin: 0 0 10px 0;
+  color: #2196f3;
+}
+
+.benefit-card p {
+  margin: 0;
+}
+
+/* Process steps */
+.process-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.process-step {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+}
+
+.process-step:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background-color: #2196f3;
+  color: white;
+  border-radius: 50%;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+.process-step h3 {
+  margin: 0 0 10px 0;
+  color: #2196f3;
+}
+
+.process-step p {
+  margin: 0;
+}
+
+/* Code containers */
+.code-container {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  margin: 20px 0;
+}
+
+.code-container pre {
+  margin: 0;
+  padding: 20px;
+}
+
+/* Architecture diagram */
+.architecture-diagram {
+  background-color: white;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 30px 0;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  text-align: center;
+}
+
+.architecture-image {
+  max-width: 100%;
   border-radius: 5px;
+}
+
+.diagram-caption {
+  margin-top: 20px;
+  text-align: center;
+  font-style: italic;
+}
+
+/* Tables */
+.table-container {
+  margin: 30px 0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+}
+
+.config-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.config-table th {
+  background-color: #e3f2fd;
+  padding: 15px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #2196f3;
+}
+
+.config-table td {
+  padding: 12px 15px;
+  border-bottom: 1px solid #eaecef;
+}
+
+.config-table tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.config-table tr:hover {
+  background-color: #e3f2fd;
+}
+
+/* Pro tips */
+.pro-tips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.pro-tip-card {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.pro-tip-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.pro-tip-card h3 {
+  margin-top: 0;
+  color: #2196f3;
+}
+
+/* Examples */
+.examples-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.example-card {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.example-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.example-card h3 {
+  margin-top: 0;
+  color: #2196f3;
+}
+
+/* Related topics */
+.related-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin: 30px 0;
+}
+
+.topic-link {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #e3f2fd;
+  border-radius: 8px;
   text-decoration: none;
   color: #333;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  transition: background-color 0.3s ease, transform 0.3s ease;
 }
-.prev-next a:hover {
-  background-color: #ddd;
+
+.topic-link:hover {
+  background-color: #bbdefb;
+  transform: translateY(-2px);
+}
+
+.topic-icon {
+  font-size: 1.2em;
+  margin-right: 10px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .key-benefits,
+  .process-steps,
+  .pro-tips-grid,
+  .examples-container {
+    grid-template-columns: 1fr;
+  }
+
+  .related-topics {
+    flex-direction: column;
+  }
 }
 </style>
