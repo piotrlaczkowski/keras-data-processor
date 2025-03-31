@@ -689,6 +689,88 @@ KDP offers multiple approaches to custom preprocessing, from simple layer additi
 5. 📝 **Document Your Approach**: Document why custom preprocessing was necessary
 6. 🔁 **Ensure Reproducibility**: Make sure custom preprocessing is deterministic
 
+## 🤖 Auto-Configuration Script
+
+KDP provides an auto-configuration script that analyzes your dataset and recommends optimal preprocessing configurations. This tool can help you get started quickly by automatically detecting feature types and suggesting appropriate preprocessing steps.
+
+### 🚀 Basic Usage
+
+```python
+from kdp import auto_configure
+
+# Analyze your dataset and get recommendations
+config = auto_configure(
+    data_path="your_data.csv",
+    batch_size=50000,
+    save_stats=True
+)
+
+# Review the recommendations
+print(config["recommendations"])  # Feature-specific recommendations
+print(config["code_snippet"])     # Ready-to-use code
+```
+
+### 📊 What It Analyzes
+
+The auto-configuration script examines:
+
+- 🔍 **Data Distributions**: Identifies patterns in numerical data
+- 📈 **Feature Statistics**: Calculates mean, variance, skewness, etc.
+- 🎯 **Value Ranges**: Detects min/max values and outliers
+- 🔄 **Value Patterns**: Distinguishes between discrete and continuous values
+
+### 🛠️ Command Line Interface
+
+You can also use the script from the command line:
+
+```bash
+python -m kdp.scripts.analyze_dataset \
+    --data your_data.csv \
+    --output recommendations.json \
+    --stats features_stats.json \
+    --batch-size 50000
+```
+
+### 📝 Example Output
+
+The script generates a comprehensive report including:
+
+```python
+{
+    "recommendations": {
+        "income": {
+            "feature_type": "NumericalFeature",
+            "preprocessing": ["NORMALIZATION"],
+            "detected_distribution": "log_normal",
+            "config": {
+                "embedding_dim": 16,
+                "num_bins": 20
+            }
+        },
+        "age": {
+            "feature_type": "NumericalFeature",
+            "preprocessing": ["NORMALIZATION"],
+            "detected_distribution": "normal",
+            "config": {
+                "embedding_dim": 8,
+                "num_bins": 10
+            }
+        }
+    },
+    "code_snippet": "# Generated code implementing the recommendations",
+    "statistics": {
+        # Detailed feature statistics
+    }
+}
+```
+
+### 💡 Pro Tips for Auto-Configuration
+
+1. **Review Before Implementing**: Always review the recommendations before applying them
+2. **Combine with Domain Knowledge**: Use the recommendations alongside your expertise
+3. **Update When Data Changes**: Rerun the analysis when your data distribution changes
+4. **Customize as Needed**: Modify the generated code to match your specific requirements
+
 ## ⚠️ Limitations and Considerations
 
 - 💾 Custom preprocessing layers must be compatible with TensorFlow's serialization
