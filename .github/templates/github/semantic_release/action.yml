@@ -75,7 +75,7 @@ runs:
         echo "Installing semantic-release dependencies..."
         cd ${{ inputs.PROJECT_DIRECTORY }}
         npm install --no-package-lock --no-save \
-          semantic-release@21.0.7 \
+          semantic-release@24.1.0 \
           @semantic-release/commit-analyzer \
           @semantic-release/release-notes-generator \
           @semantic-release/changelog \
