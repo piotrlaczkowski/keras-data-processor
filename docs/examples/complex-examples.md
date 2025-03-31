@@ -321,7 +321,7 @@ user_result = user_preprocessor.build_preprocessor()
 
 ## 🔗 Related Topics
 
-- [Quick Start Guide](quick_start.md)
-- [Feature Processing Guide](features.md)
-- [Advanced Numerical Embeddings](advanced_numerical_embeddings.md)
-- [Distribution-Aware Encoding](distribution_aware_encoder.md)
+- [Quick Start Guide](../getting-started/quick-start.md)
+- [Feature Processing Guide](../features/overview.md)
+- [Advanced Numerical Embeddings](../advanced/numerical-embeddings.md)
+- [Distribution-Aware Encoding](../advanced/distribution-aware-encoding.md)

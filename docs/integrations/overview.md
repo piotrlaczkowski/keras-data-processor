@@ -412,6 +412,13 @@ predictions = pipeline.predict(X_test)
 ## 🔗 Next Steps
 
 - [TensorFlow Best Practices](https://www.tensorflow.org/guide/effective_tf2) - Optimize your model performance
-- [Quick Start Guide](quick_start.md) - Review KDP basics
-- [Tabular Optimization](tabular_optimization.md) - Further optimize your pipeline
-- [Feature Selection](feature_selection.md) - Enhance model efficiency
+- [Quick Start Guide](../getting-started/quick-start.md) - Review KDP basics
+- [Tabular Optimization](../optimization/tabular-optimization.md) - Further optimize your pipeline
+- [Feature Selection](../optimization/feature-selection.md) - Enhance model efficiency
+
+## Memory and Performance Optimization
+
+KDP provides several optimization techniques to improve model performance:
+
+- **Memory Optimization**: Techniques for reducing memory usage. See [Tabular Optimization](../optimization/tabular-optimization.md).
+- **Feature Selection**: Automatically identify the most important features. See [Feature Selection](../optimization/feature-selection.md).

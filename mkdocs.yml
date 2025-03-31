@@ -50,6 +50,7 @@ nav:
       - 📝 Text Features: features/text-features.md
       - 📅 Date Features: features/date-features.md
       - ➕ Cross Features: features/cross-features.md
+      - 🔄 Passthrough Features: features/passthrough-features.md
   - 🧠 Advanced Features:
       - 📊 Distribution-Aware Encoding: advanced/distribution-aware-encoding.md
       - 🔢 Advanced Numerical Embeddings: advanced/numerical-embeddings.md
@@ -64,13 +65,16 @@ nav:
   - 📖 Examples:
       - 🧪 Basic Examples: examples/basic-examples.md
       - 🔥 Complex Examples: examples/complex-examples.md
+      - 🧮 Categorical Hashing: examples/categorical-hashing-example.md
   - 🔌 Integration:
       - 🔄 Integration Overview: integrations/overview.md
   - 🤝 Contributing:
       - 🍻 Contributing Guide: contributing/overview.md
       - 📝 Auto-Documentation: contributing/development/auto-documentation.md
+      - 🖼️ Images Organization: contributing/development/images-organization.md
   - 📑 API Reference:
       - 🏭 Layers Factory: api/layers-factory.md
+      - 📚 API Index: generated/api_index.md
 
 repo_name: Keras Data Preprocessor
 repo_url: https://github.com/piotrlaczkowski/keras-data-processor
@@ -132,6 +136,9 @@ plugins:
         'examples/classification.md': 'examples/complex-examples.md'
         'examples/regression.md': 'examples/complex-examples.md'
         'examples/recommendation.md': 'examples/complex-examples.md'
+        'examples/hashing.md': 'examples/categorical-hashing-example.md'
+        'hashing.md': 'examples/categorical-hashing-example.md'
+        'categorical-hashing.md': 'examples/categorical-hashing-example.md'
         # Contributing redirects
         'contributing/development.md': 'contributing/development/auto-documentation.md'
         'contributing/testing.md': 'contributing/overview.md'

@@ -223,7 +223,7 @@ top_features = preprocessor.get_top_features(n=10)
 
 ## 🔗 Related Topics
 
-- [Distribution-Aware Encoding](distribution_aware_encoder.md) - Perfect companion to feature selection
-- [Tabular Attention](tabular_attention.md) - Learn relationships between your most important features
-- [Feature-wise Mixture of Experts](feature_moe.md) - Another way to specialize feature processing
-- [Complex Examples](complex_examples.md) - See feature selection in complete examples
+- [Distribution-Aware Encoding](../advanced/distribution-aware-encoding.md)
+- [Tabular Attention](../advanced/tabular-attention.md)
+- [Feature MoE](../advanced/feature-moe.md)
+- [Complex Examples](../examples/complex-examples.md)

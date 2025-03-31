@@ -305,7 +305,77 @@ plt.show()
 
 ## 🔗 Next Steps
 
-- [Distribution-Aware Encoding](distribution_aware_encoder.md) - Deep dive into distribution optimization
-- [Tabular Attention](tabular_attention.md) - Advanced feature interaction learning
-- [Memory Optimization Guide](memory_optimization.md) - Handle large-scale datasets efficiently
-- [Benchmarking Your Models](benchmarking.md) - Compare KDP against other approaches
+- [Distribution-Aware Encoding](../advanced/distribution-aware-encoding.md) - Deep dive into distribution optimization
+- [Tabular Attention](../advanced/tabular-attention.md) - Advanced feature interaction learning
+- [Memory Optimization](tabular-optimization.md#memory-optimization) - Handle large-scale datasets efficiently
+- [Benchmarking](tabular-optimization.md#benchmarking) - Compare KDP against other approaches
+
+## Related Features
+
+- [Distribution-Aware Encoding](../advanced/distribution-aware-encoding.md)
+- [Tabular Attention](../advanced/tabular-attention.md)
+- [Memory Optimization](tabular-optimization.md#memory-optimization)
+- [Benchmarking](tabular-optimization.md#benchmarking)
+
+## 📊 Advanced Techniques
+
+## Memory Optimization {#memory-optimization}
+
+### Strategies for Large-Scale Datasets
+
+KDP provides several strategies for optimizing memory usage:
+
+1. **Lazy Loading** - Process data in batches instead of loading everything at once
+2. **Feature Compression** - Use dimensionality reduction techniques for high-cardinality features
+3. **Quantization** - Use numerical precision optimizations when applicable
+4. **Sparse Representations** - Leverage sparse tensors for categorical features
+
+```python
+# Memory-optimized preprocessing
+model = PreprocessingModel(
+    path_data="large_dataset.csv",
+    features_specs=features,
+    batch_size=1024,  # Process in smaller batches
+    use_memory_optimization=True
+)
+```
+
+## Benchmarking {#benchmarking}
+
+### Performance Comparison
+
+KDP is designed to be efficient and performant. Here's how it compares to other preprocessing approaches:
+
+| Metric | KDP | Pandas | TF.Transform | PyTorch |
+|--------|-----|--------|-------------|---------|
+| Memory Usage | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| Processing Speed | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| Feature Coverage | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| Integration Ease | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
+
+### Benchmark Code Example
+
+```python
+import time
+from kdp import PreprocessingModel
+import pandas as pd
+
+# Sample dataset
+df = pd.read_csv("benchmark_dataset.csv")
+
+# KDP approach
+start_time = time.time()
+model = PreprocessingModel(features_specs=features)
+model.fit(df)
+preprocessor = model.build_preprocessor()
+kdp_time = time.time() - start_time
+
+# Pandas approach
+start_time = time.time()
+# Traditional pandas preprocessing code...
+pandas_time = time.time() - start_time
+
+print(f"KDP processing time: {kdp_time:.2f}s")
+print(f"Pandas processing time: {pandas_time:.2f}s")
+print(f"Speedup: {pandas_time/kdp_time:.2f}x")
+```

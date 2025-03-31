@@ -104,4 +104,4 @@ This will generate an `unused_diagrams_report.txt` file listing images that may 
 ## 🤝 Related Topics
 
 - [Documentation Generation](auto-documentation.md)
-- [Contributing Guidelines](../contributing.md)
+- [Contributing Guide](../overview.md)

@@ -376,7 +376,7 @@ preprocessor = PreprocessingModel(
 - [Numerical Features](../features/numerical-features.md)
 - [Distribution-Aware Encoding](distribution-aware-encoding.md)
 - [Tabular Attention](tabular-attention.md)
-- [Feature Selection](../feature-selection.md)
+- [Feature Selection](../optimization/feature-selection.md)
 
 ---
 
