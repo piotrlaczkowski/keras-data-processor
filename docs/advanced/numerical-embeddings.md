@@ -350,3 +350,65 @@ Global numerical embeddings allow coordinated embeddings across all features:
 These diagrams illustrate how KDP transforms numerical features into rich embedding spaces, capturing complex patterns and non-linear relationships.
 
 ## 💡 How to Enable
+
+## 🧩 Dependencies
+
+<div class="dependencies-container">
+  <div class="dependencies-card">
+    <h3>Core Dependencies</h3>
+    <ul class="dependency-list">
+      <li>🐍 Python 3.9+</li>
+      <li>🔄 TensorFlow 2.18.0+</li>
+      <li>🔢 NumPy 1.22.0+</li>
+      <li>📊 Pandas 2.2.0+</li>
+      <li>📝 loguru 0.7.2+</li>
+    </ul>
+  </div>
+
+  <div class="dependencies-card">
+    <h3>Optional Dependencies</h3>
+    <div class="table-container">
+      <table class="config-table">
+        <thead>
+          <tr>
+            <th>Package</th>
+            <th>Purpose</th>
+            <th>Install Command</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>scipy</td>
+            <td>🧪 Scientific computing and statistical functions</td>
+            <td><code>pip install "kdp[dev]"</code></td>
+          </tr>
+          <tr>
+            <td>ipython</td>
+            <td>🔍 Interactive Python shell and notebook support</td>
+            <td><code>pip install "kdp[dev]"</code></td>
+          </tr>
+          <tr>
+            <td>pytest</td>
+            <td>✅ Testing framework and utilities</td>
+            <td><code>pip install "kdp[dev]"</code></td>
+          </tr>
+          <tr>
+            <td>pydot</td>
+            <td>📊 Graph visualization for model architecture</td>
+            <td><code>pip install "kdp[dev]"</code></td>
+          </tr>
+          <tr>
+            <td>Development Tools</td>
+            <td>🛠️ All development dependencies</td>
+            <td><code>pip install "kdp[dev]"</code></td>
+          </tr>
+          <tr>
+            <td>Documentation Tools</td>
+            <td>📚 Documentation generation tools</td>
+            <td><code>pip install "kdp[doc]"</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
