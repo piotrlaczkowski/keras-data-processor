@@ -1,84 +1,439 @@
 # 💻 Contributing: Join the Preprocessing Revolution! 🛠️
 
-Eager to contribute? Great! We're excited to welcome new contributors to our project. Here's how you can get involved:
+<div class="intro-container">
+  <div class="intro-content">
+    <h2>Help us build the future of data preprocessing!</h2>
+    <p>We're excited to welcome new contributors to KDP. This guide will help you get started on your contribution journey.</p>
+  </div>
+</div>
 
-## 💡 New Ideas / Features Requests
+## 🏁 Contribution Process Overview
 
-If you wan't to request a new feature or you have detected an issue, please use the following link:
-[ISSUES](https://github.com/piotrlaczkowski/keras-data-processor/issues)
+<div class="steps-container">
+  <div class="step-card">
+    <div class="step-header">
+      <span class="step-number">1</span>
+      <h3>Getting Started</h3>
+    </div>
+    <div class="step-content">
+      <ul class="feature-list">
+        <li><strong>Fork the Repository</strong>: Visit our GitHub page, fork the repository, and clone it to your local machine.</li>
+        <li><strong>Set Up Your Environment</strong>: Make sure you have TensorFlow, Loguru, and all necessary dependencies installed.</li>
+        <li><strong>Install Pre-commit Hook</strong>: This ensures code quality before commits.</li>
+      </ul>
+      <div class="code-container">
 
-## 🚀 Getting Started:
+```bash
+# Install pre-commit hook
+conda install -c conda-forge pre-commit
 
-- [x] Fork the Repository: Visit our GitHub page, fork the repository, and clone it to your local machine.
+# Go to the root folder of the repository and run
+pre-commit install
+```
 
-- [x] Set Up Your Environment: Make sure you have TensorFlow, Loguru, and all necessary dependencies installed.
+      </div>
+    </div>
+  </div>
 
-- [x] Make sure you have installed the pre-commit hook locally
+  <div class="step-card">
+    <div class="step-header">
+      <span class="step-number">2</span>
+      <h3>Making Changes</h3>
+    </div>
+    <div class="step-content">
+      <ul class="feature-list">
+        <li><strong>Create a Branch</strong>: Always work in a dedicated branch for your changes.</li>
+        <li><strong>Follow Coding Standards</strong>: Maintain the project's coding style and conventions.</li>
+        <li><strong>Write Tests</strong>: All new features must include tests.</li>
+        <li><strong>Use Standardized Commit Messages</strong>: Follow the format below.</li>
+      </ul>
+      <div class="code-container">
 
-  ??? installation-guide
-  Before using pre-commit hook you need to install it in your python environment.
+```
+{LABEL}(KDP): {message}
 
-        ```bash
-        conda install -c conda-forge pre-commit
-        ```
+# Examples:
+feat(KDP): Add distribution-aware encoding
+fix(KDP): Resolve memory leak in feature selection
+```
 
-        go to the root folder of this repository, activate your venv and use the following command:
+      </div>
+    </div>
+  </div>
 
-        ```bash
-        pre-commit install
-        ```
+  <div class="step-card">
+    <div class="step-header">
+      <span class="step-number">3</span>
+      <h3>Submitting Your Work</h3>
+    </div>
+    <div class="step-content">
+      <ul class="feature-list">
+        <li><strong>Create Small MRs</strong>: Keep merge requests under 400 lines for easier review.</li>
+        <li><strong>Request Code Review</strong>: All code must be reviewed before merging.</li>
+        <li><strong>Address Feedback</strong>: Resolve all comments and ensure CI checks pass.</li>
+        <li><strong>Tests Must Pass</strong>: <span class="highlight">NO TESTS = NO MERGE 🚨</span></li>
+      </ul>
+    </div>
+  </div>
+</div>
 
-- [x] Create a new branch to package your code
+## 💡 Feature Requests & Issues
 
-- [x] Use standarized commit message:
+<div class="feature-showcase">
+  <div class="feature-header">
+    <h3>Have ideas or found a bug?</h3>
+  </div>
+  <div class="feature-content">
+    <p>We welcome your input! Please use our GitHub issues page to:</p>
+    <ul class="feature-list">
+      <li>Report bugs or unexpected behavior</li>
+      <li>Suggest new features or improvements</li>
+      <li>Discuss implementation approaches</li>
+    </ul>
+    <a href="https://github.com/piotrlaczkowski/keras-data-processor/issues" class="action-button">Open an Issue</a>
+  </div>
+</div>
 
-  `{LABEL}(KDP): {message}`
+## 📝 Commit Message Guidelines
 
-  This is very important for the automatic releases (semantic release) and to have clean history on the master branch.
+<div class="examples-container">
+  <div class="example-card">
+    <div class="example-header">
+      <span class="example-icon">🏷️</span>
+      <h3>Label Types</h3>
+    </div>
+    <div class="example-content">
+      <div class="table-container">
+        <table>
+          <tr>
+            <th>Label</th>
+            <th>Usage</th>
+            <th>Version Impact</th>
+          </tr>
+          <tr>
+            <td><code>break</code></td>
+            <td>Changes that break backward compatibility</td>
+            <td>major</td>
+          </tr>
+          <tr>
+            <td><code>feat</code></td>
+            <td>New backward-compatible features</td>
+            <td>minor</td>
+          </tr>
+          <tr>
+            <td><code>fix</code></td>
+            <td>Bug fixes</td>
+            <td>patch</td>
+          </tr>
+          <tr>
+            <td><code>docs</code></td>
+            <td>Documentation changes</td>
+            <td>patch</td>
+          </tr>
+          <tr>
+            <td><code>style</code></td>
+            <td>Code style changes (formatting, etc.)</td>
+            <td>patch</td>
+          </tr>
+          <tr>
+            <td><code>refactor</code></td>
+            <td>Code changes that neither fix bugs nor add features</td>
+            <td>patch</td>
+          </tr>
+          <tr>
+            <td><code>perf</code></td>
+            <td>Performance improvements</td>
+            <td>patch</td>
+          </tr>
+          <tr>
+            <td><code>test</code></td>
+            <td>Adding or updating tests</td>
+            <td>minor</td>
+          </tr>
+          <tr>
+            <td><code>build</code></td>
+            <td>Build system or dependency changes</td>
+            <td>patch</td>
+          </tr>
+          <tr>
+            <td><code>ci</code></td>
+            <td>CI configuration changes</td>
+            <td>minor</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
 
-  ??? Labels-types
+## 🔄 Merge Request Process
 
-        | Label    | Usage                                                                                                                                                                                                                                             |
-        | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-        | break    | `break` is used to identify changes related to old compatibility or functionality that breaks the current usage (major)                                                                                                                           |
-        | feat     | `feat` is used to identify changes related to new backward-compatible abilities or functionality (minor)                                                                                                                                          |
-        | init     | `init` is used to indentify the starting related to the project (minor)                                                                                                                                                                           |
-        | enh      | `enh` is used to indentify changes related to amelioration of abilities or functionality (patch)                                                                                                                                                  |
-        | build    | `build` (also known as `chore`) is used to identify **development** changes related to the build system (involving scripts, configurations, or tools) and package dependencies (patch)                                                            |
-        | ci       | `ci` is used to identify **development** changes related to the continuous integration and deployment system - involving scripts, configurations, or tools (minor)                                                                                |
-        | docs     | `docs`  is used to identify documentation changes related to the project; whether intended externally for the end-users or internally for the developers (patch)                                                                                  |
-        | perf     | `perf`  is used to identify changes related to backward-compatible **performance improvements** (patch)                                                                                                                                           |
-        | refactor | `refactor` is used to identify changes related to modifying the codebase, which neither adds a feature nor fixes a bug - such as removing redundant code, simplifying the code, renaming variables, etc.<br />i.e. handy for your wip ; ) (patch) |
-        | style    | `style`  is used to identify **development** changes related to styling the codebase, regardless of the meaning - such as indentations, semi-colons, quotes, trailing commas, and so on (patch)                                                   |
-        | test     | `test` is used to identify **development** changes related to tests - such as refactoring existing tests or adding new tests. (minor)                                                                                                             |
-        | fix      | `fix`  is used to identify changes related to backward-compatible bug fixes. (patch)                                                                                                                                                              |
-        | ops      | `ops` is used to identify changes related to deployment files like `values.yml`, `gateway.yml,` or `Jenkinsfile` in the **ops** directory. (minor)                                                                                                |
-        | hotfix   | `hotfix` is used to identify **production** changes related to backward-compatible bug fixes (patch)                                                                                                                                              |
-        | revert   | `revert` is used to identify backward changes (patch)                                                                                                                                                                                             |
-        | maint    | `maint` is used to identify **maintenance** changes related to project (patch)                                                                                                                                                                    |
+<div class="feature-showcase">
+  <div class="feature-header">
+    <h3>Creating Effective Merge Requests</h3>
+  </div>
+  <div class="feature-content">
+    <p>Merge requests are the heart of our collaborative development process:</p>
+    <ul class="feature-list">
+      <li>Create your MR early - even as a work in progress</li>
+      <li>Use the same naming convention as commits: <code>{LABEL}(KDP): {message}</code></li>
+      <li>Break large features into smaller, focused MRs</li>
+      <li>Include relevant tests for your changes</li>
+      <li>Ensure all CI checks pass before requesting review</li>
+      <li>Address all feedback before merging</li>
+    </ul>
+    <div class="tip-box">
+      <span class="tip-icon">💡</span>
+      <p>Merge requests generate our changelog automatically, so clear and descriptive messages help everyone understand your contributions!</p>
+    </div>
+  </div>
+</div>
 
-- [x] Create your first Merge Request (MR) as soon as possible.
+<style>
+/* Base styling */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  color: #333;
+}
 
-  > Merge requests will be responsible for semantic-release storytelling and so use them wisely! The changelog report generated automatically will be based on your commits merged into main branch and should cover all the things you did for the project, as an example:
+/* Intro section */
+.intro-container {
+  background: linear-gradient(135deg, #f0f7ff 0%, #e9ecef 100%);
+  border-radius: 10px;
+  padding: 25px;
+  margin: 30px 0;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
 
-- [x] Separate your merge requests based on LABEL or functionality if you are working on `feat` label
+.intro-content h2 {
+  margin-top: 0;
+  color: #4a86e8;
+}
 
-  > This about what part of feature you are working on, (messages) i.e.:
+/* Step cards */
+.steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  margin: 30px 0;
+}
 
-        - `initializaing base pre-processing code`
-        - `init repo structure`
-        - `adding pre-processing unit-tests`
+.step-card {
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
 
-- [x] Once the code is ready create a Merge Request (MR) into the MAIN branch with a proper naming convention
+.step-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
 
-  > The name of your MR should follow the same exact convention as your commits (we have a dedicated check for this in the CI):
+.step-header {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e9ecef 100%);
+  border-bottom: 1px solid #e9ecef;
+}
 
-        `{LABEL}(KDP): {message}`
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background-color: #4a86e8;
+  color: white;
+  border-radius: 50%;
+  margin-right: 15px;
+  font-weight: bold;
+}
 
-- [x] Use small Merge Requests but do them more ofthen < 400 lines for quicker and simple review and not the whole project !
+.step-header h3 {
+  margin: 0;
+  color: #333;
+}
 
-- [x] Ask for a Code Review !
+.step-content {
+  padding: 20px;
+}
 
-- [x] Once your MR is approved, solve all your unresolved conversation and pass all the CI check before you can merge it.
+/* Feature list */
+.feature-list {
+  padding-left: 20px;
+  margin-bottom: 20px;
+}
 
-- [x] All the Tests for your code should pass -> REMEMBER NO TESTS = NO MERGE 🚨
+.feature-list li {
+  margin-bottom: 10px;
+}
+
+/* Code containers */
+.code-container {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 15px;
+}
+
+.code-container pre {
+  margin: 0;
+  padding: 15px;
+}
+
+/* Feature showcase */
+.feature-showcase {
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  margin: 30px 0;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.feature-showcase:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.feature-header {
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e9ecef 100%);
+  border-bottom: 1px solid #e9ecef;
+}
+
+.feature-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.feature-content {
+  padding: 20px;
+}
+
+/* Examples section */
+.examples-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.example-card {
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.example-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.example-header {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e9ecef 100%);
+  border-bottom: 1px solid #e9ecef;
+}
+
+.example-icon {
+  font-size: 1.5em;
+  margin-right: 15px;
+}
+
+.example-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.example-content {
+  padding: 20px;
+}
+
+/* Table styling */
+.table-container {
+  overflow-x: auto;
+  margin: 15px 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+}
+
+th {
+  background-color: #f0f7ff;
+  text-align: left;
+  padding: 12px 15px;
+  border-bottom: 2px solid #4a86e8;
+}
+
+td {
+  padding: 10px 15px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+tr:hover {
+  background-color: #f0f7ff;
+}
+
+/* Buttons */
+.action-button {
+  display: inline-block;
+  background-color: #4a86e8;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  text-decoration: none;
+  font-weight: 500;
+  margin-top: 15px;
+  transition: background-color 0.3s ease;
+}
+
+.action-button:hover {
+  background-color: #3a76d8;
+}
+
+/* Tip box */
+.tip-box {
+  background-color: #f0f7ff;
+  border-left: 4px solid #4a86e8;
+  padding: 15px;
+  margin-top: 20px;
+  border-radius: 0 5px 5px 0;
+  display: flex;
+  align-items: flex-start;
+}
+
+.tip-icon {
+  font-size: 1.5em;
+  margin-right: 15px;
+}
+
+.highlight {
+  background-color: #ffecb3;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .examples-container {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

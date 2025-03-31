@@ -1,28 +1,82 @@
 # 🔢 Advanced Numerical Embeddings
 
-> Transform raw numerical features into powerful representations for deep learning.
+<div class="intro-container">
+  <div class="intro-content">
+    <h2>Transform raw numerical features into powerful representations</h2>
+    <p>Enhance your model's ability to learn from numerical data with KDP's sophisticated dual-branch embedding architecture.</p>
+  </div>
+</div>
 
-## 📋 Overview
+## 📋 Architecture Overview
 
-**Advanced Numerical Embeddings** in KDP provide a sophisticated way to transform continuous numerical values into meaningful embeddings using a dual-branch architecture:
+<div class="architecture-container">
+  <p><strong>Advanced Numerical Embeddings</strong> in KDP transform continuous values into meaningful embeddings using a dual-branch architecture:</p>
 
-1. **Continuous Branch**: Processes raw values through a small MLP for smooth pattern learning
-2. **Discrete Branch**: Discretizes values into learnable bins with trainable boundaries
+  <div class="architecture-branches">
+    <div class="branch-card">
+      <div class="branch-header">
+        <span class="branch-number">1</span>
+        <h3>Continuous Branch</h3>
+      </div>
+      <p>Processes raw values through a small MLP for smooth pattern learning</p>
+    </div>
 
-The outputs from both branches are combined using a learnable gate mechanism, providing the perfect balance between continuous and discrete representations.
+    <div class="branch-card">
+      <div class="branch-header">
+        <span class="branch-number">2</span>
+        <h3>Discrete Branch</h3>
+      </div>
+      <p>Discretizes values into learnable bins with trainable boundaries</p>
+    </div>
+  </div>
 
-### ✨ Key Benefits
+  <p>The outputs from both branches are combined using a learnable gate mechanism, providing the perfect balance between continuous and discrete representations.</p>
+</div>
 
-- **Dual-Branch Architecture**: Combines the best of both continuous and discrete processing
-- **Learnable Boundaries**: Adapts bin edges during training for optimal discretization
-- **Feature-Specific Processing**: Each feature gets its own specialized embedding
-- **Memory Efficient**: Optimized for handling large-scale tabular datasets
-- **Flexible Integration**: Works seamlessly with other KDP features
-- **Residual Connections**: Ensures stability during training
+## ✨ Key Benefits
+
+<div class="grid-container">
+  <div class="grid-item">
+    <span class="feature-icon">🛠️</span>
+    <h3>Dual-Branch Architecture</h3>
+    <p>Combines the best of both continuous and discrete processing</p>
+  </div>
+  <div class="grid-item">
+    <span class="feature-icon">📏</span>
+    <h3>Learnable Boundaries</h3>
+    <p>Adapts bin edges during training for optimal discretization</p>
+  </div>
+  <div class="grid-item">
+    <span class="feature-icon">🎛️</span>
+    <h3>Feature-Specific Processing</h3>
+    <p>Each feature gets its own specialized embedding</p>
+  </div>
+  <div class="grid-item">
+    <span class="feature-icon">💾</span>
+    <h3>Memory Efficient</h3>
+    <p>Optimized for handling large-scale tabular datasets</p>
+  </div>
+  <div class="grid-item">
+    <span class="feature-icon">🔗</span>
+    <h3>Flexible Integration</h3>
+    <p>Works seamlessly with other KDP features</p>
+  </div>
+  <div class="grid-item">
+    <span class="feature-icon">🔧</span>
+    <h3>Residual Connections</h3>
+    <p>Ensures stability during training</p>
+  </div>
+</div>
 
 ## 🚀 Getting Started
 
-### Basic Usage
+<div class="steps-container">
+  <div class="step-card">
+    <div class="step-header">
+      <span class="step-number">1</span>
+      <h3>Basic Usage</h3>
+    </div>
+    <div class="code-container">
 
 ```python
 from kdp import PreprocessingModel, FeatureType
@@ -44,7 +98,15 @@ preprocessor = PreprocessingModel(
 )
 ```
 
-### Advanced Configuration
+    </div>
+  </div>
+
+  <div class="step-card">
+    <div class="step-header">
+      <span class="step-number">2</span>
+      <h3>Advanced Configuration</h3>
+    </div>
+    <div class="code-container">
 
 ```python
 from kdp import PreprocessingModel
@@ -83,6 +145,10 @@ preprocessor = PreprocessingModel(
     numerical_use_batch_norm=True    # Normalize activations
 )
 ```
+
+    </div>
+  </div>
+</div>
 
 ## 🧠 How It Works
 

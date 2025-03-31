@@ -1,10 +1,19 @@
 # 🧙‍♂️ Auto-Configuration: Analytics and Recommendations
 
-## 📋 Quick Overview
+<div class="intro-container">
+  <div class="intro-content">
+    <h2>Let KDP analyze your data and suggest the optimal preprocessing</h2>
+    <p>Auto-Configuration examines your dataset and provides intelligent recommendations for feature processing, helping you build better models faster.</p>
+  </div>
+</div>
 
-KDP's Auto-Configuration analyzes your data and provides recommendations for an optimal preprocessing pipeline. This tool helps you understand your data characteristics and suggests appropriate preprocessing strategies.
+## 🚀 Getting Started
 
-## 🚀 Basic Usage
+<div class="step-card">
+  <div class="step-header">
+    <h3>Basic Usage</h3>
+  </div>
+  <div class="code-container">
 
 ```python
 from kdp import auto_configure, PreprocessingModel
@@ -20,25 +29,79 @@ code_snippet = config["code_snippet"]
 # Note: You'll need to manually implement the suggestions
 ```
 
+  </div>
+</div>
+
 ## ✨ What Auto-Configuration Provides
 
-- 🔍 **Distribution Analysis**: Identifies patterns in your numeric data
-- 📊 **Feature Statistics**: Calculates important statistics about your features
-- 💡 **Preprocessing Recommendations**: Suggests appropriate feature types and transformations
-- 📝 **Example Code**: Generates code snippets based on the analysis
+<div class="grid-container">
+  <div class="grid-item">
+    <span class="feature-icon">🔍</span>
+    <h3>Distribution Analysis</h3>
+    <p>Identifies patterns in your numeric data to suggest optimal transformations</p>
+  </div>
+  <div class="grid-item">
+    <span class="feature-icon">📊</span>
+    <h3>Feature Statistics</h3>
+    <p>Calculates important statistics about your features to guide preprocessing</p>
+  </div>
+  <div class="grid-item">
+    <span class="feature-icon">💡</span>
+    <h3>Preprocessing Recommendations</h3>
+    <p>Suggests appropriate feature types and transformations based on data analysis</p>
+  </div>
+  <div class="grid-item">
+    <span class="feature-icon">📝</span>
+    <h3>Example Code</h3>
+    <p>Generates ready-to-use code snippets based on the analysis</p>
+  </div>
+</div>
 
 ## 🔍 What It Analyzes
 
-Auto-Configuration examines your data and analyzes:
+<div class="table-container">
+  <table class="feature-table">
+    <thead>
+      <tr>
+        <th>Data Characteristic</th>
+        <th>Example</th>
+        <th>What It Detects</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Distribution Types</strong></td>
+        <td>Log-normal income, bimodal age</td>
+        <td>Statistical distribution patterns</td>
+      </tr>
+      <tr>
+        <td><strong>Feature Statistics</strong></td>
+        <td>Mean, variance, skewness</td>
+        <td>Basic statistical properties</td>
+      </tr>
+      <tr>
+        <td><strong>Data Ranges</strong></td>
+        <td>Min/max values, outliers</td>
+        <td>Value boundaries and extremes</td>
+      </tr>
+      <tr>
+        <td><strong>Value Patterns</strong></td>
+        <td>Discrete vs continuous</td>
+        <td>How values are distributed</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-| Data Characteristic | Example | What It Detects |
-|---------------------|---------|-----------------|
-| **Distribution Types** | Log-normal income, bimodal age | Statistical distribution patterns |
-| **Feature Statistics** | Mean, variance, skewness | Basic statistical properties |
-| **Data Ranges** | Min/max values, outliers | Value boundaries and extremes |
-| **Value Patterns** | Discrete vs continuous | How values are distributed |
+## 💼 Examples
 
-## 💼 Basic Example
+<div class="examples-container">
+  <div class="example-card">
+    <div class="example-header">
+      <span class="example-icon">🔎</span>
+      <h3>Basic Analysis</h3>
+    </div>
+    <div class="code-container">
 
 ```python
 # Basic auto-configuration analysis
@@ -49,6 +112,10 @@ config = auto_configure(
 )
 
 # Review the recommendations
+```
+
+    </div>
+  </div>
 for feature_name, recommendation in config["recommendations"].items():
     print(f"Feature: {feature_name}")
     print(f"  Type: {recommendation['feature_type']}")

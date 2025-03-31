@@ -56,9 +56,6 @@ pip install kdp
 ```bash
 # Basic installation
 pip install kdp
-
-# Install with optional dependencies
-pip install "kdp[all]"
 ```
 
     </div>
@@ -71,9 +68,6 @@ pip install "kdp[all]"
 ```bash
 # Add to your project
 poetry add kdp
-
-# With extras
-poetry add "kdp[all]"
 ```
 
     </div>

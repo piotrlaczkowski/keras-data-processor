@@ -1,9 +1,9 @@
 # 🛠️ Custom Preprocessing Pipelines
 
-<div class="feature-header">
-  <div class="feature-title">
-    <h2>Custom Preprocessing Pipelines</h2>
-    <p>Create specialized preprocessing flows for your features with complete control over transformations</p>
+<div class="intro-container">
+  <div class="intro-content">
+    <h2>Create specialized preprocessing flows with complete control</h2>
+    <p>Design custom transformations for your features when standard preprocessing doesn't meet your specific needs.</p>
   </div>
 </div>
 
@@ -13,29 +13,31 @@
   <p>KDP allows you to define custom preprocessing pipelines for your features, giving you complete control over how each feature is processed before being fed into your model. This is particularly useful when the standard preprocessing options don't meet your specific needs.</p>
 </div>
 
-<div class="key-benefits">
-  <div class="benefit-card">
-    <span class="benefit-icon">🔍</span>
+## ✨ Key Benefits
+
+<div class="grid-container">
+  <div class="grid-item">
+    <span class="feature-icon">🔍</span>
     <h3>Specific Transformations</h3>
     <p>Define custom preprocessing steps not covered by built-in options</p>
   </div>
-  <div class="benefit-card">
-    <span class="benefit-icon">🔄</span>
+  <div class="grid-item">
+    <span class="feature-icon">🔄</span>
     <h3>Combined Techniques</h3>
     <p>Combine multiple preprocessing techniques in a single pipeline</p>
   </div>
-  <div class="benefit-card">
-    <span class="benefit-icon">🧪</span>
+  <div class="grid-item">
+    <span class="feature-icon">🧪</span>
     <h3>Domain-Specific</h3>
     <p>Handle specialized data with custom preprocessing logic</p>
   </div>
-  <div class="benefit-card">
-    <span class="benefit-icon">🔬</span>
+  <div class="grid-item">
+    <span class="feature-icon">🔬</span>
     <h3>Novel Approaches</h3>
     <p>Experiment with new preprocessing methods</p>
   </div>
-  <div class="benefit-card">
-    <span class="benefit-icon">🧩</span>
+  <div class="grid-item">
+    <span class="feature-icon">🧩</span>
     <h3>Legacy Integration</h3>
     <p>Incorporate existing preprocessing logic</p>
   </div>
@@ -43,7 +45,12 @@
 
 ## 🚀 Getting Started
 
-<div class="code-container">
+<div class="step-card">
+  <div class="step-header">
+    <span class="step-number">1</span>
+    <h3>Basic Example</h3>
+  </div>
+  <div class="code-container">
 
 ```python
 from kdp.features import NumericalFeature, FeatureType
