@@ -39,13 +39,18 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --only doc --no-interaction
 
+      - name: Fetch gh-pages branch
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+          # Fetch the gh-pages branch
+          git fetch origin gh-pages:gh-pages || echo "No gh-pages branch exists yet"
+
       - name: Release documentation with mike
         id: deploy_docs
         run: |
           echo "Deploying documentation for version ${{ inputs.RELEASE_VERSION }}"
-
-          git config user.name "${{ github.actor }}"
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
           # Set up command based on whether to update latest alias
           if [[ "${{ inputs.UPDATE_LATEST }}" == "true" ]]; then
@@ -64,12 +69,13 @@ jobs:
         if: steps.deploy_docs.outcome == 'failure'
         run: |
           echo "First documentation deploy attempt failed, retrying..."
-          sleep 10
-          git pull --rebase
+
+          # Force-fetch the latest gh-pages branch
+          git fetch origin gh-pages:gh-pages --force
 
           # Set up command based on whether to update latest alias
           if [[ "${{ inputs.UPDATE_LATEST }}" == "true" ]]; then
-            mike deploy --push --update-aliases ${{ inputs.RELEASE_VERSION }} latest
+            mike deploy --push --update-aliases --force ${{ inputs.RELEASE_VERSION }} latest
           else
-            mike deploy --push ${{ inputs.RELEASE_VERSION }}
+            mike deploy --push --force ${{ inputs.RELEASE_VERSION }}
           fi
