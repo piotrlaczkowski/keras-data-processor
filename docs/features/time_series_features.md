@@ -56,10 +56,37 @@
 
 ## 📝 Basic Usage
 
+There are two ways to define time series features in KDP:
+
+### Option 1: Using Feature Type Directly
+
 <div class="code-container">
 
 ```python
-from kdp import TimeSeriesFeature
+from kdp import PreprocessingModel, FeatureType
+
+# Define features with simple types
+features = {
+    "sales": FeatureType.TIME_SERIES,  # Basic time series feature
+    "date": FeatureType.DATE,          # Date feature for sorting
+    "store_id": FeatureType.STRING_CATEGORICAL  # Grouping variable
+}
+
+# Create preprocessor
+preprocessor = PreprocessingModel(
+    path_data="sales_data.csv",
+    features_specs=features
+)
+```
+
+</div>
+
+### Option 2: Using TimeSeriesFeature Class (Recommended)
+
+<div class="code-container">
+
+```python
+from kdp import PreprocessingModel, TimeSeriesFeature
 
 # Create a time series feature for daily sales data
 sales_ts = TimeSeriesFeature(
@@ -70,11 +97,24 @@ sales_ts = TimeSeriesFeature(
     group_by="store_id",
     # Create lag features for yesterday, last week, and two weeks ago
     lag_config={
-        "lag_indices": [1, 7, 14],
+        "lags": [1, 7, 14],
         "drop_na": True,
         "fill_value": 0.0,
         "keep_original": True
     }
+)
+
+# Define features using both approaches
+features = {
+    "sales": sales_ts,
+    "date": "DATE",          # String shorthand for date feature
+    "store_id": "STRING_CATEGORICAL"  # String shorthand for categorical
+}
+
+# Create preprocessor
+preprocessor = PreprocessingModel(
+    path_data="sales_data.csv",
+    features_specs=features
 )
 ```
 
@@ -88,52 +128,59 @@ sales_ts = TimeSeriesFeature(
   <div class="code-container">
 
 ```python
-from kdp import TimeSeriesFeature, Processor
+from kdp import TimeSeriesFeature, PreprocessingModel
 
 # Complete time series configuration with multiple transformations
 sales_feature = TimeSeriesFeature(
     name="sales",
     # Data ordering configuration
-    sort_by="date",                           # Column to sort by
-    sort_ascending=True,                      # Sort chronologically
-    group_by="store_id",                      # Group by store
+    sort_by="date",                    # Column to sort by
+    sort_ascending=True,               # Sort chronologically
+    group_by="store_id",               # Group by store
 
     # Lag feature configuration
     lag_config={
-        "lag_indices": [1, 7, 14, 28],        # Previous day, week, 2 weeks, 4 weeks
-        "drop_na": True,                      # Remove rows with insufficient history
-        "fill_value": 0.0,                    # Value for missing lags if drop_na=False
-        "keep_original": True                 # Include original values
+        "lags": [1, 7, 14, 28],        # Previous day, week, 2 weeks, 4 weeks
+        "drop_na": True,               # Remove rows with insufficient history
+        "fill_value": 0.0,             # Value for missing lags if drop_na=False
+        "keep_original": True          # Include original values
     },
 
     # Rolling statistics configuration
     rolling_stats_config={
-        "window_size": 7,                     # 7-day rolling window
+        "window_size": 7,              # 7-day rolling window
         "statistics": ["mean", "std", "min", "max"],  # Statistics to compute
-        "window_stride": 1,                   # Move window by 1 time step
-        "drop_na": True                       # Remove rows with insufficient history
+        "window_stride": 1,            # Move window by 1 time step
+        "drop_na": True                # Remove rows with insufficient history
     },
 
     # Differencing configuration
     differencing_config={
-        "order": 1,                           # First-order differencing (t - (t-1))
-        "drop_na": True,                      # Remove rows with insufficient history
-        "fill_value": 0.0,                    # Value for missing diffs if drop_na=False
-        "keep_original": True                 # Include original values
+        "order": 1,                    # First-order differencing (t - (t-1))
+        "drop_na": True,               # Remove rows with insufficient history
+        "fill_value": 0.0,             # Value for missing diffs if drop_na=False
+        "keep_original": True          # Include original values
     },
 
     # Moving average configuration
     moving_average_config={
-        "periods": [7, 14, 28],               # Weekly, bi-weekly, monthly averages
-        "drop_na": True,                      # Remove rows with insufficient history
-        "pad_value": 0.0                      # Value for padding if drop_na=False
+        "periods": [7, 14, 28],        # Weekly, bi-weekly, monthly averages
+        "drop_na": True,               # Remove rows with insufficient history
+        "pad_value": 0.0               # Value for padding if drop_na=False
     }
 )
 
-# Create processor with time series feature
-processor = Processor(
-    features=[sales_feature],
-    target="next_day_sales"  # Target variable to predict
+# Create features dictionary
+features = {
+    "sales": sales_feature,
+    "date": "DATE",
+    "store_id": "STRING_CATEGORICAL"
+}
+
+# Create preprocessor with time series feature
+preprocessor = PreprocessingModel(
+    path_data="sales_data.csv",
+    features_specs=features
 )
 ```
 
@@ -172,7 +219,7 @@ processor = Processor(
         <td>Optional, for handling multiple related series</td>
       </tr>
       <tr>
-        <td><code>lag_indices</code></td>
+        <td><code>lags</code></td>
         <td>Time steps to look back</td>
         <td>None</td>
         <td>List of integers, e.g. [1, 7] for yesterday and last week</td>
@@ -220,7 +267,7 @@ processor = Processor(
     <div class="code-container">
 
 ```python
-from kdp import TimeSeriesFeature, Processor
+from kdp import TimeSeriesFeature, PreprocessingModel
 
 # Define a time series feature with automatic ordering
 sales_ts = TimeSeriesFeature(
@@ -232,17 +279,24 @@ sales_ts = TimeSeriesFeature(
     # Group by store to create separate series per store
     group_by="store_id",
     # Simple lag configuration
-    lag_config={"lag_indices": [1, 7]}
+    lag_config={"lags": [1, 7]}
 )
 
+# Create features dictionary
+features = {
+    "sales": sales_ts,
+    "timestamp": "DATE",
+    "store_id": "STRING_CATEGORICAL"
+}
+
 # Even with shuffled data, KDP will correctly order the features
-processor = Processor(
-    features=[sales_ts],
-    target="target"
+preprocessor = PreprocessingModel(
+    path_data="shuffled_sales_data.csv",
+    features_specs=features
 )
 
 # The preprocessor handles ordering before applying transformations
-preprocessor = processor.build_preprocessor(shuffled_data)
+model = preprocessor.build_preprocessor()
 ```
 
     </div>
@@ -254,6 +308,8 @@ preprocessor = processor.build_preprocessor(shuffled_data)
     <div class="code-container">
 
 ```python
+from kdp import TimeSeriesFeature, PreprocessingModel
+
 # Process sales data from multiple stores
 multi_store_sales = TimeSeriesFeature(
     name="sales",
@@ -263,7 +319,7 @@ multi_store_sales = TimeSeriesFeature(
     group_by="store_id",
     # Configure lag features
     lag_config={
-        "lag_indices": [1, 7, 14],  # Yesterday, last week, two weeks ago
+        "lags": [1, 7, 14],  # Yesterday, last week, two weeks ago
         "keep_original": True
     }
 )
@@ -272,10 +328,17 @@ multi_store_sales = TimeSeriesFeature(
 # Lags for Store A will only use Store A's history
 # Lags for Store B will only use Store B's history
 
-# Use in processor
-processor = Processor(
-    features=[multi_store_sales],
-    target="tomorrow_sales"
+# Define features dictionary
+features = {
+    "sales": multi_store_sales,
+    "date": "DATE",
+    "store_id": "STRING_CATEGORICAL"
+}
+
+# Create preprocessor
+preprocessor = PreprocessingModel(
+    path_data="multi_store_data.csv",
+    features_specs=features
 )
 ```
 
@@ -288,10 +351,10 @@ processor = Processor(
     <div class="code-container">
 
 ```python
-from kdp import TimeSeriesFeature, DatetimeFeature
+from kdp import TimeSeriesFeature, DateFeature, PreprocessingModel
 
 # Extract time components from the date column
-date_components = DatetimeFeature(
+date_components = DateFeature(
     name="date",
     # Extract useful time components
     extracted_components=["day_of_week", "month", "quarter", "year"],
@@ -303,13 +366,20 @@ date_components = DatetimeFeature(
 sales_ts = TimeSeriesFeature(
     name="sales",
     sort_by="date",
-    lag_config={"lag_indices": [1, 7, 14]}
+    lag_config={"lags": [1, 7, 14]}
 )
 
-# Use both features in processor
-processor = Processor(
-    features=[date_components, sales_ts],
-    target="target"
+# Define features dictionary
+features = {
+    "sales": sales_ts,
+    "date": date_components,
+    "store_id": "STRING_CATEGORICAL"
+}
+
+# Create preprocessor
+preprocessor = PreprocessingModel(
+    path_data="sales_data.csv",
+    features_specs=features
 )
 
 # The date components (e.g., is_weekend, month) help the model
@@ -326,19 +396,30 @@ processor = Processor(
 
 ```python
 import tensorflow as tf
-from kdp import TimeSeriesFeature, Processor
+from kdp import TimeSeriesFeature, PreprocessingModel
 
 # Define time series feature
 sales_feature = TimeSeriesFeature(
     name="sales",
     sort_by="date",
     group_by="store_id",
-    lag_config={"lag_indices": [1, 7]}
+    lag_config={"lags": [1, 7]}
 )
 
-# Build processor and preprocessor
-processor = Processor(features=[sales_feature], target="target")
-preprocessor = processor.build_preprocessor(train_data)
+# Define features dictionary
+features = {
+    "sales": sales_feature,
+    "date": "DATE",
+    "store_id": "STRING_CATEGORICAL"
+}
+
+# Build preprocessor
+preprocessor = PreprocessingModel(
+    path_data="train_data.csv",
+    features_specs=features
+)
+result = preprocessor.build_preprocessor()
+model = result["model"]
 
 # Create a TensorFlow dataset
 dataset = tf.data.Dataset.from_tensor_slices(
@@ -351,7 +432,7 @@ dataset = tf.data.Dataset.from_tensor_slices(
 batched_dataset = dataset.batch(32)
 
 # Apply preprocessor - each batch will be correctly processed
-processed_dataset = batched_dataset.map(preprocessor)
+processed_dataset = batched_dataset.map(model)
 
 # The time series ordering is maintained within each group (store_id)
 # even when processing in batches
@@ -369,18 +450,18 @@ processed_dataset = batched_dataset.map(preprocessor)
     <div class="code-container">
 
 ```python
-from kdp import TimeSeriesFeature, DatetimeFeature, CategoricalFeature, Processor
+from kdp import PreprocessingModel, TimeSeriesFeature, DateFeature, CategoricalFeature
 
 # Define features for sales forecasting
-features = [
+features = {
     # Time series features for sales data
-    TimeSeriesFeature(
+    "sales": TimeSeriesFeature(
         name="sales",
         sort_by="date",
         group_by="store_id",
         # Recent sales and same period in previous years
         lag_config={
-            "lag_indices": [1, 2, 3, 7, 14, 28, 365, 365+7],
+            "lags": [1, 2, 3, 7, 14, 28, 365, 365+7],
             "keep_original": True
         },
         # Weekly and monthly trends
@@ -400,33 +481,34 @@ features = [
     ),
 
     # Date component extraction
-    DatetimeFeature(
+    "date": DateFeature(
         name="date",
         extracted_components=["day_of_week", "day_of_month", "month", "is_weekend", "is_holiday"],
         cyclical_encoding=True  # Use sine/cosine encoding for cyclical features
     ),
 
     # Store features
-    CategoricalFeature(
+    "store_id": CategoricalFeature(
         name="store_id",
         embedding_dim=8
     ),
 
     # Product category
-    CategoricalFeature(
+    "product_category": CategoricalFeature(
         name="product_category",
         embedding_dim=8
     )
-]
+}
 
-# Create processor
-sales_forecaster = Processor(
-    features=features,
-    target="next_day_sales"
+# Create preprocessor
+sales_forecaster = PreprocessingModel(
+    path_data="sales_data.csv",
+    features_specs=features,
+    output_mode="concat"
 )
 
 # Build preprocessor
-preprocessor = sales_forecaster.build_preprocessor(train_data)
+result = sales_forecaster.build_preprocessor()
 ```
 
     </div>
@@ -437,65 +519,66 @@ preprocessor = sales_forecaster.build_preprocessor(train_data)
     <div class="code-container">
 
 ```python
-from kdp import TimeSeriesFeature, Processor
+from kdp import PreprocessingModel, TimeSeriesFeature, NumericalFeature, CategoricalFeature
 
-# Define time series features for stock data
-stock_features = [
-    # Price features
-    TimeSeriesFeature(
-        name="close_price",
+# Define features for financial analysis
+features = {
+    # Price as time series
+    "price": TimeSeriesFeature(
+        name="price",
         sort_by="date",
-        sort_ascending=True,
-        # Previous days' prices
+        group_by="ticker",
+        # Recent prices and historical patterns
         lag_config={
-            "lag_indices": [1, 2, 3, 5, 10, 20],
+            "lags": [1, 2, 3, 5, 10, 20, 60],  # Days back
             "keep_original": True
         },
-        # Price momentum
+        # Trend analysis
+        rolling_stats_config={
+            "window_size": 20,  # Trading month
+            "statistics": ["mean", "std", "min", "max"]
+        },
+        # Day-over-day changes
         differencing_config={
             "order": 1,
             "keep_original": True
         },
-        # Moving averages for trend identification
+        # Short and long-term moving averages
         moving_average_config={
-            "periods": [5, 10, 20, 50, 200]
+            "periods": [5, 10, 20, 50, 200]  # Common trading MAs
         }
     ),
 
-    # Volume features with lags
-    TimeSeriesFeature(
+    # Volume information
+    "volume": TimeSeriesFeature(
         name="volume",
         sort_by="date",
-        lag_config={
-            "lag_indices": [1, 2, 3, 5],
-            "keep_original": True
-        },
-        # Volume trends
+        group_by="ticker",
+        lag_config={"lags": [1, 5, 20]},
         rolling_stats_config={
-            "window_size": 5,
-            "statistics": ["mean", "max"]
+            "window_size": 20,
+            "statistics": ["mean", "std"]
         }
     ),
 
-    # Volatility calculation
-    TimeSeriesFeature(
-        name="high_low_range",  # high_price - low_price
-        sort_by="date",
-        lag_config={
-            "lag_indices": [1, 2, 3, 5],
-            "keep_original": True
-        },
-        rolling_stats_config={
-            "window_size": 10,
-            "statistics": ["mean", "std"]  # Volatility measures
-        }
-    )
-]
+    # Market cap
+    "market_cap": NumericalFeature(name="market_cap"),
 
-# Create processor for stock price prediction
-stock_predictor = Processor(
-    features=stock_features,
-    target="next_day_return"  # Percentage return for next day
+    # Sector/industry
+    "sector": CategoricalFeature(
+        name="sector",
+        embedding_dim=12
+    ),
+
+    # Date feature
+    "date": "DATE"
+}
+
+# Create preprocessor for stock price prediction
+stock_predictor = PreprocessingModel(
+    path_data="stock_data.csv",
+    features_specs=features,
+    output_mode="concat"
 )
 ```
 
@@ -503,22 +586,22 @@ stock_predictor = Processor(
   </div>
 
   <div class="example-card">
-    <h3>🏥 Patient Monitoring</h3>
+    <h3>⚕️ Patient Monitoring</h3>
     <div class="code-container">
 
 ```python
-from kdp import TimeSeriesFeature, CategoricalFeature, NumericalFeature, Processor
+from kdp import PreprocessingModel, TimeSeriesFeature, NumericalFeature, CategoricalFeature
 
 # Define features for patient monitoring
-features = [
+features = {
     # Vital signs as time series
-    TimeSeriesFeature(
+    "heart_rate": TimeSeriesFeature(
         name="heart_rate",
         sort_by="timestamp",
         group_by="patient_id",
         # Recent measurements
         lag_config={
-            "lag_indices": [1, 2, 3, 6, 12, 24],  # Hours back
+            "lags": [1, 2, 3, 6, 12, 24],  # Hours back
             "keep_original": True
         },
         # Short and long-term trends
@@ -529,12 +612,12 @@ features = [
     ),
 
     # Blood pressure
-    TimeSeriesFeature(
+    "blood_pressure": TimeSeriesFeature(
         name="blood_pressure",
         sort_by="timestamp",
         group_by="patient_id",
         lag_config={
-            "lag_indices": [1, 6, 12, 24]
+            "lags": [1, 6, 12, 24]
         },
         rolling_stats_config={
             "window_size": 12,  # 12-hour window
@@ -543,12 +626,12 @@ features = [
     ),
 
     # Body temperature
-    TimeSeriesFeature(
+    "temperature": TimeSeriesFeature(
         name="temperature",
         sort_by="timestamp",
         group_by="patient_id",
         lag_config={
-            "lag_indices": [1, 2, 6, 12]
+            "lags": [1, 2, 6, 12]
         },
         rolling_stats_config={
             "window_size": 6,
@@ -557,18 +640,22 @@ features = [
     ),
 
     # Patient demographics
-    NumericalFeature(name="age"),
-    CategoricalFeature(name="gender"),
-    CategoricalFeature(
+    "age": NumericalFeature(name="age"),
+    "gender": CategoricalFeature(name="gender"),
+    "diagnosis": CategoricalFeature(
         name="diagnosis",
         embedding_dim=16
-    )
-]
+    ),
 
-# Create processor for patient risk prediction
-patient_monitor = Processor(
-    features=features,
-    target="risk_score"  # Risk score for the next 24 hours
+    # Time information
+    "timestamp": "DATE"
+}
+
+# Create preprocessor for patient risk prediction
+patient_monitor = PreprocessingModel(
+    path_data="patient_data.csv",
+    features_specs=features,
+    output_mode="concat"
 )
 ```
 
@@ -615,65 +702,26 @@ sales_ts = TimeSeriesFeature(
     sort_by="date",
     group_by="store_id",
     lag_config={
-        "lag_indices": [1, 7],
+        "lags": [1, 7],
         "drop_na": False,     # Keep rows with missing lags
         "fill_value": 0.0     # Use 0 for missing values
     }
 )
 
-# Alternative: Add a "data_available" feature
-has_history = "df['store_age'] > 7"  # Custom logic
-
-# Combine with other features
+# Alternative approach for handling new stores
+features = {
+    "sales": sales_ts,
+    "store_age": NumericalFeature(name="store_age"),  # Track how long the store has existed
+    "date": "DATE",
+    "store_id": "STRING_CATEGORICAL"
+}
 ```
 
    </div>
   </div>
-
-  <div class="pro-tip-card">
-    <h3>🔄 Preprocessing Order Matters</h3>
-    <p>The order of operations for time series preprocessing is important:</p>
-    <ol>
-      <li>First, group data (if using <code>group_by</code>)</li>
-      <li>Then sort within each group (by <code>sort_by</code>)</li>
-      <li>Finally, apply transformations in order: differencing, lag features, rolling stats, moving averages</li>
-    </ol>
-    <p>KDP handles this automatically, but it's good to understand the sequence.</p>
-  </div>
 </div>
 
-## 📊 Understanding Time Series Layers
-
-<div class="architecture-diagram">
-  <div class="mermaid">
-    graph TD
-      A[Raw Time Series Data] -->|Sort & Group| B[Ordered Data]
-      B -->|Apply Transformations| C[Processed Features]
-      C -->|Feed to Model| D[ML Model]
-
-      subgraph "Time Series Transformations"
-        E[Lag Features]
-        F[Rolling Statistics]
-        G[Differencing]
-        H[Moving Averages]
-      end
-
-      B --> E --> C
-      B --> F --> C
-      B --> G --> C
-      B --> H --> C
-
-      style A fill:#f9f9f9,stroke:#ccc,stroke-width:2px
-      style B fill:#e1f5fe,stroke:#4fc3f7,stroke-width:2px
-      style C fill:#e8f5e9,stroke:#66bb6a,stroke-width:2px
-      style D fill:#f3e5f5,stroke:#ce93d8,stroke-width:2px
-  </div>
-  <div class="diagram-caption">
-    <p>The diagram shows how time series data flows through the KDP preprocessing pipeline. First, data is sorted and grouped, then various transformations are applied in parallel, and finally, the processed features are fed to the machine learning model.</p>
-  </div>
-</div>
-
-## 🏗️ Model Architecture Diagrams
+## 📊 Model Architecture Diagrams
 
 <div class="model-diagrams">
   <div class="diagram-card">
@@ -709,65 +757,13 @@ has_history = "df['store_age'] > 7"  # Custom logic
   </div>
 
   <div class="diagram-card">
-    <h3>Time Series with Combined Features</h3>
+    <h3>Time Series with All Features</h3>
     <div class="diagram-image">
-      <img src="imgs/models/time_series_all_features.png" alt="Time Series with All Features Architecture">
+      <img src="imgs/models/time_series_all_features.png" alt="Time Series with All Features Combined Architecture">
     </div>
-    <p>This comprehensive diagram shows a time series feature using all transformations: lag features, moving averages, differencing, and rolling statistics, demonstrating how these can be combined for rich feature extraction.</p>
+    <p>A comprehensive time series preprocessing pipeline that combines lag features, rolling statistics, differencing, and moving averages to capture all aspects of the temporal patterns in the data.</p>
   </div>
 </div>
-
-<style>
-.model-diagrams {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 30px;
-  margin: 30px 0;
-}
-
-.diagram-card {
-  background-color: #fff;
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.diagram-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-}
-
-.diagram-card h3 {
-  margin-top: 0;
-  color: #43a047;
-  text-align: center;
-}
-
-.diagram-image {
-  margin: 20px 0;
-  text-align: center;
-}
-
-.diagram-image img {
-  max-width: 100%;
-  border-radius: 5px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.diagram-card p {
-  margin-bottom: 0;
-  text-align: center;
-  font-style: italic;
-  color: #555;
-}
-
-@media (min-width: 1200px) {
-  .model-diagrams {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-</style>
 
 ## 🔗 Related Topics
 
