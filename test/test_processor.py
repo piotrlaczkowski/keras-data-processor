@@ -2153,6 +2153,7 @@ class TestPreprocessingModel_GlobalNumericalEmbedding(unittest.TestCase):
             "num2": NumericalFeature(
                 name="num2",
                 feature_type=FeatureType.FLOAT_DISCRETIZED,
+                num_bins=10,
             ),
         }
         df = generate_fake_data(features, num_rows=20)
@@ -2163,6 +2164,7 @@ class TestPreprocessingModel_GlobalNumericalEmbedding(unittest.TestCase):
             path_data=str(self._path_data),
             features_specs=features,
             features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
             use_global_numerical_embedding=False,
             output_mode=OutputModeOptions.CONCAT,
         )

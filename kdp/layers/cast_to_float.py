@@ -1,21 +1,48 @@
 import tensorflow as tf
+from tensorflow import keras
 
 
-class CastToFloat32Layer(tf.keras.layers.Layer):
-    """Custom Keras layer that casts input tensors to float32."""
+@tf.keras.utils.register_keras_serializable(package="kdp.layers")
+class CastToFloat32Layer(keras.layers.Layer):
+    """Custom Keras layer that casts input tensors to float32.
+
+    This is useful for ensuring numerical stability in operations
+    that require float32 precision.
+    """
 
     def __init__(self, **kwargs):
-        """Initializes the CastToFloat32Layer."""
+        """Initialize the layer."""
         super().__init__(**kwargs)
 
-    def call(self, inputs: tf.Tensor) -> tf.Tensor:
-        """Cast inputs to float32.
+    def call(self, inputs, **kwargs):
+        """Cast the input tensor to float32.
 
         Args:
-            inputs (tf.Tensor): Input tensor.
+            inputs: Input tensor of any dtype
+            **kwargs: Additional keyword arguments
 
         Returns:
-            tf.Tensor: Input tensor casted to float32.
+            Tensor cast to float32
         """
-        output = tf.cast(inputs, tf.float32)
-        return output
+        return tf.cast(inputs, tf.float32)
+
+    def get_config(self):
+        """Return the config dictionary for serialization.
+
+        Returns:
+            A dictionary with the layer configuration
+        """
+        config = super().get_config()
+        return config
+
+    @classmethod
+    def from_config(cls, config):
+        """Create a new instance from the serialized configuration.
+
+        Args:
+            config: Layer configuration dictionary
+
+        Returns:
+            A new instance of the layer
+        """
+        return cls(**config)

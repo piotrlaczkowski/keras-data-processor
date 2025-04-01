@@ -987,14 +987,31 @@ class PreprocessingModel:
             # Use an empty list as the default value instead of 1.0.
             boundaries = feature.kwargs.get("bin_boundaries", [])
             _out_dims = len(boundaries) + 1
+
+            # Create a dictionary of parameters to pass to the Discretization layer
+            discretization_params = {"name": f"discretize_{feature_name}"}
+
+            # Either pass bin_boundaries if available in kwargs or num_bins from the feature
+            if "bin_boundaries" in feature.kwargs:
+                discretization_params["bin_boundaries"] = feature.kwargs[
+                    "bin_boundaries"
+                ]
+            else:
+                discretization_params["num_bins"] = feature.num_bins
+
+            # Add any additional kwargs
+            for key, value in feature.kwargs.items():
+                if key not in ["bin_boundaries"]:  # Avoid duplicating parameters
+                    discretization_params[key] = value
+
             preprocessor.add_processing_step(
                 layer_class="Discretization",
-                **feature.kwargs,
-                name=f"discretize_{feature_name}",
+                **discretization_params,
             )
+
             preprocessor.add_processing_step(
                 layer_class="CategoryEncoding",
-                num_tokens=_out_dims,
+                num_tokens=_out_dims if boundaries else feature.num_bins + 1,
                 output_mode="one_hot",
                 name=f"one_hot_{feature_name}",
             )

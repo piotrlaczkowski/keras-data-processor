@@ -3,7 +3,7 @@
 <div class="feature-header">
   <div class="feature-title">
     <h2>Time Series Features in KDP</h2>
-    <p>Transform temporal data with powerful lag features, moving averages, differencing, and rolling statistics.</p>
+    <p>Transform temporal data with powerful lag features, moving averages, differencing, rolling statistics, wavelet transforms, statistical features, and calendar features.</p>
   </div>
 </div>
 
@@ -49,6 +49,24 @@
         <td>Smooth data over time</td>
         <td>7-day, 14-day, 28-day moving averages</td>
         <td>When you need to reduce noise and focus on trends</td>
+      </tr>
+      <tr>
+        <td><code>Wavelet Transforms</code></td>
+        <td>Multi-resolution analysis of time series</td>
+        <td>Extracting coefficients at different scales</td>
+        <td>When you need to analyze signals at multiple scales or frequencies</td>
+      </tr>
+      <tr>
+        <td><code>Statistical Features</code></td>
+        <td>Extract comprehensive statistical features</td>
+        <td>Mean, variance, kurtosis, entropy, peaks</td>
+        <td>When you need a rich set of features summarizing time series properties</td>
+      </tr>
+      <tr>
+        <td><code>Calendar Features</code></td>
+        <td>Extract date and time components</td>
+        <td>Day of week, month, is_weekend, seasonality</td>
+        <td>When seasonal patterns related to calendar time are relevant</td>
       </tr>
     </tbody>
   </table>
@@ -167,6 +185,32 @@ sales_feature = TimeSeriesFeature(
         "periods": [7, 14, 28],        # Weekly, bi-weekly, monthly averages
         "drop_na": True,               # Remove rows with insufficient history
         "pad_value": 0.0               # Value for padding if drop_na=False
+    },
+
+    # Wavelet transform configuration
+    wavelet_transform_config={
+        "levels": 3,                   # Number of decomposition levels
+        "window_sizes": [4, 8, 16],    # Optional custom window sizes for each level
+        "keep_levels": "all",          # Which levels to keep (all or specific indices)
+        "flatten_output": True,        # Whether to flatten multi-level output
+        "drop_na": True                # Handle missing values
+    },
+
+    # TSFresh statistical features configuration
+    tsfresh_feature_config={
+        "features": ["mean", "std", "min", "max", "median"],  # Features to extract
+        "window_size": None,           # Window size (None for entire series)
+        "stride": 1,                   # Stride for sliding window
+        "drop_na": True,               # Handle missing values
+        "normalize": False             # Whether to normalize features
+    },
+
+    # Calendar feature configuration for date input
+    calendar_feature_config={
+        "features": ["month", "day", "day_of_week", "is_weekend"],  # Features to extract
+        "cyclic_encoding": True,       # Use cyclic encoding for cyclical features
+        "input_format": "%Y-%m-%d",    # Input date format
+        "normalize": True              # Whether to normalize outputs
     }
 )
 
@@ -249,6 +293,36 @@ preprocessor = PreprocessingModel(
         <td>List of integers, e.g. [7, 30] for weekly and monthly</td>
       </tr>
       <tr>
+        <td><code>levels</code></td>
+        <td>Number of wavelet decomposition levels</td>
+        <td>3</td>
+        <td>Higher values capture more scales of patterns</td>
+      </tr>
+      <tr>
+        <td><code>window_sizes</code></td>
+        <td>Custom window sizes for wavelet transform</td>
+        <td>None</td>
+        <td>Optional list of sizes, e.g. [4, 8, 16]</td>
+      </tr>
+      <tr>
+        <td><code>tsfresh_features</code></td>
+        <td>Statistical features to extract</td>
+        <td>["mean", "std", "min", "max", "median"]</td>
+        <td>List of statistical features to compute</td>
+      </tr>
+      <tr>
+        <td><code>calendar_features</code></td>
+        <td>Calendar components to extract</td>
+        <td>["month", "day", "day_of_week", "is_weekend"]</td>
+        <td>Date-based features extracted from timestamp</td>
+      </tr>
+      <tr>
+        <td><code>cyclic_encoding</code></td>
+        <td>Use sine/cosine encoding for cyclical features</td>
+        <td>True</td>
+        <td>Better captures cyclical nature of time features</td>
+      </tr>
+      <tr>
         <td><code>drop_na</code></td>
         <td>Remove rows with insufficient history</td>
         <td>True</td>
@@ -303,139 +377,133 @@ model = preprocessor.build_preprocessor()
   </div>
 
   <div class="power-feature-card">
-    <h3>📊 Handling Multiple Time Series</h3>
-    <p>Process multiple related time series with the <code>group_by</code> parameter:</p>
+    <h3>🌊 Wavelet Transform Analysis</h3>
+    <p>Extract multi-resolution features from time series data:</p>
     <div class="code-container">
 
 ```python
 from kdp import TimeSeriesFeature, PreprocessingModel
 
-# Process sales data from multiple stores
-multi_store_sales = TimeSeriesFeature(
-    name="sales",
-    # Sort by date for chronological ordering
-    sort_by="date",
-    # Group by store_id to handle each store separately
-    group_by="store_id",
-    # Configure lag features
-    lag_config={
-        "lags": [1, 7, 14],  # Yesterday, last week, two weeks ago
-        "keep_original": True
+# Define a feature with wavelet transform
+sensor_data = TimeSeriesFeature(
+    name="sensor_readings",
+    sort_by="timestamp",
+    # Wavelet transform configuration
+    wavelet_transform_config={
+        "levels": 3,                # Number of decomposition levels
+        "window_sizes": [4, 8, 16], # Increasing window sizes for multi-scale analysis
+        "keep_levels": "all",       # Keep coefficients from all levels
+        "flatten_output": True      # Flatten coefficients into feature vector
     }
 )
 
-# Each store's sales will be processed as a separate time series
-# Lags for Store A will only use Store A's history
-# Lags for Store B will only use Store B's history
-
-# Define features dictionary
+# Create features dictionary
 features = {
-    "sales": multi_store_sales,
-    "date": "DATE",
-    "store_id": "STRING_CATEGORICAL"
+    "sensor_readings": sensor_data,
+    "timestamp": "DATE"
 }
 
-# Create preprocessor
+# Create preprocessor for signal analysis
 preprocessor = PreprocessingModel(
-    path_data="multi_store_data.csv",
+    path_data="sensor_data.csv",
     features_specs=features
 )
+
+# The wavelet transform decomposes the signal into different frequency bands,
+# helping to identify patterns at multiple scales
 ```
 
     </div>
   </div>
 
   <div class="power-feature-card">
-    <h3>🔍 Date/Time Feature Extraction</h3>
-    <p>Extract useful components from datetime columns:</p>
+    <h3>📊 Statistical Feature Extraction</h3>
+    <p>Automatically extract rich statistical features from time series:</p>
     <div class="code-container">
 
 ```python
-from kdp import TimeSeriesFeature, DateFeature, PreprocessingModel
-
-# Extract time components from the date column
-date_components = DateFeature(
-    name="date",
-    # Extract useful time components
-    extracted_components=["day_of_week", "month", "quarter", "year"],
-    # Optionally create cyclical encoding for day of week and month
-    cyclical_encoding=True
-)
-
-# Combine with time series features
-sales_ts = TimeSeriesFeature(
-    name="sales",
-    sort_by="date",
-    lag_config={"lags": [1, 7, 14]}
-)
-
-# Define features dictionary
-features = {
-    "sales": sales_ts,
-    "date": date_components,
-    "store_id": "STRING_CATEGORICAL"
-}
-
-# Create preprocessor
-preprocessor = PreprocessingModel(
-    path_data="sales_data.csv",
-    features_specs=features
-)
-
-# The date components (e.g., is_weekend, month) help the model
-# learn seasonal patterns, while the lags capture recent trends
-```
-
-    </div>
-  </div>
-
-  <div class="power-feature-card">
-    <h3>⚖️ Batch Processing for Time Series</h3>
-    <p>KDP efficiently handles time series data in batches while maintaining correct ordering:</p>
-    <div class="code-container">
-
-```python
-import tensorflow as tf
 from kdp import TimeSeriesFeature, PreprocessingModel
 
-# Define time series feature
-sales_feature = TimeSeriesFeature(
-    name="sales",
-    sort_by="date",
-    group_by="store_id",
-    lag_config={"lags": [1, 7]}
+# Define a feature with statistical features extraction
+ecg_data = TimeSeriesFeature(
+    name="ecg_signal",
+    sort_by="timestamp",
+    # Statistical feature extraction
+    tsfresh_feature_config={
+        "features": [
+            "mean", "std", "min", "max", "median",
+            "abs_energy", "count_above_mean", "count_below_mean",
+            "kurtosis", "skewness"
+        ],
+        "window_size": 100,  # Extract features from windows of 100 points
+        "stride": 50,        # Slide window by 50 points
+        "normalize": True    # Normalize extracted features
+    }
 )
 
-# Define features dictionary
+# Create features dictionary
 features = {
-    "sales": sales_feature,
-    "date": "DATE",
-    "store_id": "STRING_CATEGORICAL"
+    "ecg_signal": ecg_data,
+    "timestamp": "DATE",
+    "patient_id": "STRING_CATEGORICAL"
 }
 
-# Build preprocessor
+# Create preprocessor
 preprocessor = PreprocessingModel(
-    path_data="train_data.csv",
+    path_data="ecg_data.csv",
     features_specs=features
 )
-result = preprocessor.build_preprocessor()
-model = result["model"]
 
-# Create a TensorFlow dataset
-dataset = tf.data.Dataset.from_tensor_slices(
-    {"sales": test_data["sales"].values,
-     "date": test_data["date"].values,
-     "store_id": test_data["store_id"].values}
+# The statistical features capture important characteristics of the signal
+# without requiring domain expertise to manually design features
+```
+
+    </div>
+  </div>
+
+  <div class="power-feature-card">
+    <h3>📅 Calendar Feature Integration</h3>
+    <p>Extract and encode calendar features directly from date inputs:</p>
+    <div class="code-container">
+
+```python
+from kdp import TimeSeriesFeature, PreprocessingModel
+
+# Define a feature with calendar feature extraction
+traffic_data = TimeSeriesFeature(
+    name="traffic_volume",
+    sort_by="timestamp",
+    group_by="location_id",
+
+    # Lag features for short-term patterns
+    lag_config={"lags": [1, 2, 3, 24, 24*7]},  # Hours back
+
+    # Calendar features for temporal patterns
+    calendar_feature_config={
+        "features": [
+            "month", "day_of_week", "hour", "is_weekend",
+            "is_month_start", "is_month_end"
+        ],
+        "cyclic_encoding": True,     # Use sine/cosine encoding for cyclical features
+        "input_format": "%Y-%m-%d %H:%M:%S"  # Datetime format
+    }
 )
 
-# Batch the data - KDP will maintain proper time series ordering
-batched_dataset = dataset.batch(32)
+# Create features dictionary
+features = {
+    "traffic_volume": traffic_data,
+    "timestamp": "DATE",
+    "location_id": "STRING_CATEGORICAL"
+}
 
-# Apply preprocessor - each batch will be correctly processed
-processed_dataset = batched_dataset.map(model)
+# Create preprocessor for traffic prediction
+preprocessor = PreprocessingModel(
+    path_data="traffic_data.csv",
+    features_specs=features
+)
 
-# The time series ordering is maintained within each group (store_id)
-# even when processing in batches
+# Calendar features automatically capture important temporal patterns
+# like rush hour traffic, weekend effects, and monthly patterns
 ```
 
     </div>
@@ -477,14 +545,12 @@ features = {
         # Weekly, monthly, quarterly smoothing
         moving_average_config={
             "periods": [7, 30, 90]
+        },
+        # Calendar features for seasonal patterns
+        calendar_feature_config={
+            "features": ["month", "day_of_week", "is_weekend", "is_holiday"],
+            "cyclic_encoding": True
         }
-    ),
-
-    # Date component extraction
-    "date": DateFeature(
-        name="date",
-        extracted_components=["day_of_week", "day_of_month", "month", "is_weekend", "is_holiday"],
-        cyclical_encoding=True  # Use sine/cosine encoding for cyclical features
     ),
 
     # Store features
@@ -515,7 +581,7 @@ result = sales_forecaster.build_preprocessor()
   </div>
 
   <div class="example-card">
-    <h3>📊 Stock Price Analysis</h3>
+    <h3>📊 Stock Price Analysis with Advanced Features</h3>
     <div class="code-container">
 
 ```python
@@ -538,14 +604,15 @@ features = {
             "window_size": 20,  # Trading month
             "statistics": ["mean", "std", "min", "max"]
         },
-        # Day-over-day changes
-        differencing_config={
-            "order": 1,
-            "keep_original": True
+        # Multi-scale price patterns with wavelet transform
+        wavelet_transform_config={
+            "levels": 3,  # Capture short, medium, and long-term patterns
+            "flatten_output": True
         },
-        # Short and long-term moving averages
-        moving_average_config={
-            "periods": [5, 10, 20, 50, 200]  # Common trading MAs
+        # Statistical features for price characteristics
+        tsfresh_feature_config={
+            "features": ["mean", "variance", "skewness", "kurtosis",
+                         "abs_energy", "count_above_mean", "longest_strike_above_mean"]
         }
     ),
 
@@ -570,8 +637,14 @@ features = {
         embedding_dim=12
     ),
 
-    # Date feature
-    "date": "DATE"
+    # Date feature with calendar effects
+    "date": TimeSeriesFeature(
+        name="date",
+        calendar_feature_config={
+            "features": ["month", "day_of_week", "is_month_start", "is_month_end", "quarter"],
+            "cyclic_encoding": True
+        }
+    )
 }
 
 # Create preprocessor for stock price prediction
@@ -586,7 +659,7 @@ stock_predictor = PreprocessingModel(
   </div>
 
   <div class="example-card">
-    <h3>⚕️ Patient Monitoring</h3>
+    <h3>⚕️ Patient Monitoring with Advanced Features</h3>
     <div class="code-container">
 
 ```python
@@ -608,6 +681,17 @@ features = {
         rolling_stats_config={
             "window_size": 6,  # 6-hour window
             "statistics": ["mean", "std", "min", "max"]
+        },
+        # Extract rich statistical features automatically
+        tsfresh_feature_config={
+            "features": ["mean", "variance", "abs_energy", "count_above_mean",
+                        "skewness", "kurtosis", "maximum", "minimum"],
+            "window_size": 24  # 24-hour window for comprehensive analysis
+        },
+        # Multi-scale analysis for pattern detection
+        wavelet_transform_config={
+            "levels": 2,
+            "flatten_output": True
         }
     ),
 
@@ -622,6 +706,10 @@ features = {
         rolling_stats_config={
             "window_size": 12,  # 12-hour window
             "statistics": ["mean", "std"]
+        },
+        # Extract statistical patterns
+        tsfresh_feature_config={
+            "features": ["mean", "variance", "maximum", "minimum"]
         }
     ),
 
@@ -647,8 +735,15 @@ features = {
         embedding_dim=16
     ),
 
-    # Time information
-    "timestamp": "DATE"
+    # Time information with calendar features
+    "timestamp": TimeSeriesFeature(
+        name="timestamp",
+        calendar_feature_config={
+            "features": ["hour", "day_of_week", "is_weekend", "month"],
+            "cyclic_encoding": True,
+            "normalize": True
+        }
+    )
 }
 
 # Create preprocessor for patient risk prediction
@@ -657,6 +752,10 @@ patient_monitor = PreprocessingModel(
     features_specs=features,
     output_mode="concat"
 )
+
+# The combination of lag features, statistical features, and wavelet transform
+# enables detection of complex patterns in vital signs, while calendar features
+# capture temporal variations in patient condition by time of day and day of week
 ```
 
     </div>
@@ -715,6 +814,41 @@ features = {
     "date": "DATE",
     "store_id": "STRING_CATEGORICAL"
 }
+```
+
+   </div>
+  </div>
+
+  <div class="pro-tip-card">
+    <h3>🔬 Advanced Time Series Feature Engineering</h3>
+    <p>The new advanced time series features provide powerful tools for extracting patterns:</p>
+    <ul>
+      <li><strong>Wavelet Transforms:</strong> Ideal for capturing multi-scale patterns and transient events. Use higher levels (3-5) for more decomposition detail.</li>
+      <li><strong>Statistical Features:</strong> The TSFresh-inspired features automatically extract a comprehensive set of statistical descriptors that would be time-consuming to calculate manually.</li>
+      <li><strong>Calendar Features:</strong> Combine with cyclic encoding to properly represent the circular nature of time (e.g., December is close to January).</li>
+    </ul>
+    <p>For optimal results, combine these advanced features with traditional ones:</p>
+    <div class="code-container">
+
+```python
+# Comprehensive time series feature engineering
+sensor_feature = TimeSeriesFeature(
+    name="sensor_data",
+    sort_by="timestamp",
+
+    # Traditional features
+    lag_config={"lags": [1, 2, 3]},
+    rolling_stats_config={"window_size": 10, "statistics": ["mean", "std"]},
+
+    # Advanced features
+    wavelet_transform_config={"levels": 3},
+    tsfresh_feature_config={"features": ["mean", "variance", "abs_energy"]},
+    calendar_feature_config={"features": ["hour", "day_of_week"]}
+)
+
+# This combination captures temporal dependencies (lags),
+# local statistics (rolling stats), multi-scale patterns (wavelets),
+# global statistics (tsfresh), and temporal context (calendar)
 ```
 
    </div>

@@ -289,6 +289,9 @@ class TimeSeriesFeature(Feature):
         rolling_stats_config: dict = None,
         differencing_config: dict = None,
         moving_average_config: dict = None,
+        wavelet_transform_config: dict = None,
+        tsfresh_feature_config: dict = None,
+        calendar_feature_config: dict = None,
         sequence_length: int = None,
         sort_by: str = None,
         sort_ascending: bool = True,
@@ -312,6 +315,12 @@ class TimeSeriesFeature(Feature):
                 Example: {'order': 1}
             moving_average_config (dict): Configuration for moving averages.
                 Example: {'periods': [7, 14, 30]}
+            wavelet_transform_config (dict): Configuration for wavelet transform.
+                Example: {'levels': 3, 'window_sizes': [4, 8, 16], 'flatten_output': True}
+            tsfresh_feature_config (dict): Configuration for statistical feature extraction.
+                Example: {'features': ['mean', 'std', 'min', 'max'], 'normalize': True}
+            calendar_feature_config (dict): Configuration for calendar features.
+                Example: {'features': ['month', 'day', 'day_of_week'], 'cyclic_encoding': True}
             sequence_length (int): Length of the sequence. If None, no sequence will be created.
             sort_by (str): Column name to sort the time series data by (typically a timestamp column).
                 Required for proper time series ordering.
@@ -336,6 +345,9 @@ class TimeSeriesFeature(Feature):
         self.rolling_stats_config = rolling_stats_config
         self.differencing_config = differencing_config
         self.moving_average_config = moving_average_config
+        self.wavelet_transform_config = wavelet_transform_config
+        self.tsfresh_feature_config = tsfresh_feature_config
+        self.calendar_feature_config = calendar_feature_config
         self.sequence_length = sequence_length
         self.sort_by = sort_by
         self.sort_ascending = sort_ascending
@@ -367,6 +379,9 @@ class TimeSeriesFeature(Feature):
                 "rolling_stats_config": self.rolling_stats_config,
                 "differencing_config": self.differencing_config,
                 "moving_average_config": self.moving_average_config,
+                "wavelet_transform_config": self.wavelet_transform_config,
+                "tsfresh_feature_config": self.tsfresh_feature_config,
+                "calendar_feature_config": self.calendar_feature_config,
                 "sequence_length": self.sequence_length,
                 "sort_by": self.sort_by,
                 "sort_ascending": self.sort_ascending,
@@ -387,6 +402,9 @@ class TimeSeriesFeature(Feature):
         from kdp.layers.time_series.rolling_stats_layer import RollingStatsLayer
         from kdp.layers.time_series.differencing_layer import DifferencingLayer
         from kdp.layers.time_series.moving_average_layer import MovingAverageLayer
+        from kdp.layers.time_series.wavelet_transform_layer import WaveletTransformLayer
+        from kdp.layers.time_series.tsfresh_feature_layer import TSFreshFeatureLayer
+        from kdp.layers.time_series.calendar_feature_layer import CalendarFeatureLayer
 
         layers = []
 
@@ -459,6 +477,65 @@ class TimeSeriesFeature(Feature):
                     keep_original=keep_original,
                     pad_value=pad_value,
                     name=f"{self.name}_moving_average",
+                )
+            )
+
+        # Add wavelet transform layer if configured
+        if self.wavelet_transform_config:
+            levels = self.wavelet_transform_config.get("levels", 3)
+            window_sizes = self.wavelet_transform_config.get("window_sizes", None)
+            keep_levels = self.wavelet_transform_config.get("keep_levels", "all")
+            flatten_output = self.wavelet_transform_config.get("flatten_output", True)
+            drop_na = self.wavelet_transform_config.get("drop_na", True)
+
+            layers.append(
+                WaveletTransformLayer(
+                    levels=levels,
+                    window_sizes=window_sizes,
+                    keep_levels=keep_levels,
+                    flatten_output=flatten_output,
+                    drop_na=drop_na,
+                    name=f"{self.name}_wavelet",
+                )
+            )
+
+        # Add TSFresh feature layer if configured
+        if self.tsfresh_feature_config:
+            features = self.tsfresh_feature_config.get(
+                "features", ["mean", "std", "min", "max", "median"]
+            )
+            window_size = self.tsfresh_feature_config.get("window_size", None)
+            stride = self.tsfresh_feature_config.get("stride", 1)
+            drop_na = self.tsfresh_feature_config.get("drop_na", True)
+            normalize = self.tsfresh_feature_config.get("normalize", False)
+
+            layers.append(
+                TSFreshFeatureLayer(
+                    features=features,
+                    window_size=window_size,
+                    stride=stride,
+                    drop_na=drop_na,
+                    normalize=normalize,
+                    name=f"{self.name}_tsfresh",
+                )
+            )
+
+        # Add calendar feature layer if configured
+        if self.calendar_feature_config:
+            features = self.calendar_feature_config.get(
+                "features", ["month", "day", "day_of_week", "is_weekend"]
+            )
+            cyclic_encoding = self.calendar_feature_config.get("cyclic_encoding", True)
+            input_format = self.calendar_feature_config.get("input_format", "%Y-%m-%d")
+            normalize = self.calendar_feature_config.get("normalize", True)
+
+            layers.append(
+                CalendarFeatureLayer(
+                    features=features,
+                    cyclic_encoding=cyclic_encoding,
+                    input_format=input_format,
+                    normalize=normalize,
+                    name=f"{self.name}_calendar",
                 )
             )
 
@@ -550,6 +627,63 @@ class TimeSeriesFeature(Feature):
             else:
                 dim = len(periods)
 
+        # Add dimensions for wavelet transform
+        if self.wavelet_transform_config:
+            levels = self.wavelet_transform_config.get("levels", 3)
+            keep_levels = self.wavelet_transform_config.get("keep_levels", "all")
+            flatten_output = self.wavelet_transform_config.get("flatten_output", True)
+
+            if flatten_output:
+                # If all levels, we have coefficients for each level plus the original
+                if keep_levels == "all":
+                    wavelet_dims = levels
+                else:
+                    # Count the specific levels to keep
+                    if isinstance(keep_levels, list):
+                        wavelet_dims = len(keep_levels)
+                    else:
+                        wavelet_dims = 1  # Default to 1 if not properly specified
+
+                dim += wavelet_dims
+            else:
+                # If not flattened, output keeps original dimensions
+                # but we just treat it as one feature for dimensionality estimation
+                dim += 1
+
+        # Add dimensions for TSFresh features
+        if self.tsfresh_feature_config:
+            features = self.tsfresh_feature_config.get(
+                "features", ["mean", "std", "min", "max", "median"]
+            )
+            # Each feature type adds one dimension
+            dim += len(features)
+
+        # Add dimensions for calendar features
+        if self.calendar_feature_config:
+            features = self.calendar_feature_config.get(
+                "features", ["month", "day", "day_of_week", "is_weekend"]
+            )
+            cyclic_encoding = self.calendar_feature_config.get("cyclic_encoding", True)
+
+            # For cyclic features (month, day, day_of_week), we use sin/cos encoding which doubles dimensions
+            cyclic_features = [
+                "month",
+                "day",
+                "day_of_week",
+                "quarter",
+                "hour",
+                "minute",
+            ]
+
+            if cyclic_encoding:
+                for feature in features:
+                    if feature in cyclic_features:
+                        dim += 2  # sin and cos components
+                    else:
+                        dim += 1  # binary or scalar features
+            else:
+                dim += len(features)  # one-hot or scalar for each feature
+
         return dim
 
     def to_dict(self):
@@ -565,6 +699,9 @@ class TimeSeriesFeature(Feature):
             "rolling_stats_config": self.rolling_stats_config,
             "differencing_config": self.differencing_config,
             "moving_average_config": self.moving_average_config,
+            "wavelet_transform_config": self.wavelet_transform_config,
+            "tsfresh_feature_config": self.tsfresh_feature_config,
+            "calendar_feature_config": self.calendar_feature_config,
             "sort_by": self.sort_by,
             "sort_ascending": self.sort_ascending,
             "group_by": self.group_by,
@@ -591,6 +728,9 @@ class TimeSeriesFeature(Feature):
             "rolling_stats_config",
             "differencing_config",
             "moving_average_config",
+            "wavelet_transform_config",
+            "tsfresh_feature_config",
+            "calendar_feature_config",
             "sort_by",
             "sort_ascending",
             "group_by",

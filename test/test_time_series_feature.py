@@ -8,6 +8,9 @@ from kdp.layers.time_series.lag_feature_layer import LagFeatureLayer
 from kdp.layers.time_series.rolling_stats_layer import RollingStatsLayer
 from kdp.layers.time_series.differencing_layer import DifferencingLayer
 from kdp.layers.time_series.moving_average_layer import MovingAverageLayer
+from kdp.layers.time_series.wavelet_transform_layer import WaveletTransformLayer
+from kdp.layers.time_series.tsfresh_feature_layer import TSFreshFeatureLayer
+from kdp.layers.time_series.calendar_feature_layer import CalendarFeatureLayer
 
 
 class TestTimeSeriesFeature(unittest.TestCase):
@@ -26,6 +29,9 @@ class TestTimeSeriesFeature(unittest.TestCase):
         self.assertIsNone(feature.rolling_stats_config)
         self.assertIsNone(feature.differencing_config)
         self.assertIsNone(feature.moving_average_config)
+        self.assertIsNone(feature.wavelet_transform_config)
+        self.assertIsNone(feature.tsfresh_feature_config)
+        self.assertIsNone(feature.calendar_feature_config)
         self.assertFalse(feature.is_target)
         self.assertFalse(feature.exclude_from_input)
         self.assertEqual(feature.input_type, "continuous")
@@ -36,6 +42,16 @@ class TestTimeSeriesFeature(unittest.TestCase):
         rolling_stats_config = {"window_size": 7, "statistics": ["mean", "std"]}
         differencing_config = {"order": 1}
         moving_average_config = {"periods": [7, 14]}
+        wavelet_transform_config = {
+            "levels": 3,
+            "window_sizes": [4, 8],
+            "flatten_output": True,
+        }
+        tsfresh_feature_config = {"features": ["mean", "std", "min", "max"]}
+        calendar_feature_config = {
+            "features": ["month", "day", "day_of_week"],
+            "cyclic_encoding": True,
+        }
 
         feature = TimeSeriesFeature(
             name="sales",
@@ -43,6 +59,9 @@ class TestTimeSeriesFeature(unittest.TestCase):
             rolling_stats_config=rolling_stats_config,
             differencing_config=differencing_config,
             moving_average_config=moving_average_config,
+            wavelet_transform_config=wavelet_transform_config,
+            tsfresh_feature_config=tsfresh_feature_config,
+            calendar_feature_config=calendar_feature_config,
             is_target=True,
             exclude_from_input=True,
             input_type="continuous",
@@ -54,6 +73,9 @@ class TestTimeSeriesFeature(unittest.TestCase):
         self.assertEqual(feature.rolling_stats_config, rolling_stats_config)
         self.assertEqual(feature.differencing_config, differencing_config)
         self.assertEqual(feature.moving_average_config, moving_average_config)
+        self.assertEqual(feature.wavelet_transform_config, wavelet_transform_config)
+        self.assertEqual(feature.tsfresh_feature_config, tsfresh_feature_config)
+        self.assertEqual(feature.calendar_feature_config, calendar_feature_config)
         self.assertTrue(feature.is_target)
         self.assertTrue(feature.exclude_from_input)
         self.assertEqual(feature.input_type, "continuous")
@@ -243,3 +265,86 @@ class TestTimeSeriesFeature(unittest.TestCase):
         self.assertTrue(feature.is_target)
         self.assertTrue(feature.exclude_from_input)
         self.assertEqual(feature.input_type, "continuous")
+
+    def test_build_layers_with_new_transforms(self):
+        """Test that build_layers creates the appropriate layers including the new transform types."""
+        # Create a feature with all new configs
+        feature = TimeSeriesFeature(
+            name="sales",
+            wavelet_transform_config={"levels": 3, "window_sizes": [4, 8]},
+            tsfresh_feature_config={"features": ["mean", "std", "min"]},
+            calendar_feature_config={
+                "features": ["month", "day_of_week"],
+                "cyclic_encoding": True,
+            },
+        )
+
+        # Build layers
+        layers = feature.build_layers()
+
+        # Check that we have the expected number of layers (3 new ones)
+        self.assertEqual(len(layers), 3)
+
+        # Check that each layer is of the correct type
+        self.assertIsInstance(layers[0], WaveletTransformLayer)
+        self.assertIsInstance(layers[1], TSFreshFeatureLayer)
+        self.assertIsInstance(layers[2], CalendarFeatureLayer)
+
+        # Check layer configurations
+        self.assertEqual(layers[0].levels, 3)
+        self.assertEqual(layers[0].window_sizes, [4, 8])
+
+        self.assertEqual(layers[1].features, ["mean", "std", "min"])
+
+        self.assertEqual(layers[2].features, ["month", "day_of_week"])
+        self.assertTrue(layers[2].cyclic_encoding)
+
+    def test_output_dim_with_new_transforms(self):
+        """Test output dimension calculation with the new transform layers."""
+        # Test with wavelet transform
+        feature = TimeSeriesFeature(
+            name="sales", wavelet_transform_config={"levels": 3, "flatten_output": True}
+        )
+        # Original value (1) + wavelet features (3) = 4
+        self.assertEqual(feature.get_output_dim(), 4)
+
+        # Test with tsfresh features
+        feature = TimeSeriesFeature(
+            name="sales",
+            tsfresh_feature_config={
+                "features": ["mean", "std", "min", "max", "median"]
+            },
+        )
+        # Original value (1) + 5 statistical features = 6
+        self.assertEqual(feature.get_output_dim(), 6)
+
+        # Test with calendar features with cyclic encoding
+        feature = TimeSeriesFeature(
+            name="sales",
+            calendar_feature_config={
+                "features": ["month", "day_of_week", "is_weekend"],
+                "cyclic_encoding": True,
+            },
+        )
+        # Original value (1) + month(sin+cos) + day_of_week(sin+cos) + is_weekend = 6
+        self.assertEqual(feature.get_output_dim(), 6)
+
+        # Test with calendar features without cyclic encoding
+        feature = TimeSeriesFeature(
+            name="sales",
+            calendar_feature_config={
+                "features": ["month", "day_of_week", "is_weekend"],
+                "cyclic_encoding": False,
+            },
+        )
+        # Original value (1) + 3 features = 4
+        self.assertEqual(feature.get_output_dim(), 4)
+
+        # Test combining multiple new transforms
+        feature = TimeSeriesFeature(
+            name="sales",
+            wavelet_transform_config={"levels": 2},
+            tsfresh_feature_config={"features": ["mean", "std"]},
+        )
+        # Original (1) + wavelet (2) + tsfresh (2) = 5
+        self.assertEqual(feature.get_output_dim(), 5)
