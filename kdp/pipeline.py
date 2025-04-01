@@ -103,6 +103,9 @@ class FeaturePreprocessor:
         else:
             self.layers = []  # for dynamic pipeline
 
+        # For backwards compatibility with tests
+        self.processing_steps = []
+
     def add_processing_step(
         self, layer_creator: Callable[..., tf.keras.layers.Layer] = None, **layer_kwargs
     ) -> None:
@@ -117,6 +120,10 @@ class FeaturePreprocessor:
             **layer_kwargs: Additional keyword arguments for the layer creator.
         """
         layer_creator = layer_creator or PreprocessorLayerFactory.create_layer
+
+        # For backwards compatibility with tests
+        self.processing_steps.append(layer_kwargs)
+
         if self.use_dynamic:
             layer = layer_creator(**layer_kwargs)
             logger.info(f"Adding {layer.name} to dynamic preprocessing pipeline")

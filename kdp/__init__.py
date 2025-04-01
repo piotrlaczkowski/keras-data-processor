@@ -5,6 +5,7 @@ from kdp.features import (
     FeatureType,
     NumericalFeature,
     TextFeature,
+    TimeSeriesFeature,
 )
 from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.pipeline import FeaturePreprocessor, Pipeline, ProcessingStep
@@ -27,6 +28,7 @@ __all__ = [
     "CategoricalFeature",
     "TextFeature",
     "DateFeature",
+    "TimeSeriesFeature",
     "DatasetStatistics",
     "PreprocessorLayerFactory",
     "PreprocessingModel",
