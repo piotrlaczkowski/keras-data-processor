@@ -2515,8 +2515,13 @@ class SplitLayer(keras.layers.Layer):
         self.feature_dims = feature_dims
 
     def call(self, inputs):
+        # Handle case where feature_dims is None or empty
+        if not self.feature_dims:
+            # Return the input as a single feature if no dimensions are provided
+            return [inputs]
+
         # Handle case where feature_dims is a list of integers
-        if self.feature_dims and isinstance(self.feature_dims[0], int):
+        if isinstance(self.feature_dims[0], int):
             # Create running index
             start_indices = [0]
             for dim in self.feature_dims[:-1]:
@@ -2527,7 +2532,17 @@ class SplitLayer(keras.layers.Layer):
             return [inputs[:, i : i + dim] for i, dim in split_indices]
 
         # Handle case where feature_dims is already a list of tuples (i, dim)
-        return [inputs[:, i : i + dim] for i, dim in self.feature_dims]
+        if (
+            isinstance(self.feature_dims[0], (list, tuple))
+            and len(self.feature_dims[0]) == 2
+        ):
+            return [inputs[:, i : i + dim] for i, dim in self.feature_dims]
+
+        # If we get here, feature_dims is in an invalid format
+        raise ValueError(
+            f"Invalid feature_dims format: {self.feature_dims}. "
+            "Expected a list of integers or a list of (index, dimension) tuples."
+        )
 
     def get_config(self):
         config = super().get_config()
@@ -2536,7 +2551,17 @@ class SplitLayer(keras.layers.Layer):
 
     def compute_output_shape(self, input_shape):
         # Return a list of shapes for each split
-        if self.feature_dims and isinstance(self.feature_dims[0], int):
+        if not self.feature_dims:
+            return [input_shape]
+        elif isinstance(self.feature_dims[0], int):
             return [(input_shape[0], dim) for dim in self.feature_dims]
-        else:
+        elif (
+            isinstance(self.feature_dims[0], (list, tuple))
+            and len(self.feature_dims[0]) == 2
+        ):
             return [(input_shape[0], dim) for _, dim in self.feature_dims]
+        else:
+            raise ValueError(
+                f"Invalid feature_dims format: {self.feature_dims}. "
+                "Expected a list of integers or a list of (index, dimension) tuples."
+            )

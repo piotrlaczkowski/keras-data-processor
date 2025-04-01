@@ -673,6 +673,102 @@ has_history = "df['store_age'] > 7"  # Custom logic
   </div>
 </div>
 
+## 🏗️ Model Architecture Diagrams
+
+<div class="model-diagrams">
+  <div class="diagram-card">
+    <h3>Basic Time Series Feature</h3>
+    <div class="diagram-image">
+      <img src="imgs/models/basic_time_series.png" alt="Basic Time Series Feature Architecture">
+    </div>
+    <p>A basic time series feature with date sorting and group handling, showing how KDP integrates time series data with date features and categorical grouping variables.</p>
+  </div>
+
+  <div class="diagram-card">
+    <h3>Time Series with Lag Features</h3>
+    <div class="diagram-image">
+      <img src="imgs/models/time_series_with_lags.png" alt="Time Series with Lag Features Architecture">
+    </div>
+    <p>This diagram shows how lag features are integrated into the preprocessing model, allowing the model to access historical values from previous time steps.</p>
+  </div>
+
+  <div class="diagram-card">
+    <h3>Time Series with Moving Averages</h3>
+    <div class="diagram-image">
+      <img src="imgs/models/time_series_moving_average.png" alt="Time Series with Moving Averages Architecture">
+    </div>
+    <p>Moving averages smooth out noise in the time series data, highlighting underlying trends. This diagram shows how KDP implements moving average calculations in the preprocessing pipeline.</p>
+  </div>
+
+  <div class="diagram-card">
+    <h3>Time Series with Differencing</h3>
+    <div class="diagram-image">
+      <img src="imgs/models/time_series_differencing.png" alt="Time Series with Differencing Architecture">
+    </div>
+    <p>Differencing captures changes between consecutive time steps, helping to make time series stationary. This diagram shows the implementation of differencing in the KDP architecture.</p>
+  </div>
+
+  <div class="diagram-card">
+    <h3>Time Series with Combined Features</h3>
+    <div class="diagram-image">
+      <img src="imgs/models/time_series_all_features.png" alt="Time Series with All Features Architecture">
+    </div>
+    <p>This comprehensive diagram shows a time series feature using all transformations: lag features, moving averages, differencing, and rolling statistics, demonstrating how these can be combined for rich feature extraction.</p>
+  </div>
+</div>
+
+<style>
+.model-diagrams {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 30px;
+  margin: 30px 0;
+}
+
+.diagram-card {
+  background-color: #fff;
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.diagram-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.diagram-card h3 {
+  margin-top: 0;
+  color: #43a047;
+  text-align: center;
+}
+
+.diagram-image {
+  margin: 20px 0;
+  text-align: center;
+}
+
+.diagram-image img {
+  max-width: 100%;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.diagram-card p {
+  margin-bottom: 0;
+  text-align: center;
+  font-style: italic;
+  color: #555;
+}
+
+@media (min-width: 1200px) {
+  .model-diagrams {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+</style>
+
 ## 🔗 Related Topics
 
 <div class="related-topics">
