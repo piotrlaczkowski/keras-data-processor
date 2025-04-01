@@ -5,10 +5,6 @@
          <lastmod>2025-04-01</lastmod>
     </url>
     <url>
-         <loc>https://example.com/kdp/time_series_features.html</loc>
-         <lastmod>2025-04-01</lastmod>
-    </url>
-    <url>
          <loc>https://example.com/kdp/advanced/custom-preprocessing.html</loc>
          <lastmod>2025-04-01</lastmod>
     </url>
@@ -86,6 +82,10 @@
     </url>
     <url>
          <loc>https://example.com/kdp/features/text-features.html</loc>
+         <lastmod>2025-04-01</lastmod>
+    </url>
+    <url>
+         <loc>https://example.com/kdp/features/time_series_features.html</loc>
          <lastmod>2025-04-01</lastmod>
     </url>
     <url>
