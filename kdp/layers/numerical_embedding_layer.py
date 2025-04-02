@@ -1,6 +1,7 @@
 import tensorflow as tf
 
 
+@tf.keras.utils.register_keras_serializable(package="kdp.layers")
 class NumericalEmbedding(tf.keras.layers.Layer):
     """Advanced numerical embedding layer for continuous features.
 
@@ -202,3 +203,7 @@ class NumericalEmbedding(tf.keras.layers.Layer):
             }
         )
         return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

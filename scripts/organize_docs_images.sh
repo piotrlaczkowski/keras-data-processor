@@ -21,6 +21,10 @@ ADVANCED_MODEL_DIAGRAMS=("transformer_blocks.png" "distribution_aware.png" "feat
                          "advanced_numerical_embedding.png" "global_numerical_embedding.png"
                          "tabular_attention.png")
 
+# Define time series model diagrams
+TIME_SERIES_MODEL_DIAGRAMS=("basic_time_series.png" "time_series_with_lags.png" "time_series_moving_average.png"
+                            "time_series_differencing.png" "time_series_all_features.png")
+
 # Define sections
 SECTIONS=("features" "advanced" "getting-started" "optimization" "examples" "integrations" "reference")
 
@@ -86,6 +90,19 @@ for img in "${ADVANCED_MODEL_DIAGRAMS[@]}"; do
       echo "  Copying model diagram $img to features section"
       cp -f "$MODEL_DIR/$img" "docs/features/imgs/$img" 2>/dev/null || true
     fi
+  fi
+done
+
+# Copy time series model diagrams to features section
+echo "Distributing time series model diagrams..."
+for img in "${TIME_SERIES_MODEL_DIAGRAMS[@]}"; do
+  if [ -f "$MODEL_DIR/$img" ]; then
+    echo "  Copying time series model diagram $img to features section"
+    cp -f "$MODEL_DIR/$img" "docs/features/imgs/$img" 2>/dev/null || true
+
+    # Also copy to examples section for time series examples
+    echo "  Copying time series model diagram $img to examples section"
+    cp -f "$MODEL_DIR/$img" "docs/examples/imgs/$img" 2>/dev/null || true
   fi
 done
 

@@ -3,6 +3,7 @@ import numpy as np
 from kdp.layers.numerical_embedding_layer import NumericalEmbedding
 
 
+@tf.keras.utils.register_keras_serializable(package="kdp.layers")
 class GlobalNumericalEmbedding(tf.keras.layers.Layer):
     """
     Global NumericalEmbedding processes concatenated numeric features.
@@ -117,3 +118,7 @@ class GlobalNumericalEmbedding(tf.keras.layers.Layer):
             }
         )
         return config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

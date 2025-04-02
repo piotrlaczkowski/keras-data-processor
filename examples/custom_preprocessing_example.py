@@ -4,18 +4,20 @@ Custom Preprocessing Example
 This example demonstrates how to define and use custom preprocessing pipelines
 for various feature types in the KDP framework.
 """
+# ruff: noqa: E402
 
 import os
 import sys
+
+# Add the project root to the Python path to allow module imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import numpy as np
 import pandas as pd
 import logging
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
-
-# Add the project root to the Python path to allow module imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from kdp.processor import PreprocessingModel
 from kdp.features import (

@@ -14,6 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 tf.random.set_seed(42)
 np.random.seed(42)
 
+
 # Custom scaling layer for testing
 class CustomScalingLayer(tf.keras.layers.Layer):
     def __init__(self, scaling_factor=2.0, **kwargs):

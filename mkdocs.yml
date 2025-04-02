@@ -49,6 +49,7 @@ nav:
       - 🏷️ Categorical Features: features/categorical-features.md
       - 📝 Text Features: features/text-features.md
       - 📅 Date Features: features/date-features.md
+      - 📊 Time Series Features: features/time_series_features.md
       - ➕ Cross Features: features/cross-features.md
       - 🔄 Passthrough Features: features/passthrough-features.md
   - 🧠 Advanced Features:
@@ -100,7 +101,14 @@ markdown_extensions:
 
 plugins:
   - search
-  - mkdocstrings
+  - autorefs:
+      link_titles: true
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+            show_source: true
   - mike:
       canonical_version: null
       version_selector: true

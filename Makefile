@@ -58,9 +58,16 @@ clean_built:
 # Build doc
 # ------------------------------------
 
+.PHONY: generate_all_diagrams
+## Generate all diagrams, organize them, and clean up in one command
+generate_all_diagrams:
+	@echo "Generating and organizing all diagrams in one step"
+	./scripts/generate_all_diagrams.sh
+
 .PHONY: generate_doc_content
-## Generate documentation content from code and model architectures
+## Generate documentation content from code and model architectures (DEPRECATED - use generate_all_diagrams instead)
 generate_doc_content:
+	@echo "NOTE: This target is deprecated. Please use 'make generate_all_diagrams' instead."
 	@echo "Generating API documentation from docstrings"
 	mkdir -p docs/generated/api
 	poetry run python scripts/generate_docstring_docs.py
@@ -73,7 +80,7 @@ generate_doc_content:
 
 .PHONY: docs_deploy
 ## Build docs using mike
-docs_deploy: generate_doc_content
+docs_deploy: generate_all_diagrams
 	@echo "Starting to build docs"
 	@echo "more info: https://squidfunk.github.io/mkdocs-material/setup/setting-up-versioning/"
 ifdef HAS_POETRY
@@ -97,12 +104,12 @@ docs_version_serve:
 
 .PHONY: docs
 ## Create or Deploy MkDocs based documentation to GitHub pages.
-deploy_doc: generate_doc_content
+deploy_doc: generate_all_diagrams
 	mkdocs gh-deploy
 
 .PHONY: serve_doc
 ## Test MkDocs based documentation locally.
-serve_doc: generate_doc_content
+serve_doc: generate_all_diagrams
 	poetry run mkdocs serve
 
 # ------------------------------------

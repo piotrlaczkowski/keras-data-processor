@@ -23,6 +23,10 @@ from kdp.layers.global_numerical_embedding_layer import GlobalNumericalEmbedding
 from kdp.layers.gated_linear_unit_layer import GatedLinearUnit
 from kdp.layers.gated_residual_network_layer import GatedResidualNetwork
 from kdp.layers.distribution_transform_layer import DistributionTransformLayer
+from kdp.layers.time_series.lag_feature_layer import LagFeatureLayer
+from kdp.layers.time_series.rolling_stats_layer import RollingStatsLayer
+from kdp.layers.time_series.differencing_layer import DifferencingLayer
+from kdp.layers.time_series.moving_average_layer import MovingAverageLayer
 
 
 class PreprocessorLayerFactory:
@@ -463,5 +467,125 @@ class PreprocessorLayerFactory:
             units=units,
             dropout_rate=dropout_rate,
             name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def lag_feature_layer(
+        name: str = "lag_feature",
+        lags: list[int] = None,
+        fill_value: float = 0.0,
+        drop_na: bool = True,
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a LagFeatureLayer for generating lag features from time series data.
+
+        Args:
+            name: Name of the layer.
+            lags: List of lag values to create. Default is [1] (one step back).
+            fill_value: Value to use for filling NaN values. Default is 0.0.
+            drop_na: Whether to drop rows with NaN values. Default is True.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            LagFeatureLayer instance.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=LagFeatureLayer,
+            name=name,
+            lags=lags,
+            fill_value=fill_value,
+            drop_na=drop_na,
+            **kwargs,
+        )
+
+    @staticmethod
+    def rolling_stats_layer(
+        window_size: int,
+        name: str = "rolling_stats",
+        statistics: list[str] = None,
+        window_stride: int = 1,
+        pad_value: float = 0.0,
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a RollingStatsLayer for computing rolling statistics over a sliding window.
+
+        Args:
+            window_size: Size of the sliding window.
+            name: Name of the layer.
+            statistics: List of statistics to compute. Options: 'mean', 'std', 'min', 'max',
+                       'sum', 'median', 'range', 'variance'. Default is ['mean'].
+            window_stride: Stride of the sliding window. Default is 1.
+            pad_value: Value to use for padding. Default is 0.0.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            RollingStatsLayer instance.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=RollingStatsLayer,
+            name=name,
+            window_size=window_size,
+            statistics=statistics,
+            window_stride=window_stride,
+            pad_value=pad_value,
+            **kwargs,
+        )
+
+    @staticmethod
+    def differencing_layer(
+        name: str = "differencing",
+        order: int = 1,
+        fill_value: float = 0.0,
+        drop_na: bool = True,
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a DifferencingLayer for differencing time series data to make it stationary.
+
+        Args:
+            name: Name of the layer.
+            order: Order of differencing. Default is 1.
+            fill_value: Value to use for filling initial values. Default is 0.0.
+            drop_na: Whether to drop rows with NaN values. Default is True.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            DifferencingLayer instance.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=DifferencingLayer,
+            name=name,
+            order=order,
+            fill_value=fill_value,
+            drop_na=drop_na,
+            **kwargs,
+        )
+
+    @staticmethod
+    def moving_average_layer(
+        name: str = "moving_average",
+        periods: list[int] = None,
+        pad_value: float = 0.0,
+        keep_original: bool = True,
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a MovingAverageLayer for computing moving averages to smooth time series data.
+
+        Args:
+            name: Name of the layer.
+            periods: List of periods (window sizes) for moving averages. Default is [7] (7-period MA).
+            pad_value: Value to use for padding. Default is 0.0.
+            keep_original: Whether to keep the original series alongside MAs. Default is True.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            MovingAverageLayer instance.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=MovingAverageLayer,
+            name=name,
+            periods=periods,
+            pad_value=pad_value,
+            keep_original=keep_original,
             **kwargs,
         )

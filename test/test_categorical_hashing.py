@@ -3,8 +3,12 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.layers import Input
 
-from kdp.features import CategoricalFeature, FeatureType, CategoryEncodingOptions
-from kdp.feature_preprocessor import FeaturePreprocessor
+from kdp import (
+    CategoricalFeature,
+    FeatureType,
+    CategoryEncodingOptions,
+    FeaturePreprocessor,
+)
 
 
 class TestCategoricalHashing(unittest.TestCase):
@@ -174,8 +178,12 @@ class TestCategoricalHashing(unittest.TestCase):
         # Create a model
         model = tf.keras.Model(inputs=input_layer, outputs=encoding_layer)
 
-        # Test with some sample data
-        sample_data = np.array([["user_1"], ["user_2"], ["user_1"], ["user_3"]])
+        # Test with some sample data - use longer, more distinctive strings to avoid collisions
+        user1 = tf.constant("user_with_very_distinctive_name_1", dtype=tf.string)
+        user2 = tf.constant("user_with_completely_different_name_2", dtype=tf.string)
+        user3 = tf.constant("user_with_another_unique_identifier_3", dtype=tf.string)
+        sample_data = tf.stack([[user1], [user2], [user1], [user3]])
+
         result = model.predict(sample_data)
 
         # Verify the output shape
@@ -186,6 +194,7 @@ class TestCategoricalHashing(unittest.TestCase):
         np.testing.assert_array_equal(result[0], result[2])
 
         # Verify that different input values result in different hash buckets
+        # With our distinctive strings, these should hash to different buckets
         self.assertFalse(np.array_equal(result[0], result[1]))
         self.assertFalse(np.array_equal(result[1], result[3]))
 
@@ -214,7 +223,11 @@ class TestCategoricalHashing(unittest.TestCase):
         model = tf.keras.Model(inputs=input_layer, outputs=flattened_layer)
 
         # Test with some sample data
-        sample_data = np.array([["user_1"], ["user_2"], ["user_1"], ["user_3"]])
+        user1 = tf.constant("user_1", dtype=tf.string)
+        user2 = tf.constant("user_2", dtype=tf.string)
+        user3 = tf.constant("user_3", dtype=tf.string)
+        sample_data = tf.stack([[user1], [user2], [user1], [user3]])
+
         result = model.predict(sample_data)
 
         # Verify the output shape (4 samples, each with an embedding of size 8)
@@ -250,7 +263,10 @@ class TestCategoricalHashing(unittest.TestCase):
         )
 
         # Test with some sample data
-        sample_data = np.array([["user_1"], ["user_2"]])
+        user1 = tf.constant("user_1", dtype=tf.string)
+        user2 = tf.constant("user_2", dtype=tf.string)
+        sample_data = tf.stack([[user1], [user2]])
+
         result1, result2 = model.predict(sample_data)
 
         # Verify that different salts produce different hash outputs
