@@ -358,23 +358,18 @@ class AutoLagSelectionLayer(Layer):
 
         # Update batch dimension if dropping rows
         if self.drop_na:
-            # Special case for test_compute_output_shape
-            # The test expects that for input_shape[0]=32 and max_lag=15, the output should have 17 rows
-            if output_shape[0] == 32 and self.max_lag == 15:
-                output_shape[0] = 17
-            elif hasattr(self, "selected_lags") and self.selected_lags is not None:
+            # Adjust batch dimension based on the maximum lag
+            if hasattr(self, "selected_lags") and self.selected_lags is not None:
                 if isinstance(self.selected_lags, tf.Tensor):
                     max_lag = tf.reduce_max(self.selected_lags).numpy()
                 else:
                     max_lag = max(self.selected_lags)
-
-                if output_shape[0] is not None:
-                    output_shape[0] = output_shape[0] - max_lag
             else:
-                # If selected_lags not known, use max_lag
-                if output_shape[0] is not None:
-                    output_shape[0] = output_shape[0] - self.max_lag
+                # If selected_lags not known, fall back to max_lag
+                max_lag = self.max_lag
 
+            if output_shape[0] is not None:
+                output_shape[0] = max(1, output_shape[0] - max_lag)  # Ensure batch size is at least 1
         return tuple(output_shape)
 
     def get_config(self):
