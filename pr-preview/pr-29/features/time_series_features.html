@@ -780,6 +780,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#inference-with-time-series-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔍 Inference with Time Series Features
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1661,6 +1670,15 @@
   <a href="#related-topics" class="md-nav__link">
     <span class="md-ellipsis">
       🔗 Related Topics
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#inference-with-time-series-features" class="md-nav__link">
+    <span class="md-ellipsis">
+      🔍 Inference with Time Series Features
     </span>
   </a>
   
@@ -2591,6 +2609,132 @@
     <span class="nav-text">Image Features</span>
     <span class="nav-icon">→</span>
   </a>
+</div>
+
+<h2 id="inference-with-time-series-features">🔍 Inference with Time Series Features</h2>
+<div class="inference-section">
+  <p>Time series preprocessing requires special consideration during inference. Unlike static features, time series transformations depend on historical data and context.</p>
+
+  <h3>Minimal Requirements for Inference</h3>
+
+  <div class="table-container">
+    <table class="inference-table">
+      <thead>
+        <tr>
+          <th>Transformation</th>
+          <th>Minimum Data Required</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>Lag Features</code></td>
+          <td>max(lags) previous time points</td>
+          <td>If largest lag is 14, you need 14 previous data points</td>
+        </tr>
+        <tr>
+          <td><code>Rolling Statistics</code></td>
+          <td>window_size previous points</td>
+          <td>For a 7-day window, you need 7 previous points</td>
+        </tr>
+        <tr>
+          <td><code>Differencing</code></td>
+          <td>order previous points</td>
+          <td>First-order differencing requires 1 previous point</td>
+        </tr>
+        <tr>
+          <td><code>Moving Averages</code></td>
+          <td>max(periods) previous points</td>
+          <td>For periods [7,14,28], you need 28 previous points</td>
+        </tr>
+        <tr>
+          <td><code>Wavelet Transform</code></td>
+          <td>2^levels previous points</td>
+          <td>For 3 levels, you need at least 8 previous points</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Example: Single-Point Inference</h3>
+
+  <p>For single-point or incremental inference with time series features:</p>
+
+  <div class="code-container">
+
+<div class="highlight"><pre><span></span><code><span class="c1"># INCORRECT - Will fail with time series features</span>
+<span class="n">single_point</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;date&quot;</span><span class="p">:</span> <span class="s2">&quot;2023-06-01&quot;</span><span class="p">,</span> <span class="s2">&quot;store_id&quot;</span><span class="p">:</span> <span class="s2">&quot;Store_1&quot;</span><span class="p">,</span> <span class="s2">&quot;sales&quot;</span><span class="p">:</span> <span class="mf">150.0</span><span class="p">}</span>
+<span class="n">prediction</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">single_point</span><span class="p">)</span>  <span class="c1"># ❌ Missing historical context</span>
+
+<span class="c1"># CORRECT - Include historical context</span>
+<span class="n">inference_data</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;date&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;2023-05-25&quot;</span><span class="p">,</span> <span class="s2">&quot;2023-05-26&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="s2">&quot;2023-06-01&quot;</span><span class="p">],</span>  <span class="c1"># Include history</span>
+    <span class="s2">&quot;store_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Store_1&quot;</span><span class="p">,</span> <span class="s2">&quot;Store_1&quot;</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="s2">&quot;Store_1&quot;</span><span class="p">],</span>       <span class="c1"># Same group</span>
+    <span class="s2">&quot;sales&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mf">125.0</span><span class="p">,</span> <span class="mf">130.0</span><span class="p">,</span> <span class="o">...</span><span class="p">,</span> <span class="mf">150.0</span><span class="p">]</span>                       <span class="c1"># Historical values</span>
+<span class="p">}</span>
+<span class="n">prediction</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">inference_data</span><span class="p">)</span>  <span class="c1"># ✅ Last row will have prediction</span>
+</code></pre></div>
+
+  </div>
+
+  <h3>Strategies for Ongoing Predictions</h3>
+
+  <p>For forecasting multiple steps into the future:</p>
+
+  <div class="code-container">
+
+<div class="highlight"><pre><span></span><code><span class="c1"># Multi-step forecasting with KDP</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="c1"># 1. Start with historical data</span>
+<span class="n">history_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s2">&quot;date&quot;</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2023-01-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2023-05-31&quot;</span><span class="p">),</span>
+    <span class="s2">&quot;store_id&quot;</span><span class="p">:</span> <span class="s2">&quot;Store_1&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;sales&quot;</span><span class="p">:</span> <span class="n">historical_values</span>  <span class="c1"># Your historical data</span>
+<span class="p">})</span>
+
+<span class="c1"># 2. Create future dates to predict</span>
+<span class="n">future_dates</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s2">&quot;2023-06-01&quot;</span><span class="p">,</span> <span class="s2">&quot;2023-06-30&quot;</span><span class="p">)</span>
+<span class="n">forecast_horizon</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">future_dates</span><span class="p">)</span>
+
+<span class="c1"># 3. Initialize with history</span>
+<span class="n">working_df</span> <span class="o">=</span> <span class="n">history_df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+<span class="c1"># 4. Iterative forecasting</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">forecast_horizon</span><span class="p">):</span>
+    <span class="c1"># Prepare next date to forecast</span>
+    <span class="n">next_date</span> <span class="o">=</span> <span class="n">future_dates</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="n">next_row</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+        <span class="s2">&quot;date&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">next_date</span><span class="p">],</span>
+        <span class="s2">&quot;store_id&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Store_1&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;sales&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span>  <span class="c1"># Unknown value we want to predict</span>
+    <span class="p">})</span>
+
+    <span class="c1"># Add to working data</span>
+    <span class="n">temp_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">working_df</span><span class="p">,</span> <span class="n">next_row</span><span class="p">])</span>
+
+    <span class="c1"># Make prediction (returns all rows, take last one)</span>
+    <span class="n">prediction</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">temp_df</span><span class="p">)</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="s2">&quot;sales&quot;</span><span class="p">]</span>
+
+    <span class="c1"># Update the working dataframe with the prediction</span>
+    <span class="n">next_row</span><span class="p">[</span><span class="s2">&quot;sales&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">prediction</span>
+    <span class="n">working_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">working_df</span><span class="p">,</span> <span class="n">next_row</span><span class="p">])</span>
+
+<span class="c1"># Final forecast is in the last forecast_horizon rows</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">working_df</span><span class="o">.</span><span class="n">tail</span><span class="p">(</span><span class="n">forecast_horizon</span><span class="p">)</span>
+</code></pre></div>
+
+  </div>
+
+  <h3>Key Considerations for Inference</h3>
+
+  <ul>
+    <li><strong>Group Integrity</strong>: Maintain the same groups used during training</li>
+    <li><strong>Chronological Order</strong>: Ensure data is properly sorted by time</li>
+    <li><strong>Sufficient History</strong>: Provide enough history for each group</li>
+    <li><strong>Empty Fields</strong>: For auto-regressive forecasting, leave future values as None or NaN</li>
+    <li><strong>Overlapping Windows</strong>: For multi-step forecasts, consider whether predictions should feed back as inputs</li>
+  </ul>
 </div>
 
 <style>
