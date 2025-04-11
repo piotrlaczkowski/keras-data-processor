@@ -94,10 +94,9 @@ class LagFeatureLayer(Layer):
             # Update the last dimension for feature count
             output_shape[-1] = feature_dim
 
-        # Update batch dimension if dropping rows
-        if self.drop_na:
-            output_shape[0] -= max(self.lag_indices)
-            output_shape[0] = max(0, output_shape[0])
+        # For symbolic shape (where batch dim is None), we can't modify the batch size
+        # None batch dimension means variable batch size at runtime
+        # So we just return the shape with the updated feature dimension
 
         return tuple(output_shape)
 

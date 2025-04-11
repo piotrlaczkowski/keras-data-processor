@@ -1479,6 +1479,21 @@ class PreprocessingModel:
                     name=f"norm_{feature_name}",
                 )
 
+            # Add time series transformation layers
+            if hasattr(feature, "build_layers"):
+                time_series_layers = feature.build_layers()
+                for i, layer in enumerate(time_series_layers):
+                    # Use the layer's name if available, otherwise create a generic one
+                    layer_name = getattr(layer, "name", f"{feature_name}_ts_layer_{i}")
+                    # We need to use a lambda to wrap the existing layer
+                    preprocessor.add_processing_step(
+                        layer_creator=lambda layer=layer, **kwargs: layer,
+                        name=layer_name,
+                    )
+                    logger.info(
+                        f"Adding time series layer: {layer_name} to the pipeline"
+                    )
+
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
 

@@ -176,11 +176,6 @@ class DifferencingLayer(Layer):
             # Update the last dimension for feature count
             output_shape[-1] = feature_dim
 
-        # Update batch dimension if dropping rows
-        if self.drop_na:
-            output_shape[0] -= self.order
-            output_shape[0] = max(0, output_shape[0])
-
         return tuple(output_shape)
 
     def get_config(self):
