@@ -933,6 +933,135 @@ sensor_feature = TimeSeriesFeature(
   </a>
 </div>
 
+## 🔍 Inference with Time Series Features
+
+<div class="inference-section">
+  <p>Time series preprocessing requires special consideration during inference. Unlike static features, time series transformations depend on historical data and context.</p>
+
+  <h3>Minimal Requirements for Inference</h3>
+
+  <div class="table-container">
+    <table class="inference-table">
+      <thead>
+        <tr>
+          <th>Transformation</th>
+          <th>Minimum Data Required</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>Lag Features</code></td>
+          <td>max(lags) previous time points</td>
+          <td>If largest lag is 14, you need 14 previous data points</td>
+        </tr>
+        <tr>
+          <td><code>Rolling Statistics</code></td>
+          <td>window_size previous points</td>
+          <td>For a 7-day window, you need 7 previous points</td>
+        </tr>
+        <tr>
+          <td><code>Differencing</code></td>
+          <td>order previous points</td>
+          <td>First-order differencing requires 1 previous point</td>
+        </tr>
+        <tr>
+          <td><code>Moving Averages</code></td>
+          <td>max(periods) previous points</td>
+          <td>For periods [7,14,28], you need 28 previous points</td>
+        </tr>
+        <tr>
+          <td><code>Wavelet Transform</code></td>
+          <td>2^levels previous points</td>
+          <td>For 3 levels, you need at least 8 previous points</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>Example: Single-Point Inference</h3>
+
+  <p>For single-point or incremental inference with time series features:</p>
+
+  <div class="code-container">
+
+```python
+# INCORRECT - Will fail with time series features
+single_point = {"date": "2023-06-01", "store_id": "Store_1", "sales": 150.0}
+prediction = model.predict(single_point)  # ❌ Missing historical context
+
+# CORRECT - Include historical context
+inference_data = {
+    "date": ["2023-05-25", "2023-05-26", ..., "2023-06-01"],  # Include history
+    "store_id": ["Store_1", "Store_1", ..., "Store_1"],       # Same group
+    "sales": [125.0, 130.0, ..., 150.0]                       # Historical values
+}
+prediction = model.predict(inference_data)  # ✅ Last row will have prediction
+```
+
+  </div>
+
+  <h3>Strategies for Ongoing Predictions</h3>
+
+  <p>For forecasting multiple steps into the future:</p>
+
+  <div class="code-container">
+
+```python
+# Multi-step forecasting with KDP
+import pandas as pd
+
+# 1. Start with historical data
+history_df = pd.DataFrame({
+    "date": pd.date_range("2023-01-01", "2023-05-31"),
+    "store_id": "Store_1",
+    "sales": historical_values  # Your historical data
+})
+
+# 2. Create future dates to predict
+future_dates = pd.date_range("2023-06-01", "2023-06-30")
+forecast_horizon = len(future_dates)
+
+# 3. Initialize with history
+working_df = history_df.copy()
+
+# 4. Iterative forecasting
+for i in range(forecast_horizon):
+    # Prepare next date to forecast
+    next_date = future_dates[i]
+    next_row = pd.DataFrame({
+        "date": [next_date],
+        "store_id": ["Store_1"],
+        "sales": [None]  # Unknown value we want to predict
+    })
+
+    # Add to working data
+    temp_df = pd.concat([working_df, next_row])
+
+    # Make prediction (returns all rows, take last one)
+    prediction = model.predict(temp_df).iloc[-1]["sales"]
+
+    # Update the working dataframe with the prediction
+    next_row["sales"] = prediction
+    working_df = pd.concat([working_df, next_row])
+
+# Final forecast is in the last forecast_horizon rows
+forecast = working_df.tail(forecast_horizon)
+```
+
+  </div>
+
+  <h3>Key Considerations for Inference</h3>
+
+  <ul>
+    <li><strong>Group Integrity</strong>: Maintain the same groups used during training</li>
+    <li><strong>Chronological Order</strong>: Ensure data is properly sorted by time</li>
+    <li><strong>Sufficient History</strong>: Provide enough history for each group</li>
+    <li><strong>Empty Fields</strong>: For auto-regressive forecasting, leave future values as None or NaN</li>
+    <li><strong>Overlapping Windows</strong>: For multi-step forecasts, consider whether predictions should feed back as inputs</li>
+  </ul>
+</div>
+
 <style>
 /* Base styling */
 body {

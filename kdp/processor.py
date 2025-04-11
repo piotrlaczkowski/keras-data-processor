@@ -17,6 +17,7 @@ from functools import wraps
 from typing import Any, List, Optional, Tuple
 from pathlib import Path
 import json
+import numpy as np
 
 from loguru import logger
 
@@ -2535,6 +2536,131 @@ class PreprocessingModel:
                 }
 
         return feature_importances
+
+    def _validate_time_series_inference_data(self, data):
+        """Validate that the provided data meets minimum requirements for time series inference.
+
+        Args:
+            data: The data to validate, can be pandas DataFrame, dict, or TensorFlow dataset.
+
+        Returns:
+            bool: True if validation passes, False otherwise.
+
+        Raises:
+            ValueError: If data is insufficient for time series inference.
+        """
+        # Only validate if we have time series features
+        time_series_features = [
+            name
+            for name, feature in self.features_specs.items()
+            if (
+                hasattr(feature, "feature_type")
+                and feature.feature_type == FeatureType.TIME_SERIES
+            )
+        ]
+
+        if not time_series_features:
+            return True
+
+        # Convert data to DataFrame if it's a dict
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if (
+                    not isinstance(value, (list, np.ndarray))
+                    and key in time_series_features
+                ):
+                    raise ValueError(
+                        f"Time series feature '{key}' requires historical context. "
+                        f"Please provide a list or array of values, not a single value."
+                    )
+
+        # For each time series feature, check that we have enough data
+        for feature_name in time_series_features:
+            feature = self.features_specs[feature_name]
+
+            # Check grouping column exists if needed
+            if hasattr(feature, "group_by") and feature.group_by:
+                if isinstance(data, dict) and feature.group_by not in data:
+                    raise ValueError(
+                        f"Time series feature '{feature_name}' requires grouping by "
+                        f"'{feature.group_by}', but this column is not in the data."
+                    )
+
+            # Check sorting column exists if needed
+            if hasattr(feature, "sort_by") and feature.sort_by:
+                if isinstance(data, dict) and feature.sort_by not in data:
+                    raise ValueError(
+                        f"Time series feature '{feature_name}' requires sorting by "
+                        f"'{feature.sort_by}', but this column is not in the data."
+                    )
+
+            # Calculate minimum required history
+            min_history = 1  # Default minimum
+
+            # Check lag features
+            if hasattr(feature, "lag_config") and feature.lag_config:
+                lags = feature.lag_config.get("lags", [])
+                if lags:
+                    min_history = max(min_history, max(lags))
+
+            # Check rolling statistics
+            if (
+                hasattr(feature, "rolling_stats_config")
+                and feature.rolling_stats_config
+            ):
+                window_size = feature.rolling_stats_config.get("window_size", 1)
+                min_history = max(min_history, window_size)
+
+            # Check differencing
+            if hasattr(feature, "differencing_config") and feature.differencing_config:
+                order = feature.differencing_config.get("order", 1)
+                min_history = max(min_history, order)
+
+            # Check moving averages
+            if (
+                hasattr(feature, "moving_average_config")
+                and feature.moving_average_config
+            ):
+                periods = feature.moving_average_config.get("periods", [])
+                if periods:
+                    min_history = max(min_history, max(periods))
+
+            # Check wavelet transform
+            if (
+                hasattr(feature, "wavelet_transform_config")
+                and feature.wavelet_transform_config
+            ):
+                levels = feature.wavelet_transform_config.get("levels", 3)
+                min_history = max(min_history, 2**levels)
+
+            # Check data size if it's a dict with lists/arrays
+            if isinstance(data, dict) and feature_name in data:
+                feature_data = data[feature_name]
+                if isinstance(feature_data, (list, np.ndarray)):
+                    data_length = len(feature_data)
+                    if data_length < min_history:
+                        raise ValueError(
+                            f"Time series feature '{feature_name}' requires at least {min_history} "
+                            f"historical data points, but only {data_length} were provided."
+                        )
+
+        return True
+
+    def predict(self, data, **kwargs):
+        """Predict using the preprocessor model.
+
+        Args:
+            data: The data to predict on, can be pandas DataFrame, dict, or TensorFlow dataset.
+            **kwargs: Additional keyword arguments to pass to the model's predict method.
+
+        Returns:
+            The prediction output.
+        """
+        # Validate time series inference data
+        self._validate_time_series_inference_data(data)
+
+        # Call the model's predict method
+        return self.model.predict(data, **kwargs)
 
 
 # Define serializable custom layers

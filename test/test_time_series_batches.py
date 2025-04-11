@@ -866,6 +866,224 @@ class TestTimeSeriesBatches(TestCase):  # Use TestCase from tensorflow.test
         # Verify lag 7 values (all filled with 0 since we don't have 7 previous values)
         self.assertAllClose(result[:, 2], [0.0, 0.0, 0.0, 0.0, 0.0])
 
+    def test_time_series_inference_validation(self):
+        """Test that the preprocessor validates time series data requirements during inference."""
+        num_stores = 3
+        days_per_store = 14
+
+        # Create test data with multiple stores and days
+        data = []
+        base_date = pd.Timestamp("2023-01-01")
+
+        for store_id in range(num_stores):
+            for day in range(days_per_store):
+                date = base_date + pd.Timedelta(days=day)
+                data.append(
+                    {
+                        "date": date.strftime("%Y-%m-%d"),
+                        "store_id": f"Store_{store_id}",
+                        # Simple pattern: each day increases by 10, each store by 100
+                        "sales": 100 + (store_id * 100) + (day * 10),
+                    }
+                )
+
+        df = pd.DataFrame(data)
+
+        # Create time series feature with lag and rolling window
+        time_series_config = TimeSeriesFeature(
+            name="sales",
+            sort_by="date",
+            group_by="store_id",
+            lag_config={"lags": [1, 7], "drop_na": False},
+            rolling_stats_config={
+                "window_size": 3,
+                "statistics": ["mean"],
+                "drop_na": False,
+            },
+        )
+
+        # Create features dictionary
+        features = {
+            "sales": time_series_config,
+            "date": FeatureType.DATE,
+            "store_id": FeatureType.STRING_CATEGORICAL,
+        }
+
+        # Create and build the preprocessor
+        preprocessor = PreprocessingModel(features_specs=features, path_data=df)
+        preprocessor.build_preprocessor()
+
+        # Test 1: Single point inference should fail
+        single_point = {"date": "2023-01-15", "store_id": "Store_0", "sales": 250.0}
+
+        with self.assertRaises(ValueError) as context:
+            preprocessor._validate_time_series_inference_data(single_point)
+        self.assertIn("requires historical context", str(context.exception))
+
+        # Test 2: Insufficient history should fail
+        short_history = {
+            "date": ["2023-01-15", "2023-01-16"],
+            "store_id": ["Store_0", "Store_0"],
+            "sales": [250.0, 260.0],
+        }
+
+        with self.assertRaises(ValueError) as context:
+            preprocessor._validate_time_series_inference_data(short_history)
+        self.assertIn("requires at least", str(context.exception))
+
+        # Test 3: Missing grouping column should fail
+        missing_group = {
+            "date": ["2023-01-01", "2023-01-02", "2023-01-03", "2023-01-04"],
+            "sales": [100.0, 110.0, 120.0, 130.0],
+        }
+
+        with self.assertRaises(ValueError) as context:
+            preprocessor._validate_time_series_inference_data(missing_group)
+        self.assertIn("requires grouping by", str(context.exception))
+
+        # Test 4: Missing sorting column should fail
+        missing_sort = {
+            "store_id": ["Store_0", "Store_0", "Store_0", "Store_0"],
+            "sales": [100.0, 110.0, 120.0, 130.0],
+        }
+
+        with self.assertRaises(ValueError) as context:
+            preprocessor._validate_time_series_inference_data(missing_sort)
+        self.assertIn("requires sorting by", str(context.exception))
+
+        # Test 5: Valid data should pass
+        valid_data = {
+            "date": [
+                "2023-01-01",
+                "2023-01-02",
+                "2023-01-03",
+                "2023-01-04",
+                "2023-01-05",
+                "2023-01-06",
+                "2023-01-07",
+                "2023-01-08",
+            ],
+            "store_id": ["Store_0"] * 8,
+            "sales": [100.0, 110.0, 120.0, 130.0, 140.0, 150.0, 160.0, 170.0],
+        }
+
+        result = preprocessor._validate_time_series_inference_data(valid_data)
+        self.assertTrue(result)
+
+    def test_no_validation_without_time_series(self):
+        """Test that validation is skipped when no time series features are present."""
+        # Create test data
+        data = []
+        base_date = pd.Timestamp("2023-01-01")
+
+        for day in range(10):
+            date = base_date + pd.Timedelta(days=day)
+            data.append(
+                {
+                    "date": date.strftime("%Y-%m-%d"),
+                    "category": f"Cat_{day % 3}",  # 3 different categories
+                    "value": 100 + (day * 10),
+                }
+            )
+
+        df = pd.DataFrame(data)
+
+        # Generate feature stats to avoid errors
+        feature_stats = {
+            "value": {
+                "mean": np.mean(df["value"]),
+                "var": np.var(df["value"]),
+                "min": np.min(df["value"]),
+                "max": np.max(df["value"]),
+                "med": np.median(df["value"]),
+                "count": len(df["value"]),
+                "num_na": 0,
+                "special_values": [],
+                "distribution": "normal",
+            },
+            "category": {
+                "vocab": df["category"].unique().tolist(),
+                "count": len(df["category"]),
+                "num_na": 0,
+            },
+        }
+
+        # Create features dictionary WITHOUT time series features
+        features = {
+            "value": FeatureType.FLOAT_NORMALIZED,
+            "date": FeatureType.DATE,
+            "category": FeatureType.STRING_CATEGORICAL,
+        }
+
+        # Create preprocessor with our feature stats
+        preprocessor = PreprocessingModel(
+            features_specs=features,
+            path_data=df,
+            features_stats=feature_stats,
+            overwrite_stats=True,
+        )
+
+        # Build the preprocessor - we'll skip this since we only want to test the validation method
+        # which doesn't require the model to be built
+        # preprocessor.build_preprocessor()
+
+        # Manually set model to None to avoid needing to build
+        preprocessor.model = None
+
+        # This should succeed even with a single point, as there are no time series features
+        single_point = {"date": "2023-01-15", "category": "Cat_1", "value": 250.0}
+
+        # This should pass validation (return True) with no errors
+        result = preprocessor._validate_time_series_inference_data(single_point)
+        self.assertTrue(result)
+
+        # Test with predict method
+        # For this, we need to mock predict since we didn't build the model
+        prediction_input = {
+            "date": ["2023-01-15"],
+            "category": ["Cat_1"],
+            "value": [250.0],
+        }
+
+        try:
+            # Track if validation was run
+            validation_called = False
+            validation_result = None
+
+            def mock_validate(*args, **kwargs):
+                nonlocal validation_called, validation_result
+                validation_called = True
+                validation_result = True  # Simulate successful validation
+                return True
+
+            # Replace the validation method
+            original_validate = preprocessor._validate_time_series_inference_data
+            preprocessor._validate_time_series_inference_data = mock_validate
+
+            # Also mock the model.predict call
+            def mock_predict(*args, **kwargs):
+                return {"value": np.array([250.0])}
+
+            # Replace the model attribute with a mock
+            class MockModel:
+                def predict(self, *args, **kwargs):
+                    return mock_predict(*args, **kwargs)
+
+            preprocessor.model = MockModel()
+
+            # Call predict - this should call our mocked validation
+            result = preprocessor.predict(prediction_input)
+
+            # Verify validation was called
+            self.assertTrue(
+                validation_called, "Validation method should have been called"
+            )
+            self.assertTrue(validation_result, "Validation should have returned True")
+
+        finally:
+            # Restore original methods
+            preprocessor._validate_time_series_inference_data = original_validate
+
 
 if __name__ == "__main__":
     unittest.main()
