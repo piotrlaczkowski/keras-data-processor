@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
 import numpy as np
+from loguru import logger
 import pandas as pd
 
 
@@ -157,23 +158,16 @@ class CalendarFeatureLayer(Layer):
             if len(date_inputs.shape) == 2 and date_inputs.shape[1] == 1:
                 date_inputs = date_inputs.reshape(-1)
 
-            # Print debug info
-            print(f"Date inputs type: {type(date_inputs)}, dtype: {date_inputs.dtype}")
-            if len(date_inputs) > 0:
-                print(
-                    f"First element type: {type(date_inputs[0])}, value: {date_inputs[0]}"
-                )
-
             # Convert to pandas datetime
             try:
                 dates = pd.to_datetime(date_inputs, format=self.input_format)
             except (ValueError, TypeError) as e:
-                print(f"First conversion attempt failed: {e}")
+                logger.debug(f"First conversion attempt failed: {e}")
                 try:
                     # Try without specific format if the initial conversion fails
                     dates = pd.to_datetime(date_inputs)
                 except (ValueError, TypeError) as e2:
-                    print(f"Second conversion attempt failed: {e2}")
+                    logger.debug(f"Second conversion attempt failed: {e2}")
                     # Last resort: try to clean the strings and convert
                     cleaned_inputs = []
                     for d in date_inputs:
