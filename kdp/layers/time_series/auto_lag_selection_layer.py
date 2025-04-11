@@ -369,7 +369,9 @@ class AutoLagSelectionLayer(Layer):
                 max_lag = self.max_lag
 
             if output_shape[0] is not None:
-                output_shape[0] = max(1, output_shape[0] - max_lag)  # Ensure batch size is at least 1
+                output_shape[0] = max(
+                    1, output_shape[0] - max_lag
+                )  # Ensure batch size is at least 1
         return tuple(output_shape)
 
     def get_config(self):
