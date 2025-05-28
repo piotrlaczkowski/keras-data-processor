@@ -1,3 +1,23 @@
+## 1.11.0 (2025-05-28)
+
+* feat(KDP): adding new layers / features to timeseries ([519bb06](https://github.com/piotrlaczkowski/keras-data-processor/commit/519bb06))
+* feat(KDP): adding timeseries features ([7e819dc](https://github.com/piotrlaczkowski/keras-data-processor/commit/7e819dc))
+* feat(KDP): adding timeseries features functionality and layers (#29) ([ff38437](https://github.com/piotrlaczkowski/keras-data-processor/commit/ff38437)), closes [#29](https://github.com/piotrlaczkowski/keras-data-processor/issues/29)
+* feat(KDP): adding timeseries inference formatter ([c83cd48](https://github.com/piotrlaczkowski/keras-data-processor/commit/c83cd48))
+* fix(KDP): fix pre-commit ([e1f77f4](https://github.com/piotrlaczkowski/keras-data-processor/commit/e1f77f4))
+* fix(KDP): fixing docs plugin ([21dba63](https://github.com/piotrlaczkowski/keras-data-processor/commit/21dba63))
+* fix(KDP): fixing symbolic tensors shape calculations ([d810e62](https://github.com/piotrlaczkowski/keras-data-processor/commit/d810e62))
+* fix(KDP): getting rid of hardcoded test requirements ([849a982](https://github.com/piotrlaczkowski/keras-data-processor/commit/849a982))
+* fix(KDP): removing print and replacing by logger ([2333152](https://github.com/piotrlaczkowski/keras-data-processor/commit/2333152))
+* docs(KDP): correctly referencing timeseries features ([13e4511](https://github.com/piotrlaczkowski/keras-data-processor/commit/13e4511))
+* docs(KDP): extending docs and tests for timeseries features ([37f4f24](https://github.com/piotrlaczkowski/keras-data-processor/commit/37f4f24))
+* test(KDP): adding more timeseries feature tests ([8c317bf](https://github.com/piotrlaczkowski/keras-data-processor/commit/8c317bf))
+* ops(KDP): cleaning workflows ([37da166](https://github.com/piotrlaczkowski/keras-data-processor/commit/37da166))
+* ops(KDP): fix docs release errors ([b8972c4](https://github.com/piotrlaczkowski/keras-data-processor/commit/b8972c4))
+* ops(KDP): fixing release ([37474e7](https://github.com/piotrlaczkowski/keras-data-processor/commit/37474e7))
+* ops(KDP): improve release workflow ([2504321](https://github.com/piotrlaczkowski/keras-data-processor/commit/2504321))
+* ops(KDP): updating after release notes ([cc41dad](https://github.com/piotrlaczkowski/keras-data-processor/commit/cc41dad))
+
 ## 1.10.0 (2025-03-31)
 
 * ops(KDP): fixing action wrapper version ([cae2785](https://github.com/piotrlaczkowski/keras-data-processor/commit/cae2785))
