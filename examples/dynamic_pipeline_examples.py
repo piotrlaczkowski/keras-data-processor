@@ -4,6 +4,7 @@ Example script for using DynamicPreprocessingPipeline with custom preprocessing 
 This script demonstrates how to use the DynamicPreprocessingPipeline to create
 a flexible pipeline of preprocessing layers, with customizable transformations.
 """
+# ruff: noqa: E402
 
 import numpy as np
 import tensorflow as tf
@@ -24,6 +25,7 @@ logging.basicConfig(level=logging.INFO)
 # Set random seed for reproducibility
 np.random.seed(42)
 tf.random.set_seed(42)
+
 
 # Example 1: Basic Custom Layers
 class ScalingLayer(tf.keras.layers.Layer):
@@ -294,54 +296,54 @@ def example_4_keras_integration():
 def example_5_normalize_transform():
     """Create a pipeline that normalizes data and then applies a log transform."""
     print("\n=== Example 5: Normalize and Transform Pipeline ===")
-    
+
     # Generate random data - lognormal distribution (right-skewed)
     data = np.random.lognormal(mean=0, sigma=1, size=(1000, 1)).astype(np.float32)
-    
+
     # Create a normalization layer
     normalize_layer = tf.keras.layers.Normalization(name="normalize")
     normalize_layer.adapt(data)
-    
+
     # Create a log transform layer using our factory
     log_transform = PreprocessorLayerFactory.distribution_transform_layer(
         transform_type="log", name="log_transform"
     )
-    
+
     # Create our pipeline with both layers
     pipeline = DynamicPreprocessingPipeline([normalize_layer, log_transform])
-    
+
     # Create a dataset
     dataset = tf.data.Dataset.from_tensor_slices({"normalize": data}).batch(32)
-    
+
     # Process the data
     processed_data = pipeline.process(dataset)
-    
+
     # Examine the results
     for batch in processed_data.take(1):
         original_mean = np.mean(data)
         transformed_mean = batch["log_transform"].numpy().mean()
-        
+
         print(f"Original data mean: {original_mean:.4f}")
         print(f"Transformed data mean: {transformed_mean:.4f}")
-        
+
         # Visualize the transformation
         plt.figure(figsize=(12, 5))
-        
+
         plt.subplot(1, 2, 1)
         plt.hist(data, bins=50, alpha=0.7)
         plt.title("Original Data Distribution")
         plt.xlabel("Value")
         plt.ylabel("Frequency")
-        
+
         plt.subplot(1, 2, 2)
         plt.hist(batch["log_transform"].numpy(), bins=50, alpha=0.7)
         plt.title("Normalized + Log Transformed Data")
         plt.xlabel("Value")
         plt.ylabel("Frequency")
-        
+
         plt.tight_layout()
         plt.show()
-    
+
     return pipeline
 
 

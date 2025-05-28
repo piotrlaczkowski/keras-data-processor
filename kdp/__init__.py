@@ -5,6 +5,7 @@ from kdp.features import (
     FeatureType,
     NumericalFeature,
     TextFeature,
+    TimeSeriesFeature,
 )
 from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.pipeline import FeaturePreprocessor, Pipeline, ProcessingStep
@@ -17,6 +18,8 @@ from kdp.processor import (
 )
 from kdp.stats import DatasetStatistics
 from kdp.auto_config import auto_configure
+from kdp.inference.base import InferenceFormatter
+from kdp.time_series.inference import TimeSeriesInferenceFormatter
 
 __all__ = [
     "ProcessingStep",
@@ -27,6 +30,7 @@ __all__ = [
     "CategoricalFeature",
     "TextFeature",
     "DateFeature",
+    "TimeSeriesFeature",
     "DatasetStatistics",
     "PreprocessorLayerFactory",
     "PreprocessingModel",
@@ -35,4 +39,6 @@ __all__ = [
     "OutputModeOptions",
     "TabularAttentionPlacementOptions",
     "auto_configure",
+    "InferenceFormatter",
+    "TimeSeriesInferenceFormatter",
 ]

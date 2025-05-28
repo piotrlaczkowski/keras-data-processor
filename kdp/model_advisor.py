@@ -333,7 +333,12 @@ class ModelAdvisor:
 
     def _analyze_categorical_features(self):
         """Analyze categorical features and generate recommendations."""
-        for feature, stats in self.features_stats.get("categorical", {}).items():
+        # Try both "categorical" and "categorical_stats" keys
+        categorical_features = self.features_stats.get("categorical", {})
+        if not categorical_features:
+            categorical_features = self.features_stats.get("categorical_stats", {})
+
+        for feature, stats in categorical_features.items():
             vocabulary_size = stats.get("vocabulary_size", 0)
             rare_value_ratio = stats.get("rare_value_ratio", 0)
 
@@ -344,6 +349,12 @@ class ModelAdvisor:
             unique_count = 0
             if "value_counts" in stats:
                 unique_count = len(stats["value_counts"])
+            # If size is available (used in categorical_stats)
+            elif "size" in stats:
+                unique_count = stats.get("size", 0)
+            # If vocab is available (used in categorical_stats)
+            elif "vocab" in stats:
+                unique_count = len(stats.get("vocab", []))
 
             # If vocabulary size is 0, use unique count
             if vocabulary_size == 0 and unique_count > 0:
@@ -376,7 +387,7 @@ class ModelAdvisor:
                 self.recommendations[feature]["notes"].append(
                     f"Small vocabulary ({vocabulary_size} categories), one-hot encoding recommended"
                 )
-            elif vocabulary_size < 1000:
+            elif vocabulary_size < 100:
                 encoding = "EMBEDDING"
                 self.recommendations[feature]["preprocessing"].append("EMBEDDING")
                 self.recommendations[feature]["config"][

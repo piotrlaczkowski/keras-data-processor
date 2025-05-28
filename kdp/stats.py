@@ -8,7 +8,12 @@ import numpy as np
 import tensorflow as tf
 from loguru import logger
 
-from kdp.features import CategoricalFeature, FeatureType, NumericalFeature
+from kdp.features import (
+    CategoricalFeature,
+    FeatureType,
+    NumericalFeature,
+    TimeSeriesFeature,
+)
 
 MAX_WORKERS = os.cpu_count() or 4
 
@@ -229,6 +234,7 @@ class DatasetStatistics:
         categorical_features: list[CategoricalFeature] = None,
         text_features: list[CategoricalFeature] = None,
         date_features: list[str] = None,
+        time_series_features: list[TimeSeriesFeature] = None,
         features_stats_path: Path = None,
         overwrite_stats: bool = False,
         batch_size: int = 50_000,
@@ -247,16 +253,19 @@ class DatasetStatistics:
             categorical_features: A list of categorical features to calculate statistics for (defaults to None).
             text_features: A list of text features to calculate statistics for (defaults to None).
             date_features: A list of date features to calculate statistics for (defaults to None).
+            time_series_features: A list of time series features to calculate statistics for (defaults to None).
         """
         self.path_data = path_data
         self.numeric_features = numeric_features or []
         self.categorical_features = categorical_features or []
         self.text_features = text_features or []
         self.date_features = date_features or []
+        self.time_series_features = time_series_features or []
         self.features_specs = features_specs or {}
         self.features_stats_path = features_stats_path or "features_stats.json"
         self.overwrite_stats = overwrite_stats
         self.batch_size = batch_size
+        self.features_stats = {}
 
         # Initializing placeholders for statistics
         self.numeric_stats = {
@@ -267,6 +276,7 @@ class DatasetStatistics:
         }
         self.text_stats = {col: TextAccumulator() for col in self.text_features}
         self.date_stats = {col: DateAccumulator() for col in self.date_features}
+        self.time_series_stats = {}
 
     def _get_csv_file_pattern(self, path) -> str:
         """Get the csv file pattern that will handle directories and file paths.
@@ -339,6 +349,220 @@ class DatasetStatistics:
         """
         self.date_stats[feature].update(batch[feature])
 
+    def _process_time_series_data(self) -> dict:
+        """Process time series data, including sorting and grouping using TensorFlow dataset API.
+
+        Returns:
+            dict: Dictionary of processed time series features and their statistics
+        """
+        if not self.time_series_features and not any(
+            isinstance(feature, TimeSeriesFeature)
+            for feature in self.features_specs.values()
+        ):
+            return {}
+
+        # Extract time series features from specs if not provided directly
+        if not self.time_series_features and self.features_specs:
+            self.time_series_features = [
+                feature_name
+                for feature_name, feature in self.features_specs.items()
+                if isinstance(feature, TimeSeriesFeature)
+                or (
+                    hasattr(feature, "feature_type")
+                    and feature.feature_type == FeatureType.TIME_SERIES
+                )
+            ]
+
+        if not self.time_series_features:
+            return {}
+
+        # Read CSV files into TensorFlow dataset
+        dataset = self._read_data_into_dataset()
+        time_series_stats = {}
+
+        # Process each time series feature
+        for feature_name in self.time_series_features:
+            feature = self.features_specs.get(feature_name)
+
+            if not feature or not isinstance(feature, TimeSeriesFeature):
+                continue
+
+            # Check if the feature exists in the dataset
+            has_feature = False
+            for batch in dataset.take(1):
+                has_feature = feature_name in batch
+                break
+
+            if not has_feature:
+                logger.warning(
+                    f"Feature '{feature_name}' not found in the dataset. Skipping statistics calculation."
+                )
+                continue
+
+            # Prepare for grouped processing if grouping is specified
+            if feature.group_by and feature.group_by in list(
+                dataset.element_spec.keys()
+            ):
+                # Process data by groups
+                group_data = {}
+
+                # Extract data for each group
+                for batch in dataset:
+                    if feature_name in batch and feature.group_by in batch:
+                        group_keys = batch[feature.group_by].numpy()
+                        feature_values = batch[feature_name].numpy()
+                        sort_keys = (
+                            batch[feature.sort_by].numpy()
+                            if feature.sort_by in batch
+                            else None
+                        )
+
+                        # Organize data by group
+                        for i in range(len(group_keys)):
+                            group_key = group_keys[i]
+                            # Convert bytes to string if necessary
+                            if isinstance(group_key, bytes):
+                                group_key = group_key.decode("utf-8")
+
+                            if group_key not in group_data:
+                                group_data[group_key] = []
+
+                            if sort_keys is not None:
+                                group_data[group_key].append(
+                                    (sort_keys[i], feature_values[i])
+                                )
+                            else:
+                                group_data[group_key].append(
+                                    (i, feature_values[i])
+                                )  # Use index as sort key
+
+                # Create a separate accumulator for each group and process them
+                group_accumulators = {}
+
+                for group_key, pairs in group_data.items():
+                    # Sort if sort_by is specified
+                    if feature.sort_by:
+                        pairs.sort(
+                            key=lambda x: x[0], reverse=not feature.sort_ascending
+                        )
+
+                    # Extract sorted values
+                    sorted_values = [pair[1] for pair in pairs]
+
+                    if sorted_values:
+                        # Create accumulator for this group
+                        accumulator = WelfordAccumulator()
+                        sorted_tensor = tf.constant(sorted_values, dtype=tf.float32)
+                        accumulator.update(sorted_tensor)
+                        group_accumulators[group_key] = accumulator
+
+                # Combine statistics across groups
+                if group_accumulators:
+                    # Create overall accumulator to combine statistics
+                    combined_accumulator = WelfordAccumulator()
+
+                    # Combine all group means weighted by count
+                    all_values = []
+                    for _, acc in group_accumulators.items():
+                        mean_tensor = (
+                            tf.ones(shape=(int(acc.count.numpy()),), dtype=tf.float32)
+                            * acc.mean.numpy()
+                        )
+                        all_values.append(mean_tensor)
+
+                    if all_values:
+                        combined_tensor = tf.concat(all_values, axis=0)
+                        combined_accumulator.update(combined_tensor)
+
+                    # Calculate and store overall statistics
+                    stats = {
+                        "mean": float(combined_accumulator.mean.numpy()),
+                        "var": float(combined_accumulator.variance.numpy()),
+                        "count": int(
+                            sum(
+                                acc.count.numpy() for acc in group_accumulators.values()
+                            )
+                        ),
+                        "dtype": feature.dtype.name
+                        if hasattr(feature.dtype, "name")
+                        else str(feature.dtype),
+                        "sort_by": feature.sort_by,
+                        "sort_ascending": feature.sort_ascending,
+                        "group_by": feature.group_by,
+                        "num_groups": len(group_accumulators),
+                    }
+
+                    time_series_stats[feature_name] = stats
+            else:
+                # No grouping - process the entire dataset
+                accumulator = WelfordAccumulator()
+
+                if feature.sort_by and feature.sort_by in list(
+                    dataset.element_spec.keys()
+                ):
+                    # Process in a streaming fashion to avoid memory issues
+                    # Create buffer for sorting that can be processed in chunks
+                    buffer_size = 10000  # Adjust based on memory availability
+                    buffer = []
+
+                    for batch in dataset:
+                        if feature_name in batch and feature.sort_by in batch:
+                            sort_keys = batch[feature.sort_by].numpy()
+                            feature_values = batch[feature_name].numpy()
+
+                            # Add batch data to buffer
+                            for i in range(len(sort_keys)):
+                                buffer.append((sort_keys[i], feature_values[i]))
+
+                            # Process buffer when it gets full
+                            if len(buffer) >= buffer_size:
+                                # Sort buffer
+                                buffer.sort(
+                                    key=lambda x: x[0],
+                                    reverse=not feature.sort_ascending,
+                                )
+
+                                # Extract values and update accumulator
+                                sorted_values = [pair[1] for pair in buffer]
+                                sorted_tensor = tf.constant(
+                                    sorted_values, dtype=tf.float32
+                                )
+                                accumulator.update(sorted_tensor)
+
+                                # Clear buffer
+                                buffer = []
+
+                    # Process any remaining items in buffer
+                    if buffer:
+                        buffer.sort(
+                            key=lambda x: x[0], reverse=not feature.sort_ascending
+                        )
+                        sorted_values = [pair[1] for pair in buffer]
+                        sorted_tensor = tf.constant(sorted_values, dtype=tf.float32)
+                        accumulator.update(sorted_tensor)
+                else:
+                    # If no sorting needed, just accumulate statistics directly
+                    for batch in dataset:
+                        if feature_name in batch:
+                            accumulator.update(batch[feature_name])
+
+                # Calculate statistics
+                stats = {
+                    "mean": float(accumulator.mean.numpy()),
+                    "var": float(accumulator.variance.numpy()),
+                    "count": int(accumulator.count.numpy()),
+                    "dtype": feature.dtype.name
+                    if hasattr(feature.dtype, "name")
+                    else str(feature.dtype),
+                    "sort_by": feature.sort_by,
+                    "sort_ascending": feature.sort_ascending,
+                    "group_by": feature.group_by,
+                }
+
+                time_series_stats[feature_name] = stats
+
+        return time_series_stats
+
     def _process_batch_parallel(self, batch: tf.Tensor) -> None:
         """Process a batch of data in parallel using ThreadPoolExecutor.
 
@@ -371,6 +595,11 @@ class DatasetStatistics:
                 futures.append(
                     executor.submit(self._process_date_feature, feature, batch),
                 )
+
+            # Submit time series feature processing tasks
+            futures.append(
+                executor.submit(self._process_time_series_data),
+            )
 
             # Wait for all tasks to complete
             for future in as_completed(futures):
@@ -471,61 +700,61 @@ class DatasetStatistics:
         return stats
 
     def _compute_final_statistics(self) -> dict[str, dict]:
-        """Compute final statistics for all features in parallel."""
-        logger.info("Computing final statistics for all features")
+        """Compute the final statistics for all features.
 
-        final_stats = {
-            "numeric_stats": {},
-            "categorical_stats": {},
-            "text": {},
-            "date_stats": {},
-        }
+        Returns:
+            Dictionary containing the computed statistics for all features
+        """
+        logger.info("Computing final statistics")
+        stats = {}
 
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-            feature_types = [
-                ("numeric", self.numeric_features),
-                ("categorical", self.categorical_features),
-                ("text", self.text_features),
-                ("date", self.date_features),
-            ]
+        # Compute numeric statistics
+        if self.numeric_features:
+            stats["numeric_stats"] = self._compute_feature_stats_parallel(
+                "numeric", self.numeric_features
+            )
 
-            futures = {
-                executor.submit(
-                    self._compute_feature_stats_parallel,
-                    feature_type,
-                    features,
-                ): feature_type
-                for feature_type, features in feature_types
-                if features
-            }
+        # Compute categorical statistics
+        if self.categorical_features:
+            stats["categorical_stats"] = self._compute_feature_stats_parallel(
+                "categorical", self.categorical_features
+            )
 
-            for future in as_completed(futures):
-                feature_type = futures[future]
-                try:
-                    stats = future.result()
-                    if feature_type == "text":
-                        final_stats["text"] = stats
-                    else:
-                        final_stats[f"{feature_type}_stats"] = stats
-                except Exception as e:
-                    logger.error(f"Error computing {feature_type} statistics: {str(e)}")
-                    raise
+        # Compute text statistics
+        if self.text_features:
+            stats["text"] = self._compute_feature_stats_parallel(
+                "text", self.text_features
+            )
 
-        return final_stats
+        # Compute date statistics
+        if self.date_features:
+            stats["date"] = self._compute_feature_stats_parallel(
+                "date", self.date_features
+            )
+
+        # Compute time series statistics
+        time_series_stats = self._process_time_series_data()
+        if time_series_stats:
+            stats["time_series"] = time_series_stats
+
+        # Store the computed statistics
+        self.features_stats = stats
+        return stats
 
     def calculate_dataset_statistics(self, dataset: tf.data.Dataset) -> dict[str, dict]:
-        """Calculates and returns statistics for the dataset.
+        """Calculate the statistics of the dataset.
 
         Args:
-            dataset: The dataset for which to calculate statistics.
+            dataset: The dataset to calculate statistics for.
+
+        Returns:
+            Dictionary containing the computed statistics
         """
-        logger.info("Calculating statistics for the dataset ")
+        logger.info("Calculating dataset statistics")
         for batch in dataset:
             self._process_batch_parallel(batch)
 
-        # calculating data statistics
         self.features_stats = self._compute_final_statistics()
-
         return self.features_stats
 
     @staticmethod

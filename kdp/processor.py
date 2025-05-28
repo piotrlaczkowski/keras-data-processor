@@ -1,16 +1,24 @@
+"""
+Preprocessor Module for Keras Data Processor.
+
+This module provides a preprocessing model that can handle various types of features
+and transformations for machine learning pipelines.
+"""
 import os
 import time
 import gc
+import tensorflow as tf
+from tensorflow import keras
 from collections import OrderedDict
 from collections.abc import Callable, Generator
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from functools import wraps
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple
 from pathlib import Path
-
+import json
 import numpy as np
-import tensorflow as tf
+
 from loguru import logger
 
 from kdp.layers.global_numerical_embedding_layer import GlobalNumericalEmbedding
@@ -23,11 +31,62 @@ from kdp.features import (
     NumericalFeature,
     TextFeature,
     PassthroughFeature,
+    TimeSeriesFeature,
 )
 from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.pipeline import FeaturePreprocessor
 from kdp.stats import DatasetStatistics
 from kdp.moe import FeatureMoE, StackFeaturesLayer, UnstackLayer
+
+
+class CallableDict(dict):
+    """A dictionary that can be called like a function.
+
+    This class extends the built-in dict class and adds a __call__ method,
+    which allows it to be used as a callable object. This is particularly useful
+    for making the result of build_preprocessor callable, so users can do
+    preprocessor(test_input) instead of preprocessor["model"](test_input).
+
+    When called, it will try to invoke the "model" key if it exists, passing all
+    arguments and keyword arguments to that function.
+    """
+
+    def __call__(self, *args, **kwargs):
+        """Call the model function with the given arguments.
+
+        Args:
+            *args: Arguments to pass to the model function.
+            **kwargs: Keyword arguments to pass to the model function.
+
+        Returns:
+            The result of calling the model function.
+
+        Raises:
+            KeyError: If the dictionary doesn't have a "model" key.
+            TypeError: If the "model" key is not callable.
+        """
+        if "model" not in self:
+            raise KeyError("This dictionary doesn't have a 'model' key")
+
+        if not callable(self["model"]):
+            raise TypeError("The 'model' key is not callable")
+
+        # If the input is a dictionary, check if values need to be converted to tensors
+        if len(args) > 0 and isinstance(args[0], dict):
+            input_dict = args[0]
+            converted_dict = {}
+            for key, value in input_dict.items():
+                if not isinstance(value, tf.Tensor) and not tf.is_tensor(value):
+                    try:
+                        converted_dict[key] = tf.convert_to_tensor(value)
+                    except (ValueError, TypeError, tf.errors.OpError):
+                        # If conversion fails, keep original value
+                        converted_dict[key] = value
+                else:
+                    converted_dict[key] = value
+            return self["model"](converted_dict, *args[1:], **kwargs)
+
+        return self["model"](*args, **kwargs)
 
 
 class OutputModeOptions(str, Enum):
@@ -82,6 +141,7 @@ class FeatureSpaceConverter:
         self.text_features = []
         self.date_features = []
         self.passthrough_features = []
+        self.time_series_features = []  # Add time series features list
 
     def _init_features_specs(
         self, features_specs: dict[str, FeatureType | str]
@@ -105,7 +165,8 @@ class FeatureSpaceConverter:
                 | CategoricalFeature
                 | TextFeature
                 | DateFeature
-                | PassthroughFeature,
+                | PassthroughFeature
+                | TimeSeriesFeature,  # Add TimeSeriesFeature to direct instance check
             ):
                 feature_instance = spec
             else:
@@ -147,6 +208,11 @@ class FeatureSpaceConverter:
                     feature_instance = TextFeature(name=name, feature_type=feature_type)
                 elif feature_type == FeatureType.DATE:
                     feature_instance = DateFeature(name=name, feature_type=feature_type)
+                elif feature_type == FeatureType.TIME_SERIES:
+                    # Create TimeSeriesFeature instance
+                    feature_instance = TimeSeriesFeature(
+                        name=name, feature_type=feature_type
+                    )
                 elif feature_type == FeatureType.PASSTHROUGH:
                     # Get dtype from kwargs if provided
                     dtype = (
@@ -179,6 +245,9 @@ class FeatureSpaceConverter:
                 self.text_features.append(name)
             elif isinstance(feature_instance, DateFeature):
                 self.date_features.append(name)
+            elif isinstance(feature_instance, TimeSeriesFeature):
+                # Add to time series features
+                self.time_series_features.append(name)
             elif isinstance(feature_instance, PassthroughFeature):
                 # Add to passthrough features
                 self.passthrough_features.append(name)
@@ -350,6 +419,14 @@ class PreprocessingModel:
         self.feature_moe_freeze_experts = feature_moe_freeze_experts
         self.feature_moe_use_residual = feature_moe_use_residual
 
+        # Initialize feature type lists
+        self.numeric_features = []
+        self.categorical_features = []
+        self.text_features = []
+        self.date_features = []
+        self.passthrough_features = []
+        self.time_series_features = []  # Initialize time_series_features list
+
         # PLACEHOLDERS
         self.preprocessors = {}
         self.inputs = {}
@@ -464,6 +541,7 @@ class PreprocessingModel:
             self.text_features = fsc.text_features
             self.date_features = fsc.date_features
             self.passthrough_features = fsc.passthrough_features
+            self.time_series_features = fsc.time_series_features
 
     def _init_stats(self) -> None:
         """Initialize the statistics for the model.
@@ -556,7 +634,7 @@ class PreprocessingModel:
 
         Args:
             batch: List of (feature_name, stats) tuples to process
-            feature_type: Type of features ('numeric', 'categorical', 'text', 'date', 'passthrough')
+            feature_type: Type of features ('numeric', 'categorical', 'text', 'date', 'passthrough', 'time_series')
         """
         with ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
             futures = []
@@ -587,6 +665,13 @@ class PreprocessingModel:
                         self._add_pipeline_date,
                         feature_name=feature_name,
                         input_layer=self.inputs[feature_name],
+                    )
+                elif feature_type == "time_series":
+                    future = executor.submit(
+                        self._add_pipeline_time_series,
+                        feature_name=feature_name,
+                        input_layer=self.inputs[feature_name],
+                        feature=self.features_specs.get(feature_name),
                     )
                 elif feature_type == "passthrough":
                     future = executor.submit(
@@ -638,6 +723,7 @@ class PreprocessingModel:
         text_features = []
         date_features = []
         passthrough_features = []
+        time_series_features = []  # Add time series features list
 
         for feature_name, stats in features_dict.items():
             if "mean" in stats:
@@ -648,6 +734,10 @@ class PreprocessingModel:
                 text_features.append((feature_name, stats))
             elif feature_name in self.date_features:
                 date_features.append((feature_name, stats))
+            elif feature_name in self.time_series_features:
+                time_series_features.append(
+                    (feature_name, stats)
+                )  # Handle time series features
             elif feature_name in self.passthrough_features:
                 passthrough_features.append((feature_name, stats))
 
@@ -660,6 +750,7 @@ class PreprocessingModel:
             (categorical_features, "categorical"),
             (text_features, "text"),
             (date_features, "date"),
+            (time_series_features, "time_series"),  # Add time series feature group
             (passthrough_features, "passthrough"),
         ]
 
@@ -704,7 +795,7 @@ class PreprocessingModel:
         Args:
             feature_name: Name of the feature
             output_pipeline: The processed feature tensor
-            feature_type: Type of the feature ('numeric', 'categorical', 'text', 'date', 'passthrough')
+            feature_type: Type of the feature ('numeric', 'categorical', 'text', 'date', 'passthrough', 'time_series')
 
         Returns:
             The processed tensor, possibly with feature selection applied
@@ -742,7 +833,7 @@ class PreprocessingModel:
         ):
             apply_selection = True
         elif (
-            feature_type == "passthrough"
+            (feature_type == "passthrough" or feature_type == "time_series")
             and self.feature_selection_placement
             == FeatureSelectionPlacementOptions.ALL_FEATURES
         ):
@@ -897,14 +988,31 @@ class PreprocessingModel:
             # Use an empty list as the default value instead of 1.0.
             boundaries = feature.kwargs.get("bin_boundaries", [])
             _out_dims = len(boundaries) + 1
+
+            # Create a dictionary of parameters to pass to the Discretization layer
+            discretization_params = {"name": f"discretize_{feature_name}"}
+
+            # Either pass bin_boundaries if available in kwargs or num_bins from the feature
+            if "bin_boundaries" in feature.kwargs:
+                discretization_params["bin_boundaries"] = feature.kwargs[
+                    "bin_boundaries"
+                ]
+            else:
+                discretization_params["num_bins"] = feature.num_bins
+
+            # Add any additional kwargs
+            for key, value in feature.kwargs.items():
+                if key not in ["bin_boundaries"]:  # Avoid duplicating parameters
+                    discretization_params[key] = value
+
             preprocessor.add_processing_step(
                 layer_class="Discretization",
-                **feature.kwargs,
-                name=f"discretize_{feature_name}",
+                **discretization_params,
             )
+
             preprocessor.add_processing_step(
                 layer_class="CategoryEncoding",
-                num_tokens=_out_dims,
+                num_tokens=_out_dims if boundaries else feature.num_bins + 1,
                 output_mode="one_hot",
                 name=f"one_hot_{feature_name}",
             )
@@ -1084,15 +1192,26 @@ class PreprocessingModel:
                 "hash_bucket_size",
                 min(1024, max(100, len(vocab) * 2)),  # Default sizing strategy
             )
+
+            # Get salt value from kwargs (try hash_salt first, then salt)
+            salt_value = feature.kwargs.get(
+                "hash_salt", feature.kwargs.get("salt", None)
+            )
+
+            # Ensure salt_value is in the correct format (integer or tuple of 2 integers)
+            if isinstance(salt_value, str):
+                # Convert string to integer using hash to ensure different strings get different values
+                salt_value = hash(salt_value)
+
             logger.debug(
-                f"Feature {feature_name} using hashing with {hash_bucket_size} buckets"
+                f"Feature {feature_name} using hashing with {hash_bucket_size} buckets and salt={salt_value}"
             )
 
             # Add hashing layer
             preprocessor.add_processing_step(
                 layer_class="Hashing",
                 num_bins=hash_bucket_size,
-                salt=feature.kwargs.get("salt", None),  # Optional salt for hashing
+                salt=salt_value,  # Use the validated salt value
                 name=f"hash_{feature_name}",
             )
 
@@ -1271,6 +1390,124 @@ class PreprocessingModel:
         self.processed_features[feature_name] = _output_pipeline
 
     @_monitor_performance
+    def _add_pipeline_passthrough(self, feature_name: str, input_layer) -> None:
+        """Add a passthrough feature to the pipeline without preprocessing.
+
+        Args:
+            feature_name (str): The name of the feature to be passed through.
+            input_layer: The input layer for the feature.
+        """
+        # getting feature object
+        _feature = self.features_specs[feature_name]
+
+        # initializing preprocessor
+        preprocessor = FeaturePreprocessor(name=feature_name)
+
+        # Check if feature has specific preprocessing steps defined
+        if hasattr(_feature, "preprocessors") and _feature.preprocessors:
+            logger.info(
+                f"Custom Preprocessors detected for passthrough: {_feature.preprocessors}"
+            )
+            self._add_custom_steps(
+                preprocessor=preprocessor,
+                feature=_feature,
+                feature_name=feature_name,
+            )
+        else:
+            # For passthrough features, we only ensure type consistency by casting to float32
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                name=f"cast_to_float_{feature_name}",
+            )
+
+            # Optionally reshape if needed
+            if _feature.kwargs.get("reshape", False):
+                target_shape = _feature.kwargs.get("target_shape", (-1,))
+                preprocessor.add_processing_step(
+                    layer_class="Reshape",
+                    target_shape=target_shape,
+                    name=f"reshape_{feature_name}",
+                )
+
+        # Process the feature
+        _output_pipeline = preprocessor.chain(input_layer=input_layer)
+
+        # Apply feature selection if needed
+        _output_pipeline = self._apply_feature_selection(
+            feature_name=feature_name,
+            output_pipeline=_output_pipeline,
+            feature_type="passthrough",
+        )
+
+        self.processed_features[feature_name] = _output_pipeline
+
+    @_monitor_performance
+    def _add_pipeline_time_series(
+        self, feature_name: str, input_layer, feature
+    ) -> None:
+        """Add a time series preprocessing step to the pipeline.
+
+        Args:
+            feature_name (str): The name of the feature to be preprocessed.
+            input_layer: The input layer for the feature.
+            feature: The feature object containing time series configuration.
+        """
+        # initializing preprocessor
+        preprocessor = FeaturePreprocessor(name=feature_name)
+
+        # Check if feature has specific preprocessing steps defined
+        if hasattr(feature, "preprocessors") and feature.preprocessors:
+            logger.info(
+                f"Custom Preprocessors detected for time series: {feature.preprocessors}"
+            )
+            self._add_custom_steps(
+                preprocessor=preprocessor,
+                feature=feature,
+                feature_name=feature_name,
+            )
+        else:
+            # Default time series processing
+            # Cast to float32 for concatenation compatibility
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
+                name=f"cast_to_float_{feature_name}",
+            )
+
+            # Add normalization if specified
+            if feature.kwargs.get("normalize", True):
+                preprocessor.add_processing_step(
+                    layer_class="Normalization",
+                    name=f"norm_{feature_name}",
+                )
+
+            # Add time series transformation layers
+            if hasattr(feature, "build_layers"):
+                time_series_layers = feature.build_layers()
+                for i, layer in enumerate(time_series_layers):
+                    # Use the layer's name if available, otherwise create a generic one
+                    layer_name = getattr(layer, "name", f"{feature_name}_ts_layer_{i}")
+                    # We need to use a lambda to wrap the existing layer
+                    preprocessor.add_processing_step(
+                        layer_creator=lambda layer=layer, **kwargs: layer,
+                        name=layer_name,
+                    )
+                    logger.info(
+                        f"Adding time series layer: {layer_name} to the pipeline"
+                    )
+
+        # Process the feature
+        _output_pipeline = preprocessor.chain(input_layer=input_layer)
+
+        # Apply feature selection if needed
+        _output_pipeline = self._apply_feature_selection(
+            feature_name=feature_name,
+            output_pipeline=_output_pipeline,
+            feature_type="time_series",
+        )
+
+        self.processed_features[feature_name] = _output_pipeline
+
+    @_monitor_performance
     def _add_pipeline_cross(self) -> None:
         """Add a crossing preprocessing step to the pipeline.
 
@@ -1332,6 +1569,64 @@ class PreprocessingModel:
         # Combine all features
         self._combine_all_features(concat_num, concat_cat)
 
+        # Store output dimensions needed for Feature MoE
+        if self.use_feature_moe and self.concat_all is not None:
+            # Get the processed features and their dimensions
+            self.processed_features_dims = {}
+
+            # Add numeric features
+            if numeric_features:
+                for feature_name in numeric_features:
+                    if feature_name in self.inputs:
+                        # Get the shape from the corresponding normalization layer
+                        norm_layer = (
+                            self.preprocessors.get(feature_name, {})
+                            .get("layers", {})
+                            .get(f"norm_{feature_name}")
+                        )
+                        if norm_layer is not None:
+                            self.processed_features_dims[
+                                feature_name
+                            ] = norm_layer.output.shape[-1]
+                        else:
+                            self.processed_features_dims[
+                                feature_name
+                            ] = 1  # Default dimension
+
+            # Add categorical features
+            if categorical_features:
+                for feature_name in categorical_features:
+                    if feature_name in self.inputs:
+                        # Get shape from the corresponding flatten layer
+                        flatten_layer = (
+                            self.preprocessors.get(feature_name, {})
+                            .get("layers", {})
+                            .get(f"flatten_{feature_name}")
+                        )
+                        if flatten_layer is not None:
+                            self.processed_features_dims[
+                                feature_name
+                            ] = flatten_layer.output.shape[-1]
+                        else:
+                            self.processed_features_dims[
+                                feature_name
+                            ] = 10  # Default dimension
+
+            # Create output_dims with None for batch dimension
+            if self.processed_features_dims:
+                self.output_dims = [
+                    (None, dim) for dim in self.processed_features_dims.values()
+                ]
+                # If we have concat_all but no individual dimensions, we'll use equal splits
+                if not self.output_dims and self.concat_all is not None:
+                    total_dim = self.concat_all.shape[-1]
+                    num_features = len(self.inputs)
+                    if num_features > 0:
+                        split_size = total_dim // num_features
+                        self.output_dims = [
+                            (None, split_size) for _ in range(num_features)
+                        ]
+
         # Apply transformations if needed
         if self.use_feature_moe:
             self._apply_feature_moe()
@@ -1370,6 +1665,8 @@ class PreprocessingModel:
             if (
                 feature_name in self.numeric_features
                 or feature_name in self.date_features
+                or feature_name
+                in self.time_series_features  # Add time series features to numeric features for concatenation
             ):
                 logger.debug(f"Adding {feature_name} to numeric features")
                 numeric_features.append(feature)
@@ -1783,38 +2080,137 @@ class PreprocessingModel:
             predefined_assignments=self.feature_moe_assignments,
             freeze_experts=self.feature_moe_freeze_experts,
             dropout_rate=self.feature_moe_dropout,
-            use_batch_norm=True,
             name="feature_moe_dict",
         )
 
-        # Apply Feature MoE
+        # Apply the MoE layer
         moe_outputs = moe(stacked_features)
 
-        # Unstack the outputs and update processed features
-        unstacked_outputs = UnstackLayer(axis=1)(moe_outputs)
+        # Unstack the outputs back to individual features
+        unstacked_outputs = UnstackLayer()(moe_outputs)
 
-        # Update processed features with MoE enhanced versions
+        # Create a projection layer for each feature to maintain its original meaning
         for i, feature_name in enumerate(feature_names):
-            if i < len(unstacked_outputs):
-                expert_output = unstacked_outputs[i]
-                original_output = individual_features[i]
+            feature_output = unstacked_outputs[i]
+            # Add a projection layer for this feature
+            projection = tf.keras.layers.Dense(
+                self.feature_moe_expert_dim,
+                activation="relu",
+                name=f"{feature_name}_moe_projection_dict",
+            )(feature_output)
 
-                # Add residual connection if shapes match
-                if (
-                    self.feature_moe_use_residual
-                    and original_output.shape[-1] == expert_output.shape[-1]
-                ):
-                    self.processed_features[feature_name] = tf.keras.layers.Add(
-                        name=f"{feature_name}_moe_residual_dict"
-                    )([original_output, expert_output])
-                else:
-                    # Otherwise use a projection
-                    self.processed_features[feature_name] = tf.keras.layers.Dense(
-                        self.feature_moe_expert_dim,
-                        name=f"{feature_name}_moe_projection_dict",
-                    )(expert_output)
+            # Update the processed features with the MoE-enhanced version
+            self.processed_features[feature_name] = projection
 
         logger.info("Feature MoE applied successfully in dict mode")
+
+    def _apply_feature_moe(self):
+        """
+        Enhances the combined feature representation using Feature-wise Mixture of Experts (MoE)
+        in concatenated output mode.
+
+        This method creates a Feature MoE layer that routes features to different experts
+        based on their content, improving the overall representational power.
+        """
+        logger.info(
+            f"Applying Feature-wise Mixture of Experts (concat mode) with {self.feature_moe_num_experts} experts"
+        )
+
+        # Check if we have concatenated features to work with
+        if not hasattr(self, "concat_all") or self.concat_all is None:
+            logger.warning("No concatenated features found to apply Feature MoE")
+            return
+
+        # Get dimensions of the output
+        output_dims = None
+        if hasattr(self, "processed_features_dims") and self.processed_features_dims:
+            output_dims = []
+            for feature_type in ["numeric", "categorical"]:
+                if feature_type in self.processed_features_dims:
+                    for feature_name, dims in self.processed_features_dims[
+                        feature_type
+                    ].items():
+                        if dims is not None:
+                            output_dims.append(dims)
+
+        # If output_dims not available, calculate equal splits
+        if not output_dims:
+            logger.warning("Output dimensions not found, calculating equal splits")
+            if hasattr(self, "numeric_features") and self.numeric_features:
+                num_numeric = len(self.numeric_features)
+            else:
+                num_numeric = 0
+
+            if hasattr(self, "categorical_features") and self.categorical_features:
+                num_categorical = len(self.categorical_features)
+            else:
+                num_categorical = 0
+
+            total_features = num_numeric + num_categorical
+            if total_features == 0:
+                logger.warning("No features found to apply Feature MoE")
+                return
+
+            # Set equal dimensions for all features if actual dimensions are not available
+            feature_dim = keras.backend.int_shape(self.concat_all)[-1] // total_features
+            output_dims = [feature_dim] * total_features
+
+            # Store these calculated dimensions for future use
+            logger.info(f"Using equal split sizes: {output_dims}")
+
+        # Try to get individual feature outputs from pipelines
+        feature_outputs = []
+
+        if hasattr(self, "numeric_features") and self.numeric_features:
+            for feature_name in self.numeric_features:
+                if hasattr(self, f"pipeline_{feature_name}") and hasattr(
+                    getattr(self, f"pipeline_{feature_name}"), "output"
+                ):
+                    feature_outputs.append(
+                        getattr(self, f"pipeline_{feature_name}").output
+                    )
+
+        if hasattr(self, "categorical_features") and self.categorical_features:
+            for feature_name in self.categorical_features:
+                if hasattr(self, f"pipeline_{feature_name}") and hasattr(
+                    getattr(self, f"pipeline_{feature_name}"), "output"
+                ):
+                    feature_outputs.append(
+                        getattr(self, f"pipeline_{feature_name}").output
+                    )
+
+        # If we couldn't get individual features, we'll split the concatenated tensor
+        if not feature_outputs:
+            logger.info("Using concat_all tensor and splitting it for Feature MoE")
+            # Calculate the feature dimensions
+            feature_dims = (
+                output_dims if output_dims else [feature_dim] * total_features
+            )
+
+            # Split the concatenated tensor into individual features
+            split_layer = SplitLayer(feature_dims)
+            feature_outputs = split_layer(self.concat_all)
+
+        # Stack the features for the MoE layer
+        stacked_features = StackFeaturesLayer(name="stacked_features_for_moe")(
+            feature_outputs
+        )
+
+        # Create and apply the Feature MoE layer
+        feature_moe = FeatureMoE(
+            num_experts=self.feature_moe_num_experts,
+            expert_dim=self.feature_moe_expert_dim,
+            routing=self.feature_moe_routing,
+            name="feature_moe_concat",
+        )(stacked_features)
+
+        # Unstack the features after MoE processing using a custom layer
+        unstacked_features = UnstackLayer(name="unstack_moe_features")(feature_moe)
+
+        # Concatenate the processed features back together
+        self.concat_all = keras.layers.Concatenate(axis=-1, name="concat_moe_features")(
+            unstacked_features
+        )
 
     @_monitor_performance
     def _cleanup_intermediate_tensors(self) -> None:
@@ -1873,6 +2269,7 @@ class PreprocessingModel:
                 + self.text_features
                 + self.date_features
                 + self.passthrough_features
+                + self.time_series_features  # Add time series features
             ):
                 if feature_name not in self.inputs:
                     # Get feature and its data type
@@ -1890,11 +2287,15 @@ class PreprocessingModel:
             text_batch = []
             date_batch = []
             passthrough_batch = []
+            time_series_batch = []  # Add time series batch
 
             # Get the numeric stats from the correct location in features_stats
             numeric_stats = self.features_stats.get("numeric_stats", {})
             categorical_stats = self.features_stats.get("categorical_stats", {})
             text_stats = self.features_stats.get("text", {})
+            time_series_stats = self.features_stats.get(
+                "time_series", {}
+            )  # Add time series stats
 
             for f_name in self.numeric_features:
                 numeric_batch.append((f_name, numeric_stats.get(f_name, {})))
@@ -1904,6 +2305,8 @@ class PreprocessingModel:
                 text_batch.append((f_name, text_stats.get(f_name, {})))
             for f_name in self.date_features:
                 date_batch.append((f_name, {}))
+            for f_name in self.time_series_features:  # Process time series features
+                time_series_batch.append((f_name, time_series_stats.get(f_name, {})))
             for f_name in self.passthrough_features:
                 passthrough_batch.append((f_name, {}))
 
@@ -1916,6 +2319,8 @@ class PreprocessingModel:
                 self._process_feature_batch(text_batch, "text")
             if date_batch:
                 self._process_feature_batch(date_batch, "date")
+            if time_series_batch:  # Process time series batch
+                self._process_feature_batch(time_series_batch, "time_series")
             if passthrough_batch:
                 self._process_feature_batch(passthrough_batch, "passthrough")
 
@@ -1965,704 +2370,356 @@ class PreprocessingModel:
                 "numeric": self.features_stats.get("numeric", {}),
                 "categorical": self.features_stats.get("categorical", {}),
                 "text": self.features_stats.get("text", {}),
+                "time_series": self.features_stats.get(
+                    "time_series", {}
+                ),  # Add time series stats
             }
 
             # Clean up intermediate tensors
             self._cleanup_intermediate_tensors()
 
-            return {
-                "model": self.model,
-                "inputs": self.inputs,
-                "signature": self.signature,
-                "output_dims": _output_dims,
-                "feature_stats": feature_stats,
-            }
+            return CallableDict(
+                {
+                    "model": self.model,
+                    "inputs": self.inputs,
+                    "signature": self.signature,
+                    "output_dims": _output_dims,
+                    "feature_stats": feature_stats,
+                }
+            )
 
         except Exception as e:
             logger.error(f"Error building preprocessor model: {str(e)}")
             raise
 
     @_monitor_performance
-    def batch_predict(
-        self,
-        data: tf.data.Dataset,
-        model: Optional[tf.keras.Model] = None,
-        batch_size: Optional[int] = None,
-        parallel: bool = True,
-        max_workers: Optional[int] = None,
-        timeout: Optional[float] = None,
-    ) -> Generator:
-        """Helper function for batch prediction on DataSets.
+    def save_model(self, save_path: str) -> None:
+        """Save the preprocessing model and its metadata.
+
+        This method saves both the TensorFlow model and additional metadata
+        needed to fully reconstruct the preprocessing pipeline.
 
         Args:
-            data: Data to be used for batch predictions
-            model: Model to be used for batch predictions. If None, uses self.model
-            batch_size: Batch size for predictions. If None, uses self.batch_size
-            parallel: Whether to use parallel processing for predictions
-            max_workers: Maximum number of worker threads for parallel processing.
-                        If None, uses os.cpu_count()
-            timeout: Maximum time to wait for a batch prediction (seconds).
-                    Only applies when parallel=True. None means no timeout.
-
-        Yields:
-            Prediction results for each batch
+            save_path: Directory path where to save the model and metadata
 
         Raises:
-            ValueError: If no model is available for prediction
-            TimeoutError: If a batch prediction times out
-            RuntimeError: If there's an error in batch prediction
-        """
-        if not hasattr(self, "model") and model is None:
-            raise ValueError(
-                "No model available for prediction. Either build the model first or provide a model."
-            )
-
-        _model = model or self.model
-        _batch_size = batch_size or self.batch_size
-        _max_workers = max_workers or os.cpu_count()
-
-        logger.info(
-            f"Batch predicting the dataset with "
-            f"batch_size={_batch_size}, parallel={parallel}, max_workers={_max_workers}"
-        )
-
-        try:
-            if parallel:
-                yield from self._batch_predict_parallel(
-                    data=data,
-                    model=_model,
-                    batch_size=_batch_size,
-                    max_workers=_max_workers,
-                    timeout=timeout,
-                )
-            else:
-                yield from self._batch_predict_sequential(data=data, model=_model)
-        except Exception as e:
-            logger.error(f"Error during batch prediction: {str(e)}")
-            raise RuntimeError(f"Batch prediction failed: {str(e)}") from e
-
-    def _batch_predict_parallel(
-        self,
-        data: tf.data.Dataset,
-        model: tf.keras.Model,
-        batch_size: int,
-        max_workers: int,
-        timeout: Optional[float] = None,
-    ) -> Generator:
-        """Perform batch prediction in parallel.
-
-        Args:
-            data: Dataset to predict on
-            model: Model to use for prediction
-            batch_size: Size of batches to collect before parallel processing
-            max_workers: Maximum number of worker threads
-            timeout: Maximum time to wait for a batch prediction (seconds)
-
-        Yields:
-            Prediction results
-
-        Raises:
-            TimeoutError: If a batch prediction times out
-        """
-        # Collect batches
-        batches = []
-        for batch in data:
-            batches.append(batch)
-            if len(batches) >= batch_size:
-                # Process collected batches in parallel
-                try:
-                    results = self._predict_batch_parallel(
-                        batches=batches,
-                        model=model,
-                        max_workers=max_workers,
-                        timeout=timeout,
-                    )
-                    for result in results:
-                        yield result
-                    batches = []
-                except Exception as e:
-                    logger.error(f"Error in parallel batch prediction: {str(e)}")
-                    raise
-
-        # Process remaining batches
-        if batches:
-            results = self._predict_batch_parallel(
-                batches=batches, model=model, max_workers=max_workers, timeout=timeout
-            )
-            for result in results:
-                yield result
-
-    def _batch_predict_sequential(
-        self, data: tf.data.Dataset, model: tf.keras.Model
-    ) -> Generator:
-        """Perform batch prediction sequentially.
-
-        Args:
-            data: Dataset to predict on
-            model: Model to use for prediction
-
-        Yields:
-            Prediction results
-        """
-        for batch in data:
-            try:
-                yield model.predict(batch)
-            except Exception as e:
-                logger.error(f"Error predicting batch: {str(e)}")
-                raise
-
-    def _predict_batch_parallel(
-        self,
-        batches: List[tf.Tensor],
-        model: tf.keras.Model,
-        max_workers: int,
-        timeout: Optional[float] = None,
-    ) -> List[tf.Tensor]:
-        """Predict multiple batches in parallel.
-
-        Args:
-            batches: List of input batches
-            model: Model to use for prediction
-            max_workers: Maximum number of worker threads
-            timeout: Maximum time to wait for a batch prediction (seconds)
-
-        Returns:
-            List of prediction results
-
-        Raises:
-            TimeoutError: If a batch prediction times out
-        """
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = []
-            for i, batch in enumerate(batches):
-                futures.append(
-                    executor.submit(self._predict_single_batch, model, batch, i)
-                )
-
-            results = []
-            for future in as_completed(futures, timeout=timeout):
-                try:
-                    result = future.result()
-                    # Store result at its original index to maintain batch order
-                    batch_idx, prediction = result
-                    while len(results) <= batch_idx:
-                        results.append(None)
-                    results[batch_idx] = prediction
-                except TimeoutError:
-                    logger.error("Batch prediction timed out")
-                    raise TimeoutError("Batch prediction timed out") from None
-                except Exception as e:
-                    logger.error(f"Error in batch prediction: {str(e)}")
-                    raise
-
-            # Make sure we don't have any None values in the results
-            if None in results:
-                raise RuntimeError("Some batches failed to process correctly")
-
-            return results
-
-    def _predict_single_batch(
-        self, model: tf.keras.Model, batch: tf.Tensor, batch_idx: int
-    ) -> Tuple[int, tf.Tensor]:
-        """Predict a single batch and include the original batch index.
-
-        Args:
-            model: Model to use for prediction
-            batch: Input batch
-            batch_idx: Original index of the batch
-
-        Returns:
-            Tuple of (batch_idx, prediction result)
-        """
-        try:
-            # Apply model prediction
-            result = model.predict(batch)
-            return batch_idx, result
-        except Exception as e:
-            logger.error(f"Error predicting batch {batch_idx}: {str(e)}")
-            raise
-
-    @_monitor_performance
-    def save_model(self, model_path: Union[str, Path]) -> None:
-        """Save the preprocessor model.
-
-        This method saves the model to disk, including all metadata necessary
-        for reconstructing it later. It ensures the model and its associated
-        feature statistics and configurations are properly serialized.
-
-        Args:
-            model_path: Path to save the model to.
-
-        Raises:
-            ValueError: If the model has not been built yet
-            IOError: If there's an issue saving the model.
+            ValueError: If the model hasn't been built yet
         """
         if not hasattr(self, "model") or self.model is None:
-            raise ValueError("Model has not been built. Call build_preprocessor first.")
-
-        logger.info(f"Saving preprocessor model to: {model_path}")
-
-        try:
-            # Convert metadata to JSON-serializable format
-            def serialize_dtype(obj: Any) -> Union[str, Any]:
-                """Serialize TensorFlow dtype to string representation.
-
-                Args:
-                    obj: Object to serialize
-
-                Returns:
-                    Serialized representation of the object
-                """
-                if isinstance(obj, tf.dtypes.DType):
-                    return obj.name
-                return obj
-
-            # Create a clean copy without circular references
-            serializable_metadata = {}
-
-            # Handle feature_statistics specially to avoid circular references
-            if self.features_stats:
-                serializable_stats = {}
-                for stat_type, stat_dict in self.features_stats.items():
-                    serializable_stats[stat_type] = {}
-                    for feat_name, feat_stats in stat_dict.items():
-                        serializable_stats[stat_type][feat_name] = {
-                            k: serialize_dtype(v) for k, v in feat_stats.items()
-                        }
-                serializable_metadata["feature_statistics"] = serializable_stats
-            else:
-                serializable_metadata["feature_statistics"] = {}
-
-            # Debug type info
-            logger.debug(f"numeric_features type: {type(self.numeric_features)}")
-            logger.debug(f"numeric_features value: {self.numeric_features}")
-
-            # Handle different collection types safely
-            serializable_metadata["numeric_features"] = (
-                list(self.numeric_features.keys())
-                if isinstance(self.numeric_features, dict)
-                else self.numeric_features
-                if isinstance(self.numeric_features, list)
-                else []
+            raise ValueError(
+                "Model must be built before saving. Call build_preprocessor() first."
             )
 
-            logger.debug(
-                f"categorical_features type: {type(self.categorical_features)}"
-            )
-            serializable_metadata["categorical_features"] = (
-                list(self.categorical_features.keys())
-                if isinstance(self.categorical_features, dict)
-                else self.categorical_features
-                if isinstance(self.categorical_features, list)
-                else []
-            )
+        # Create the directory if it doesn't exist
+        save_path = Path(save_path)
+        if not save_path.exists():
+            save_path.mkdir(parents=True)
 
-            serializable_metadata["text_features"] = (
-                list(self.text_features.keys())
-                if isinstance(self.text_features, dict)
-                else self.text_features
-                if isinstance(self.text_features, list)
-                else []
-            )
+        # Save the TensorFlow model with proper extension
+        model_path = save_path / "model.keras"
+        self.model.save(str(model_path))
+        logger.info(f"Model saved to {model_path}")
 
-            serializable_metadata["date_features"] = (
-                list(self.date_features.keys())
-                if isinstance(self.date_features, dict)
-                else self.date_features
-                if isinstance(self.date_features, list)
-                else []
-            )
+        # Prepare metadata
+        metadata = {
+            "output_mode": self.output_mode,
+            "use_feature_moe": self.use_feature_moe,
+            "features_specs": {
+                name: str(feature) for name, feature in self.features_specs.items()
+            },
+            "features_stats": self.features_stats,
+        }
 
-            serializable_metadata["output_mode"] = self.output_mode
-            serializable_metadata["use_feature_moe"] = self.use_feature_moe
-
-            # Add MoE configuration if enabled
-            if self.use_feature_moe:
-                serializable_metadata["feature_moe_config"] = {
-                    "num_experts": self.feature_moe_num_experts,
-                    "expert_dim": self.feature_moe_expert_dim,
-                    "routing": self.feature_moe_routing,
-                    "sparsity": self.feature_moe_sparsity,
-                }
-            else:
-                serializable_metadata["feature_moe_config"] = None
-
-            # Convert model_path to string to handle PosixPath objects
-            model_path_str = str(model_path)
-            model_path_with_extension = model_path_str
-            if not model_path_str.endswith(".keras"):
-                model_path_with_extension = f"{model_path_str}.keras"
-
-            # Store metadata in model directly (this is the Keras 3 way)
-            # Important: use the metadata attribute, not _metadata which might be private
-            self.model.metadata = serializable_metadata
-
-            # Log message about metadata
-            logger.info(
-                f"Added metadata to model with keys: {list(serializable_metadata.keys())}"
-            )
-
-            # Use simpler model.save format for Keras 3
-            self.model.save(model_path_with_extension)
-            logger.info(f"Model saved successfully to {model_path_with_extension}")
-        except (IOError, OSError) as e:
-            logger.error(f"Error saving model to {model_path}: {str(e)}")
-            raise IOError(f"Failed to save model to {model_path}: {str(e)}") from e
-        except Exception as e:
-            logger.error(f"Unexpected error saving model: {str(e)}")
-            raise
-
-    def _get_serving_signature(self) -> Callable:
-        """Create a serving signature function for the model.
-
-        Returns:
-            Callable: A function that takes the input tensors and returns outputs
-        """
-
-        @tf.function(input_signature=[self.signature])
-        def serving_fn(inputs):
-            return self.model(inputs)
-
-        return serving_fn
-
-    def plot_model(self, filename: str = "model.png") -> None:
-        """Plots current model architecture.
-
-        Args:
-            filename (str): The name of the file to save the plot to.
-
-        Note:
-            This function requires graphviz to be installed on the system
-            and pydot library (dependency in the dev group).
-        """
-        logger.info("Plotting model")
-        return tf.keras.utils.plot_model(
-            self.model,
-            to_file=filename,
-            show_shapes=True,
-            show_dtype=True,
-            show_layer_names=True,
-            show_trainable=True,
-            dpi=100,
-            # rankdir="LR",
-        )
-
-    def get_feature_statistics(self) -> dict:
-        """Get the current feature statistics used by the model.
-
-        Returns:
-            dict: Dictionary containing feature statistics for all feature types
-        """
-        # Create MoE config if feature MoE is enabled
-        moe_config = None
+        # Add MoE configuration if enabled
         if self.use_feature_moe:
-            moe_config = {
+            metadata["feature_moe_config"] = {
                 "num_experts": self.feature_moe_num_experts,
                 "expert_dim": self.feature_moe_expert_dim,
                 "routing": self.feature_moe_routing,
                 "sparsity": self.feature_moe_sparsity,
-                "assignments": self.feature_moe_assignments,
+                "dropout": self.feature_moe_dropout,
             }
 
-        return {
-            "feature_statistics": self.features_stats,
-            "numeric_features": self.numeric_features,
-            "categorical_features": self.categorical_features,
-            "text_features": self.text_features,
-            "date_features": self.date_features,
-            "feature_crosses": self.feature_crosses,
-            "output_mode": self.output_mode,
-            "use_feature_moe": self.use_feature_moe,
-            "feature_moe_config": moe_config,
-        }
+        # Save metadata as JSON
+        metadata_path = save_path / "metadata.json"
+        with open(metadata_path, "w") as f:
+            json.dump(metadata, f, indent=2, default=str)
+        logger.info(f"Model metadata saved to {metadata_path}")
 
-    def get_feature_importances(self) -> dict[str, float]:
-        """Get feature importance scores from feature selection layers.
+    @staticmethod
+    def load_model(load_path: str) -> tuple:
+        """Load a saved preprocessing model and its metadata.
+
+        Args:
+            load_path: Directory path where the model and metadata are saved
 
         Returns:
-            dict[str, float]: Dictionary mapping feature names to their importance scores,
-                             where scores are averaged across all dimensions.
+            tuple: (loaded_model, metadata)
+
+        Raises:
+            ValueError: If the model directory doesn't exist or is missing required files
         """
+        load_path = Path(load_path)
+        if not load_path.exists():
+            raise ValueError(f"Model path {load_path} does not exist")
+
+        # Check if both model and metadata exist
+        model_path = load_path / "model.keras"
+        metadata_path = load_path / "metadata.json"
+
+        if not model_path.exists():
+            raise ValueError(f"Model file {model_path} does not exist")
+        if not metadata_path.exists():
+            raise ValueError(f"Metadata file {metadata_path} does not exist")
+
+        # Load the model
+        loaded_model = tf.keras.models.load_model(str(model_path))
+        logger.info(f"Model loaded from {model_path}")
+
+        # Load metadata
+        with open(metadata_path, "r") as f:
+            metadata = json.load(f)
+        logger.info(f"Model metadata loaded from {metadata_path}")
+
+        return loaded_model, metadata
+
+    def batch_predict(self, dataset: tf.data.Dataset) -> Generator:
+        """Process batches of data through the model.
+
+        Args:
+            dataset: TensorFlow dataset containing batches of input data
+
+        Yields:
+            Preprocessed batches
+
+        Raises:
+            ValueError: If the model hasn't been built yet
+        """
+        if not hasattr(self, "model") or self.model is None:
+            raise ValueError(
+                "Model must be built before prediction. Call build_preprocessor() first."
+            )
+
+        # Process each batch of data
+        for batch in dataset:
+            # Apply preprocessing
+            yield self.model(batch)
+
+    def get_feature_importances(self) -> dict:
+        """Get feature importance weights if feature selection was enabled.
+
+        Returns:
+            Dictionary mapping feature names to their importance weights information
+
+        Raises:
+            ValueError: If feature selection was not enabled or model hasn't been built
+        """
+        if not hasattr(self, "model") or self.model is None:
+            raise ValueError("Model must be built before getting feature importances")
+
+        if self.feature_selection_placement == FeatureSelectionPlacementOptions.NONE:
+            return {}
+
+        # Collect feature importance descriptions instead of the tensors themselves
         feature_importances = {}
 
-        for layer in self.model.layers:
-            if "feature_selection" in layer.name:
-                layer_weights = layer.get_weights()
-                for i, feature_name in enumerate(self.features_specs.keys()):
-                    weights = layer_weights[0][:, i]
-                    feature_importances[feature_name] = float(np.mean(weights))
+        for key in self.processed_features:
+            if key.endswith("_weights"):
+                feature_name = key.replace("_weights", "")
+                tensor = self.processed_features[key]
 
-        if not feature_importances:
-            logger.warning("No feature selection layers found in the model")
+                # Instead of returning the KerasTensor directly, provide its description
+                feature_importances[feature_name] = {
+                    "shape": str(tensor.shape),
+                    "dtype": str(tensor.dtype),
+                    "layer_name": tensor.name if hasattr(tensor, "name") else "unknown",
+                }
 
         return feature_importances
 
-    @staticmethod
-    def load_model(model_path: str) -> Tuple[tf.keras.Model, Dict[str, Any]]:
-        """Load the preprocessor model and its statistics.
+    def _validate_time_series_inference_data(self, data):
+        """Validate that the provided data meets minimum requirements for time series inference.
 
         Args:
-            model_path: Path to load the model from.
+            data: The data to validate, can be pandas DataFrame, dict, or TensorFlow dataset.
 
         Returns:
-            tuple: (loaded model, feature statistics dictionary)
+            bool: True if validation passes, False otherwise.
 
         Raises:
-            FileNotFoundError: If the model path doesn't exist
-            ValueError: If the model couldn't be loaded properly
-            IOError: If there's an issue reading the model file
+            ValueError: If data is insufficient for time series inference.
         """
-        logger.info(f"Loading preprocessor model from: {model_path}")
-
-        # Convert model_path to string to handle PosixPath objects
-        model_path_str = str(model_path)
-        model_path_with_extension = model_path_str
-
-        # Check for .keras extension and add if missing
-        if not model_path_str.endswith(".keras") and not os.path.exists(model_path_str):
-            model_path_with_extension = f"{model_path_str}.keras"
-            logger.info(f"Trying with .keras extension: {model_path_with_extension}")
-
-        # Check if path exists
-        if not os.path.exists(model_path_with_extension):
-            error_msg = f"Model path {model_path_with_extension} does not exist"
-            logger.error(error_msg)
-            raise FileNotFoundError(error_msg)
-
-        try:
-            # Load the model with appropriate error handling
-            custom_objects = {}
-
-            # Check if we have custom layer modules available
-            try:
-                # Try to get custom objects dynamically rather than importing directly
-                import importlib.util
-
-                if importlib.util.find_spec(
-                    "kdp.layers.distribution_aware_encoder_layer"
-                ):
-                    mod = importlib.import_module(
-                        "kdp.layers.distribution_aware_encoder_layer"
-                    )
-                    if hasattr(mod, "get_custom_objects"):
-                        custom_objects.update(mod.get_custom_objects())
-                        logger.info(
-                            "Added DistributionAwareEncoder custom objects for model loading"
-                        )
-            except ImportError:
-                logger.warning(
-                    "Could not import distribution_aware_encoder_layer, model may not load correctly if it uses this layer"
-                )
-
-            # Add custom objects for Feature MoE layers
-            from kdp.moe import (
-                FeatureMoE,
-                ExpertBlock,
-                StackFeaturesLayer,
-                UnstackLayer,
+        # Only validate if we have time series features
+        time_series_features = [
+            name
+            for name, feature in self.features_specs.items()
+            if (
+                hasattr(feature, "feature_type")
+                and feature.feature_type == FeatureType.TIME_SERIES
             )
+        ]
 
-            custom_objects.update(
-                {
-                    "FeatureMoE": FeatureMoE,
-                    "ExpertBlock": ExpertBlock,
-                    "StackFeaturesLayer": StackFeaturesLayer,
-                    "UnstackLayer": UnstackLayer,
-                }
-            )
+        if not time_series_features:
+            return True
 
-            # Load the model with simpler options for Keras 3
-            model = tf.keras.models.load_model(
-                model_path_with_extension,
-                custom_objects=custom_objects,
-                compile=True,
-            )
-
-            # Extract statistics from model metadata - in Keras 3, use model.metadata
-            stats = {}
-            if hasattr(model, "metadata") and model.metadata:
-                stats = model.metadata
-                logger.info(f"Found model metadata: {list(stats.keys())}")
-            elif hasattr(model, "_metadata") and model._metadata:
-                # For backward compatibility
-                stats = model._metadata
-                logger.info(f"Found model _metadata: {list(stats.keys())}")
-            else:
-                logger.warning("No metadata found in model.metadata")
-
-                # Try to detect Feature MoE in the model layers
-                if any("feature_moe" in layer.name for layer in model.layers):
-                    logger.info(
-                        "Detected Feature MoE in model but not in metadata, adding it"
-                    )
-                    stats["use_feature_moe"] = True
-
-                    # Try to extract MoE config from the model
-                    feature_moe_layers = [
-                        layer for layer in model.layers if isinstance(layer, FeatureMoE)
-                    ]
-                    if feature_moe_layers:
-                        moe_layer = feature_moe_layers[0]
-                        stats["feature_moe_config"] = {
-                            "num_experts": moe_layer.num_experts,
-                            "expert_dim": moe_layer.expert_dim,
-                            "routing": moe_layer.routing,
-                            "sparsity": moe_layer.sparsity,
-                        }
-                        logger.info(
-                            f"Extracted MoE config from layer: {stats['feature_moe_config']}"
-                        )
-                else:
-                    logger.warning(
-                        "No metadata found in the model, returning empty statistics"
-                    )
-
-            logger.info("Model and statistics loaded successfully")
-            return model, stats
-
-        except IOError as e:
-            error_msg = f"I/O error loading model from {model_path}: {str(e)}"
-            logger.error(error_msg)
-            raise IOError(error_msg) from e
-        except ValueError as e:
-            error_msg = f"Value error loading model from {model_path}: {str(e)}"
-            logger.error(error_msg)
-            raise ValueError(error_msg) from e
-        except Exception as e:
-            error_msg = f"Unexpected error loading model from {model_path}: {str(e)}"
-            logger.error(error_msg)
-            raise
-
-    def _apply_feature_moe(self) -> None:
-        """Apply Feature-wise Mixture of Experts to all processed features.
-
-        This method applies MoE after features have been combined but before
-        other transformations like tabular attention or transformer blocks.
-        """
-        logger.info(
-            f"Applying Feature-wise Mixture of Experts with {self.feature_moe_num_experts} experts"
-        )
-
-        # Get feature names from the processed features
-        feature_names = list(self.inputs.keys())
-
-        # Get individual processed features
-        individual_features = []
-        for feature_name in feature_names:
-            if feature_name in self.processed_features:
-                individual_features.append(self.processed_features[feature_name])
-
-        if not individual_features:
-            logger.warning(
-                "No individual features found for Feature MoE. Using concatenated features."
-            )
-            return
-
-        # Stack the features along a new axis
-        stacked_features = StackFeaturesLayer(name="stacked_features_for_moe")(
-            individual_features
-        )
-
-        # Create the Feature MoE layer
-        moe = FeatureMoE(
-            num_experts=self.feature_moe_num_experts,
-            expert_dim=self.feature_moe_expert_dim,
-            expert_hidden_dims=self.feature_moe_hidden_dims,
-            routing=self.feature_moe_routing,
-            sparsity=self.feature_moe_sparsity,
-            feature_names=feature_names,
-            predefined_assignments=self.feature_moe_assignments,
-            freeze_experts=self.feature_moe_freeze_experts,
-            dropout_rate=self.feature_moe_dropout,
-            use_batch_norm=True,
-            name="feature_moe",
-        )
-
-        # Apply Feature MoE
-        moe_outputs = moe(stacked_features)
-
-        # Unstack the outputs for each feature
-        unstacked_outputs = UnstackLayer(axis=1)(moe_outputs)
-
-        # Create new outputs with optional residual connections
-        enhanced_features = []
-        for i, (feature_name, original_output) in enumerate(
-            zip(feature_names, individual_features)
-        ):
-            if i < len(unstacked_outputs):  # Safety check
-                expert_output = unstacked_outputs[i]
-
-                # Add residual connection if shapes match
+        # Convert data to DataFrame if it's a dict
+        if isinstance(data, dict):
+            for key, value in data.items():
                 if (
-                    self.feature_moe_use_residual
-                    and original_output.shape[-1] == expert_output.shape[-1]
+                    not isinstance(value, (list, np.ndarray))
+                    and key in time_series_features
                 ):
-                    combined = tf.keras.layers.Add(name=f"{feature_name}_moe_residual")(
-                        [original_output, expert_output]
+                    raise ValueError(
+                        f"Time series feature '{key}' requires historical context. "
+                        f"Please provide a list or array of values, not a single value."
                     )
-                else:
-                    # Otherwise just use the expert output
-                    combined = tf.keras.layers.Dense(
-                        self.feature_moe_expert_dim,
-                        name=f"{feature_name}_moe_projection",
-                    )(expert_output)
 
-                enhanced_features.append(combined)
-            else:
-                enhanced_features.append(original_output)
+        # For each time series feature, check that we have enough data
+        for feature_name in time_series_features:
+            feature = self.features_specs[feature_name]
 
-        # Combine the enhanced features
-        self.concat_all = tf.keras.layers.Concatenate(
-            name="ConcatenateFeatureMoE",
-            axis=-1,
-        )(enhanced_features)
+            # Check grouping column exists if needed
+            if hasattr(feature, "group_by") and feature.group_by:
+                if isinstance(data, dict) and feature.group_by not in data:
+                    raise ValueError(
+                        f"Time series feature '{feature_name}' requires grouping by "
+                        f"'{feature.group_by}', but this column is not in the data."
+                    )
 
-        # Update the processed features with enhanced versions
-        for i, feature_name in enumerate(feature_names):
-            if i < len(enhanced_features):
-                self.processed_features[feature_name] = enhanced_features[i]
+            # Check sorting column exists if needed
+            if hasattr(feature, "sort_by") and feature.sort_by:
+                if isinstance(data, dict) and feature.sort_by not in data:
+                    raise ValueError(
+                        f"Time series feature '{feature_name}' requires sorting by "
+                        f"'{feature.sort_by}', but this column is not in the data."
+                    )
 
-        logger.info("Feature MoE applied successfully")
+            # Calculate minimum required history
+            min_history = 1  # Default minimum
 
-    @_monitor_performance
-    def _add_pipeline_passthrough(self, feature_name: str, input_layer) -> None:
-        """Add a passthrough feature to the pipeline without applying any transformations.
+            # Check lag features
+            if hasattr(feature, "lag_config") and feature.lag_config:
+                lags = feature.lag_config.get("lags", [])
+                if lags:
+                    min_history = max(min_history, max(lags))
+
+            # Check rolling statistics
+            if (
+                hasattr(feature, "rolling_stats_config")
+                and feature.rolling_stats_config
+            ):
+                window_size = feature.rolling_stats_config.get("window_size", 1)
+                min_history = max(min_history, window_size)
+
+            # Check differencing
+            if hasattr(feature, "differencing_config") and feature.differencing_config:
+                order = feature.differencing_config.get("order", 1)
+                min_history = max(min_history, order)
+
+            # Check moving averages
+            if (
+                hasattr(feature, "moving_average_config")
+                and feature.moving_average_config
+            ):
+                periods = feature.moving_average_config.get("periods", [])
+                if periods:
+                    min_history = max(min_history, max(periods))
+
+            # Check wavelet transform
+            if (
+                hasattr(feature, "wavelet_transform_config")
+                and feature.wavelet_transform_config
+            ):
+                levels = feature.wavelet_transform_config.get("levels", 3)
+                min_history = max(min_history, 2**levels)
+
+            # Check data size if it's a dict with lists/arrays
+            if isinstance(data, dict) and feature_name in data:
+                feature_data = data[feature_name]
+                if isinstance(feature_data, (list, np.ndarray)):
+                    data_length = len(feature_data)
+                    if data_length < min_history:
+                        raise ValueError(
+                            f"Time series feature '{feature_name}' requires at least {min_history} "
+                            f"historical data points, but only {data_length} were provided."
+                        )
+
+        return True
+
+    def predict(self, data, **kwargs):
+        """Predict using the preprocessor model.
 
         Args:
-            feature_name (str): The name of the feature to be passed through.
-            input_layer: The input layer for the feature.
+            data: The data to predict on, can be pandas DataFrame, dict, or TensorFlow dataset.
+            **kwargs: Additional keyword arguments to pass to the model's predict method.
+
+        Returns:
+            The prediction output.
         """
-        # Get the feature specifications
-        _feature = self.features_specs[feature_name]
+        # Validate time series inference data
+        self._validate_time_series_inference_data(data)
 
-        # Initialize preprocessor
-        preprocessor = FeaturePreprocessor(name=feature_name)
+        # Call the model's predict method
+        return self.model.predict(data, **kwargs)
 
-        # Check for custom preprocessors if any are defined
-        preprocessor = self._create_feature_preprocessor(
-            feature_name=feature_name, feature=_feature, preprocessor=preprocessor
+
+# Define serializable custom layers
+@tf.keras.utils.register_keras_serializable(package="kdp.processor")
+class SplitLayer(keras.layers.Layer):
+    """Custom layer to split a tensor into individual features based on dimensions."""
+
+    def __init__(self, feature_dims, **kwargs):
+        super().__init__(**kwargs)
+        self.feature_dims = feature_dims
+
+    def call(self, inputs):
+        # Handle case where feature_dims is None or empty
+        if not self.feature_dims:
+            # Return the input as a single feature if no dimensions are provided
+            return [inputs]
+
+        # Handle case where feature_dims is a list of integers
+        if isinstance(self.feature_dims[0], int):
+            # Create running index
+            start_indices = [0]
+            for dim in self.feature_dims[:-1]:
+                start_indices.append(start_indices[-1] + dim)
+
+            # Create [(start_idx, dim), ...] format
+            split_indices = list(zip(start_indices, self.feature_dims))
+            return [inputs[:, i : i + dim] for i, dim in split_indices]
+
+        # Handle case where feature_dims is already a list of tuples (i, dim)
+        if (
+            isinstance(self.feature_dims[0], (list, tuple))
+            and len(self.feature_dims[0]) == 2
+        ):
+            return [inputs[:, i : i + dim] for i, dim in self.feature_dims]
+
+        # If we get here, feature_dims is in an invalid format
+        raise ValueError(
+            f"Invalid feature_dims format: {self.feature_dims}. "
+            "Expected a list of integers or a list of (index, dimension) tuples."
         )
 
-        # If no custom preprocessors, just cast to the specified dtype for compatibility
-        if not _feature.preprocessors:
-            # Cast to the feature's dtype (defaults to float32)
-            dtype = getattr(_feature, "dtype", tf.float32)
-            preprocessor.add_processing_step(
-                layer_creator=lambda **kwargs: tf.keras.layers.Lambda(
-                    lambda x: tf.cast(x, dtype), **kwargs
-                ),
-                name=f"cast_to_{dtype.name}_{feature_name}",
+    def get_config(self):
+        config = super().get_config()
+        config.update({"feature_dims": self.feature_dims})
+        return config
+
+    def compute_output_shape(self, input_shape):
+        # Return a list of shapes for each split
+        if not self.feature_dims:
+            return [input_shape]
+        elif isinstance(self.feature_dims[0], int):
+            return [(input_shape[0], dim) for dim in self.feature_dims]
+        elif (
+            isinstance(self.feature_dims[0], (list, tuple))
+            and len(self.feature_dims[0]) == 2
+        ):
+            return [(input_shape[0], dim) for _, dim in self.feature_dims]
+        else:
+            raise ValueError(
+                f"Invalid feature_dims format: {self.feature_dims}. "
+                "Expected a list of integers or a list of (index, dimension) tuples."
             )
-
-        # Process the feature
-        _output_pipeline = preprocessor.chain(input_layer=input_layer)
-
-        # Apply feature selection if needed
-        _output_pipeline = self._apply_feature_selection(
-            feature_name=feature_name,
-            output_pipeline=_output_pipeline,
-            feature_type="passthrough",
-        )
-
-        # Add the processed feature to the dictionary
-        self.processed_features[feature_name] = _output_pipeline

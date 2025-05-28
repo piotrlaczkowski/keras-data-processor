@@ -10,6 +10,7 @@ from tensorflow import keras
 from typing import Dict, List, Optional
 
 
+@tf.keras.utils.register_keras_serializable(package="kdp.moe")
 class StackFeaturesLayer(tf.keras.layers.Layer):
     """
     Layer to stack individual features along a new axis (dim 1) for use with Feature MoE.
@@ -64,6 +65,7 @@ class StackFeaturesLayer(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.utils.register_keras_serializable(package="kdp.moe")
 class UnstackLayer(tf.keras.layers.Layer):
     """
     Layer to unstack features along an axis.
@@ -121,6 +123,7 @@ class UnstackLayer(tf.keras.layers.Layer):
         return config
 
 
+@tf.keras.utils.register_keras_serializable(package="kdp.moe")
 class ExpertBlock(keras.layers.Layer):
     """
     Expert network for processing a subset of features.
@@ -226,6 +229,7 @@ class ExpertBlock(keras.layers.Layer):
         return config
 
 
+@tf.keras.utils.register_keras_serializable(package="kdp.moe")
 class FeatureMoE(keras.layers.Layer):
     """
     Feature-wise Mixture of Experts layer.

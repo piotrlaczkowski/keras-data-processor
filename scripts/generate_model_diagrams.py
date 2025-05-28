@@ -34,6 +34,7 @@ from kdp.features import (
     TextFeature,
     DateFeature,
     PassthroughFeature,
+    TimeSeriesFeature,
 )
 
 # Create directory for output images
@@ -92,6 +93,26 @@ def generate_fake_data(features_specs, num_rows=20):
         elif feature_type == FeatureType.PASSTHROUGH:
             # For passthrough features, use a simple array of random values
             data[feature_name] = pd.Series(np.random.randn(num_rows))
+        elif feature_type == FeatureType.TIME_SERIES:
+            # For time series, create sequential data with dates and group identifiers
+            groups = ["A", "B", "C", "D"]
+            all_data = []
+            for group in groups:
+                base_value = np.random.randint(50, 150)
+                for i in range(5):  # 5 time points per group
+                    date = pd.Timestamp("2022-01-01") + pd.Timedelta(days=i)
+                    value = base_value + i * 2 + np.random.normal(0, 1)
+                    all_data.append(
+                        {feature_name: value, "date": date, "group_id": group}
+                    )
+            # If this is a time series feature, we need to create other columns too
+            if "date" not in data:
+                data["date"] = pd.Series([d["date"] for d in all_data])
+            if "group_id" not in data:
+                data["group_id"] = pd.Series([d["group_id"] for d in all_data])
+            data[feature_name] = pd.Series([d[feature_name] for d in all_data])
+            # Return early for time series to use the data generated with proper structure
+            return pd.DataFrame(data)
 
     return pd.DataFrame(data)
 
@@ -324,6 +345,87 @@ def main():
             "embedding": PassthroughFeature(
                 name="embedding", feature_type=FeatureType.PASSTHROUGH, dtype=tf.float32
             )
+        },
+    )
+
+    # Time series features
+    generate_model_diagram(
+        "basic_time_series",
+        {
+            "sales": FeatureType.TIME_SERIES,
+            "date": FeatureType.DATE,
+            "group_id": FeatureType.STRING_CATEGORICAL,
+        },
+    )
+
+    generate_model_diagram(
+        "time_series_with_lags",
+        {
+            "sales": TimeSeriesFeature(
+                name="sales",
+                feature_type=FeatureType.TIME_SERIES,
+                sort_by="date",
+                sort_ascending=True,
+                group_by="group_id",
+                lag_config={"lag_indices": [1, 2, 3], "keep_original": True},
+            ),
+            "date": FeatureType.DATE,
+            "group_id": FeatureType.STRING_CATEGORICAL,
+        },
+    )
+
+    generate_model_diagram(
+        "time_series_moving_average",
+        {
+            "sales": TimeSeriesFeature(
+                name="sales",
+                feature_type=FeatureType.TIME_SERIES,
+                sort_by="date",
+                sort_ascending=True,
+                group_by="group_id",
+                moving_average_config={"periods": [3, 5, 7], "keep_original": True},
+            ),
+            "date": FeatureType.DATE,
+            "group_id": FeatureType.STRING_CATEGORICAL,
+        },
+    )
+
+    generate_model_diagram(
+        "time_series_differencing",
+        {
+            "sales": TimeSeriesFeature(
+                name="sales",
+                feature_type=FeatureType.TIME_SERIES,
+                sort_by="date",
+                sort_ascending=True,
+                group_by="group_id",
+                differencing_config={"order": 1, "keep_original": True},
+            ),
+            "date": FeatureType.DATE,
+            "group_id": FeatureType.STRING_CATEGORICAL,
+        },
+    )
+
+    generate_model_diagram(
+        "time_series_all_features",
+        {
+            "sales": TimeSeriesFeature(
+                name="sales",
+                feature_type=FeatureType.TIME_SERIES,
+                sort_by="date",
+                sort_ascending=True,
+                group_by="group_id",
+                lag_config={"lag_indices": [1, 2], "keep_original": True},
+                rolling_stats_config={
+                    "window_size": 5,
+                    "statistics": ["mean", "std"],
+                    "keep_original": True,
+                },
+                differencing_config={"order": 1, "keep_original": True},
+                moving_average_config={"periods": [3, 7], "keep_original": True},
+            ),
+            "date": FeatureType.DATE,
+            "group_id": FeatureType.STRING_CATEGORICAL,
         },
     )
 
