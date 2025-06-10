@@ -9,24 +9,112 @@ POETRY_VERSION := $(shell poetry version $(shell git describe --tags --abbrev=0)
 # Test
 # ------------------------------------
 
+.PHONY: test
+## Run ALL tests in parallel with optimizations
+test:
+	poetry run pytest -c pytest-fast.ini
+
+.PHONY: test-fast
+## Run only fast tests in parallel
+test-fast:
+	poetry run pytest -m "fast or unit" --maxfail=5
+
+.PHONY: test-all
+## Run ALL tests (unit, integration, layers, everything) with optimizations
+test-all:
+	poetry run pytest -c pytest-fast.ini --cov=kdp --cov-report=term-missing --cov-report=html
+
+.PHONY: test-slow
+## Run slow and integration tests
+test-slow:
+	poetry run pytest -m "slow or integration" --maxfail=3
+
+.PHONY: test-unit
+## Run unit tests only
+test-unit:
+	poetry run pytest -m "unit" --maxfail=10
+
+.PHONY: test-integration
+## Run integration tests only
+test-integration:
+	poetry run pytest -m "integration" --maxfail=3
+
+.PHONY: test-layers
+## Run layer-specific tests
+test-layers:
+	poetry run pytest -m "layers" --maxfail=5
+
+.PHONY: test-processor
+## Run processor-specific tests
+test-processor:
+	poetry run pytest -m "processor" --maxfail=3
+
+.PHONY: test-time-series
+## Run time series tests
+test-time-series:
+	poetry run pytest -m "time_series" --maxfail=3
+
+.PHONY: test-sequential
+## Run tests sequentially (no parallel execution)
+test-sequential:
+	poetry run pytest -n 0
+
+.PHONY: test-verbose
+## Run tests with verbose output
+test-verbose:
+	poetry run pytest -v --tb=long
+
+.PHONY: test-benchmark
+## Run performance benchmark tests
+test-benchmark:
+	poetry run pytest -m "performance" --benchmark-only
+
+.PHONY: test-smoke
+## Run a quick smoke test (fastest tests only)
+test-smoke:
+	poetry run pytest -m "fast" --maxfail=1 --tb=no -q
+
+.PHONY: test-ultrafast
+## Run tests with ultra-fast configuration (may be unstable)
+test-ultrafast:
+	poetry run pytest -c pytest-ultrafast.ini
+
+.PHONY: test-fast-balanced
+## Run tests with balanced fast configuration
+test-fast-balanced:
+	poetry run pytest -c pytest-fast.ini
+
+.PHONY: test-micro
+## Run only micro tests (fastest possible)
+test-micro:
+	poetry run pytest -m "micro" --maxfail=1 --tb=no -q --timeout=30
+
+.PHONY: test-parallel-max
+## Run tests with maximum parallelization
+test-parallel-max:
+	poetry run pytest -n logical --maxfail=3 --tb=no -q --timeout=90
+
 .PHONY: unittests
-## Run unittests
-unittests:
-	poetry run python -m pytest
+## Run unittests (legacy command, use 'test' instead)
+unittests: test
 
 .PHONY: clean_tests
-## Remove pytest cache and junit report after tests
+## Remove pytest cache and test artifacts
 clean_tests:
 	find . -type d -name .pytest_cache -exec rm -r {} +
+	find . -type d -name __pycache__ -exec rm -r {} +
 	find . -type f -name '*junit_report.xml' -exec rm {} +
+	find . -type f -name '*.pyc' -exec rm {} +
+	rm -rf htmlcov/
+	rm -f .coverage
+	rm -f coverage.xml
+	rm -f pytest.xml
 
 .PHONY: coverage
-## Combine and build final coverage
+## Generate coverage report
 coverage:
-	coverage run -m pytest
-	coverage combine --data-file .coverage || true
-	coverage html -i
-	coverage report -i
+	poetry run pytest --cov-report=html --cov-report=term-missing
+	@echo "Coverage report generated in htmlcov/index.html"
 
 # ------------------------------------
 # Build package

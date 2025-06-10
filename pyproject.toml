@@ -29,6 +29,13 @@ ipython = "^8.8.0"
 pytest = "^8.0.0"
 pytest-cov = "^4.1.0"
 pytest-mock = "^3.12.0"
+pytest-xdist = "^3.5.0"
+pytest-benchmark = "^4.0.0"
+pytest-timeout = "^2.2.0"
+pytest-sugar = "^0.9.7"
+pytest-html = "^4.1.1"
+pytest-parallel = "^0.1.1"
+psutil = "^5.9.0"
 ipykernel = "^6.29.3"
 pydot = "^2.0.0"
 scipy = "^1.12.0"
@@ -47,6 +54,49 @@ griffe = "^0.25.0"
 [tool.pytest.ini_options]
 python_paths = "kdp"
 testpaths = "test"
+# Enable maximum parallel execution for ALL tests with optimizations
+addopts = [
+    "-n", "auto",
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+    "--cov=kdp",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml",
+    "--cov-fail-under=75",
+    "--durations=10",
+    "--timeout=180",
+    "--maxfail=10",
+    "--disable-warnings"
+]
+# Test markers for categorization
+markers = [
+    "unit: Unit tests that run quickly",
+    "integration: Integration tests that may take longer",
+    "slow: Tests that take a long time to run",
+    "fast: Tests that run very quickly",
+    "time_series: Time series specific tests",
+    "layers: Layer-specific tests",
+    "processor: Processor-specific tests",
+    "inference: Inference-related tests",
+    "performance: Performance benchmark tests"
+]
+# Minimum version requirements
+minversion = "6.0"
+# Test discovery patterns
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+# Timeout for individual tests (5 minutes)
+timeout = 300
+# Parallel execution settings
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::UserWarning:tensorflow.*",
+    "ignore::FutureWarning:tensorflow.*"
+]
 
 [tool.coverage.run]
 branch = true

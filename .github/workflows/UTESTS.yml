@@ -7,6 +7,8 @@ on:
       - main
     paths:
       - "**.py"
+      - "pyproject.toml"
+      - "test/**"
   pull_request:
     branches:
       - dev
@@ -17,26 +19,184 @@ on:
       - synchronize
     paths:
       - "**.py"
+      - "pyproject.toml"
+      - "test/**"
   workflow_dispatch:
     inputs:
       PYTHON_VERSION:
         required: false
-        default: 3.11
+        default: "3.11"
+      TEST_TYPE:
+        description: 'Type of tests to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - fast
+          - unit
+          - integration
+          - smoke
 
 concurrency:
   group: "${{ github.workflow }} @ ${{ github.event.pull_request.head.label || github.head_ref || github.ref }}"
   cancel-in-progress: true
 
 jobs:
-  run-unit-test:
-    runs-on: ["ubuntu-latest"]
-    strategy:
-      matrix:
-        python-version: [3.11]
+  # Fast smoke test job for quick feedback
+  smoke-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@v3
-      - name: "running unit-tests"
-        uses: "piotrlaczkowski/keras-data-processor/.github/templates/Python/unittests@main"
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          pkg_folder: "kdp"
-          PYTHON_VERSION: ${{ matrix.python-version }}
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install --no-interaction
+      - name: Run smoke tests
+        run: |
+          poetry run pytest -m "micro" --maxfail=1 --tb=no -q --timeout=30
+        timeout-minutes: 3
+
+  # Main test matrix
+  test-matrix:
+    runs-on: ubuntu-latest
+    needs: [smoke-test]
+    if: always() && (needs.smoke-test.result == 'success' || github.event_name != 'pull_request')
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+        test-group: ["unit", "integration", "layers"]
+        include:
+          - python-version: "3.11"
+            test-group: "processor"
+          - python-version: "3.11"
+            test-group: "time-series"
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+          key: ${{ runner.os }}-poetry-${{ matrix.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-poetry-${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install --no-interaction
+
+      - name: Run tests - ${{ matrix.test-group }}
+        run: |
+          case "${{ matrix.test-group }}" in
+            "unit")
+              poetry run pytest -c pytest-fast.ini -m "unit" --maxfail=10 --timeout=120
+              ;;
+            "integration")
+              poetry run pytest -m "integration" --maxfail=3 --timeout=300
+              ;;
+            "layers")
+              poetry run pytest -c pytest-fast.ini -m "layers" --maxfail=5 --timeout=120
+              ;;
+            "processor")
+              poetry run pytest -c pytest-fast.ini -m "processor" --maxfail=3 --timeout=180
+              ;;
+            "time-series")
+              poetry run pytest -c pytest-fast.ini -m "time_series" --maxfail=3 --timeout=180
+              ;;
+          esac
+        timeout-minutes: 8
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results-${{ matrix.python-version }}-${{ matrix.test-group }}
+          path: |
+            pytest.xml
+            htmlcov/
+          retention-days: 7
+
+  # Coverage job (only on main Python version)
+  coverage:
+    runs-on: ubuntu-latest
+    needs: [test-matrix]
+    if: always() && needs.test-matrix.result == 'success'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install --no-interaction
+
+      - name: Run tests with coverage
+        run: |
+          poetry run pytest -c pytest-fast.ini --cov=kdp --cov-report=xml --cov-report=html --timeout=180
+        timeout-minutes: 10
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 30
+
+  # Performance benchmark job (optional)
+  benchmark:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install --no-interaction
+
+      - name: Run benchmarks
+        run: |
+          poetry run pytest -m "performance" --benchmark-only --benchmark-json=benchmark.json || true
+        timeout-minutes: 10
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: benchmark-results
+          path: benchmark.json
+          retention-days: 30
