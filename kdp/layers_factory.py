@@ -28,6 +28,7 @@ from kdp.layers.time_series.lag_feature_layer import LagFeatureLayer
 from kdp.layers.time_series.rolling_stats_layer import RollingStatsLayer
 from kdp.layers.time_series.differencing_layer import DifferencingLayer
 from kdp.layers.time_series.moving_average_layer import MovingAverageLayer
+from kdp.layers.contrastive_learning_layer import ContrastiveLearningLayer, ContrastiveLearningWrapper
 
 
 class PreprocessorLayerFactory:
@@ -609,5 +610,57 @@ class PreprocessorLayerFactory:
             periods=periods,
             pad_value=pad_value,
             keep_original=keep_original,
+            **kwargs,
+        )
+
+    @staticmethod
+    def contrastive_learning_layer(
+        embedding_dim: int = 64,
+        projection_dim: int = 32,
+        feature_selection_units: int = 128,
+        feature_selection_dropout: float = 0.2,
+        temperature: float = 0.1,
+        contrastive_weight: float = 1.0,
+        reconstruction_weight: float = 0.1,
+        regularization_weight: float = 0.01,
+        use_batch_norm: bool = True,
+        use_layer_norm: bool = True,
+        augmentation_strength: float = 0.1,
+        name: str = "contrastive_learning",
+        **kwargs,
+    ) -> tf.keras.layers.Layer:
+        """Create a ContrastiveLearningLayer.
+
+        Args:
+            embedding_dim: Dimension of the final embeddings
+            projection_dim: Dimension of the projection head for contrastive learning
+            feature_selection_units: Number of units in feature selection layers
+            feature_selection_dropout: Dropout rate for feature selection
+            temperature: Temperature parameter for contrastive loss
+            contrastive_weight: Weight for contrastive loss
+            reconstruction_weight: Weight for reconstruction loss
+            regularization_weight: Weight for regularization loss
+            use_batch_norm: Whether to use batch normalization
+            use_layer_norm: Whether to use layer normalization
+            augmentation_strength: Strength of data augmentation for contrastive learning
+            name: Layer name
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            ContrastiveLearningLayer
+        """
+        return ContrastiveLearningLayer(
+            embedding_dim=embedding_dim,
+            projection_dim=projection_dim,
+            feature_selection_units=feature_selection_units,
+            feature_selection_dropout=feature_selection_dropout,
+            temperature=temperature,
+            contrastive_weight=contrastive_weight,
+            reconstruction_weight=reconstruction_weight,
+            regularization_weight=regularization_weight,
+            use_batch_norm=use_batch_norm,
+            use_layer_norm=use_layer_norm,
+            augmentation_strength=augmentation_strength,
+            name=name,
             **kwargs,
         )
