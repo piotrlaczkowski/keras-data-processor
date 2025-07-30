@@ -12,7 +12,7 @@ class PreserveDtypeLayer(keras.layers.Layer):
 
     def __init__(self, target_dtype=None, **kwargs):
         """Initialize the layer.
-        
+
         Args:
             target_dtype: Optional target dtype to cast to. If None, preserves original dtype.
             **kwargs: Additional keyword arguments
@@ -41,9 +41,7 @@ class PreserveDtypeLayer(keras.layers.Layer):
             A dictionary with the layer configuration
         """
         config = super().get_config()
-        config.update({
-            'target_dtype': self.target_dtype
-        })
+        config.update({"target_dtype": self.target_dtype})
         return config
 
     @classmethod

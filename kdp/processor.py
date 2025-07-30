@@ -1415,7 +1415,7 @@ class PreprocessingModel:
             )
         else:
             # For passthrough features, preserve the original dtype or cast to specified dtype
-            target_dtype = getattr(_feature, 'dtype', None)
+            target_dtype = getattr(_feature, "dtype", None)
             preprocessor.add_processing_step(
                 layer_creator=PreprocessorLayerFactory.preserve_dtype_layer,
                 name=f"preserve_dtype_{feature_name}",

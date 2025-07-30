@@ -1901,7 +1901,7 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
 
         # Check that the output is still string type
         self.assertEqual(outputs["string_feature"].dtype, tf.string)
-        
+
         # Verify that the string values are unchanged
         np.testing.assert_array_equal(
             outputs["string_feature"].numpy(), test_data["string_feature"].numpy()
@@ -1943,7 +1943,7 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
 
         # Check that the output is still int32 type
         self.assertEqual(outputs["int_feature"].dtype, tf.int32)
-        
+
         # Verify that the int values are unchanged
         np.testing.assert_array_equal(
             outputs["int_feature"].numpy(), test_data["int_feature"].numpy()
@@ -1985,7 +1985,7 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
 
         # Check that the output is still float64 type
         self.assertEqual(outputs["float_feature"].dtype, tf.float64)
-        
+
         # Verify that the float values are unchanged
         np.testing.assert_array_almost_equal(
             outputs["float_feature"].numpy(), test_data["float_feature"].numpy()
@@ -2041,7 +2041,7 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
         self.assertEqual(outputs["string_feature"].dtype, tf.string)
         self.assertEqual(outputs["int_feature"].dtype, tf.int32)
         self.assertEqual(outputs["float_feature"].dtype, tf.float32)
-        
+
         # Verify that all values are unchanged
         np.testing.assert_array_equal(
             outputs["string_feature"].numpy(), test_data["string_feature"].numpy()

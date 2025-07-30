@@ -150,20 +150,22 @@ class TestPreprocessorLayerFactory(unittest.TestCase):
 
     def test_preserve_dtype_layer(self):
         # Test preserving original dtype
-        preserve_layer = PreprocessorLayerFactory.preserve_dtype_layer(name="preserve_layer")
+        preserve_layer = PreprocessorLayerFactory.preserve_dtype_layer(
+            name="preserve_layer"
+        )
         self.assertIsInstance(preserve_layer, PreserveDtypeLayer)
-        
+
         # Test with integer data - should preserve int32
         int_data = np.array([[1], [2], [3]], dtype=np.int32)
         output = preserve_layer(int_data)
         self.assertEqual(output.dtype, tf.int32)
-        
+
         # Test with target dtype
         cast_layer = PreprocessorLayerFactory.preserve_dtype_layer(
             name="cast_layer", target_dtype=tf.float32
         )
         self.assertIsInstance(cast_layer, PreserveDtypeLayer)
-        
+
         # Test casting to float32
         output = cast_layer(int_data)
         self.assertEqual(output.dtype, tf.float32)
