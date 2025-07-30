@@ -101,6 +101,7 @@ options = {
     "categorical": ContrastiveLearningPlacementOptions.CATEGORICAL.value,  # Only categorical features
     "text": ContrastiveLearningPlacementOptions.TEXT.value,  # Only text features
     "date": ContrastiveLearningPlacementOptions.DATE.value,  # Only date features
+    "time_series": ContrastiveLearningPlacementOptions.TIME_SERIES.value,  # Only time series features
     "all_features": ContrastiveLearningPlacementOptions.ALL_FEATURES.value  # All features
 }
 ```

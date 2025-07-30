@@ -140,6 +140,7 @@ class ContrastiveLearningPlacementOptions(str, Enum):
     CATEGORICAL = "categorical"
     TEXT = "text"
     DATE = "date"
+    TIME_SERIES = "time_series"
     ALL_FEATURES = "all_features"
 
 
@@ -866,7 +867,8 @@ class PreprocessingModel:
             (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.NUMERIC.value and feature_type == "numeric") or
             (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.CATEGORICAL.value and feature_type == "categorical") or
             (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.TEXT.value and feature_type == "text") or
-            (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.DATE.value and feature_type == "date")
+            (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.DATE.value and feature_type == "date") or
+            (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.TIME_SERIES.value and feature_type == "time_series")
         )
 
         if not should_apply:
