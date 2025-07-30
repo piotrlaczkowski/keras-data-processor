@@ -2286,7 +2286,48 @@ class PreprocessingModel:
                     # Get feature and its data type
                     feature = self.features_specs.get(feature_name)
                     if feature:
-                        dtype = getattr(feature, "dtype", tf.float32)
+                        # Try to get dtype from feature first, then from stats, then default
+                        dtype = getattr(feature, "dtype", None)
+                        if dtype is None:
+                            # Try to get dtype from stats if available
+                            feature_stats = None
+                            if feature_name in self.numeric_features:
+                                feature_stats = self.features_stats.get(
+                                    "numeric_stats", {}
+                                ).get(feature_name, {})
+                            elif feature_name in self.categorical_features:
+                                feature_stats = self.features_stats.get(
+                                    "categorical_stats", {}
+                                ).get(feature_name, {})
+                            elif feature_name in self.text_features:
+                                feature_stats = self.features_stats.get("text", {}).get(
+                                    feature_name, {}
+                                )
+                            elif feature_name in self.date_features:
+                                feature_stats = self.features_stats.get("date", {}).get(
+                                    feature_name, {}
+                                )
+                            elif feature_name in self.time_series_features:
+                                feature_stats = self.features_stats.get(
+                                    "time_series", {}
+                                ).get(feature_name, {})
+
+                            if feature_stats:
+                                dtype = feature_stats.get("dtype", tf.float32)
+                            else:
+                                # Final fallback based on feature type
+                                if isinstance(feature, PassthroughFeature):
+                                    dtype = getattr(feature, "dtype", tf.float32)
+                                elif feature.feature_type in [
+                                    FeatureType.STRING_CATEGORICAL,
+                                    FeatureType.TEXT,
+                                ]:
+                                    dtype = tf.string
+                                elif feature.feature_type == FeatureType.DATE:
+                                    dtype = tf.string
+                                else:
+                                    dtype = tf.float32
+
                         self._add_input_column(feature_name=feature_name, dtype=dtype)
                         self._add_input_signature(
                             feature_name=feature_name, dtype=dtype

@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "kdp"
 # This version is managed by semantic-release and will be updated automatically during release
-version = "1.11.1"
+version = "1.11.2"
 documentation = "http://piotrlaczkowski.github.io/keras-data-processor/"
 repository = "https://github.com/piotrlaczkowski/keras-data-processor"
 description = "Data Preprocessing model based on Keras preprocessing layers"
