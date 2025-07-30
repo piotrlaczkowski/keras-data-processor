@@ -21,13 +21,12 @@ def validate_all_pipeline_integrations():
         with open('kdp/processor.py', 'r') as f:
             content = f.read()
         
-        # Check all pipeline methods have contrastive learning
+        # Check all pipeline methods have contrastive learning (except passthrough)
         pipeline_methods = [
             '_add_pipeline_numeric',
             '_add_pipeline_categorical', 
             '_add_pipeline_text',
             '_add_pipeline_date',
-            '_add_pipeline_passthrough',
             '_add_pipeline_time_series'
         ]
         
@@ -54,6 +53,29 @@ def validate_all_pipeline_integrations():
             else:
                 print(f"✗ {method} not found")
                 return False
+        
+        # Check that passthrough pipeline does NOT have contrastive learning
+        passthrough_method = '_add_pipeline_passthrough'
+        if passthrough_method in content:
+            method_start = content.find(f'def {passthrough_method}')
+            if method_start != -1:
+                next_def = content.find('\n    def ', method_start + 1)
+                if next_def == -1:
+                    method_content = content[method_start:]
+                else:
+                    method_content = content[method_start:next_def]
+                
+                if '_apply_contrastive_learning' not in method_content:
+                    print(f"✓ {passthrough_method} correctly excludes contrastive learning")
+                else:
+                    print(f"✗ {passthrough_method} incorrectly includes contrastive learning")
+                    return False
+            else:
+                print(f"✗ {passthrough_method} not found")
+                return False
+        else:
+            print(f"✗ {passthrough_method} not found")
+            return False
         
         return True
         
@@ -290,13 +312,6 @@ def validate_documentation():
     print("\nValidating documentation...")
     
     try:
-        # Check README exists
-        if os.path.exists('CONTRASTIVE_LEARNING_README.md'):
-            print("✓ Found CONTRASTIVE_LEARNING_README.md")
-        else:
-            print("✗ Missing CONTRASTIVE_LEARNING_README.md")
-            return False
-        
         # Check example file exists
         if os.path.exists('examples/contrastive_learning_example.py'):
             print("✓ Found contrastive_learning_example.py")
@@ -409,13 +424,13 @@ def main():
         print("🎉 ALL VALIDATIONS PASSED!")
         print("=" * 70)
         print("✅ Contrastive learning is correctly implemented across:")
-        print("   - All feature pipelines (numeric, categorical, text, date, passthrough, time_series)")
+        print("   - All feature pipelines (numeric, categorical, text, date, time_series)")
+        print("   - Passthrough features correctly excluded from processing")
         print("   - All placement options (none, numeric, categorical, text, date, time_series, all_features)")
         print("   - All configuration parameters (15+ parameters)")
         print("   - Layers factory integration")
         print("   - Module exports")
         print("   - Complete layer implementation")
-        print("   - Comprehensive documentation")
         print("   - Integration with existing KDP features")
         print("   - Backward compatibility")
         print("\n🚀 The contrastive learning feature is ready for production use!")

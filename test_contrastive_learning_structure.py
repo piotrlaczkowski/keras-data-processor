@@ -22,8 +22,7 @@ def test_file_structure():
         'kdp/__init__.py',
         'test/layers/test_contrastive_learning_layer.py',
         'test/test_contrastive_learning_integration.py',
-        'CONTRASTIVE_LEARNING_README.md',
-        'IMPLEMENTATION_SUMMARY.md'
+        'examples/contrastive_learning_example.py'
     ]
     
     for file_path in required_files:

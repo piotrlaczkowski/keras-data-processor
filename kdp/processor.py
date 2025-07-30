@@ -862,6 +862,7 @@ class PreprocessingModel:
             return output_pipeline
 
         # Check if contrastive learning should be applied to this feature type
+        # Note: Passthrough features are intentionally excluded from contrastive learning
         should_apply = (
             (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.ALL_FEATURES.value) or
             (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.NUMERIC.value and feature_type == "numeric") or
@@ -1606,12 +1607,7 @@ class PreprocessingModel:
             feature_type="passthrough",
         )
 
-        # Apply contrastive learning if needed
-        _output_pipeline = self._apply_contrastive_learning(
-            feature_name=feature_name,
-            output_pipeline=_output_pipeline,
-            feature_type="passthrough",
-        )
+
 
         self.processed_features[feature_name] = _output_pipeline
 
