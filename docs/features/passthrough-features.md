@@ -3,36 +3,36 @@
 <div class="feature-header">
   <div class="feature-title">
     <h2>Passthrough Features in KDP</h2>
-    <p>Include pre-processed data and custom vectors in your model without additional transformations.</p>
+    <p>Handle IDs, metadata, and pre-processed data without unwanted transformations.</p>
   </div>
 </div>
 
 ## 📋 Overview
 
 <div class="overview-card">
-  <p>Passthrough features allow you to include data in your model without any preprocessing modifications. They're perfect for pre-processed data, custom vectors, and scenarios where you need to preserve exact values.</p>
+  <p>Passthrough features allow you to include data in your model inputs without any preprocessing modifications. They're perfect for IDs, metadata, pre-processed data, and scenarios where you need to preserve exact values. With KDP v1.11.1+, you can now choose whether passthrough features are included in the main model output or kept separately for manual use.</p>
 </div>
 
 <div class="key-benefits">
+  <div class="benefit-card">
+    <span class="benefit-icon">🔑</span>
+    <h3>ID Preservation</h3>
+    <p>Keep product IDs, user IDs for result mapping</p>
+  </div>
+  <div class="benefit-card">
+    <span class="benefit-icon">🏷️</span>
+    <h3>Metadata Handling</h3>
+    <p>Include metadata without processing it</p>
+  </div>
   <div class="benefit-card">
     <span class="benefit-icon">⚡</span>
     <h3>Direct Integration</h3>
     <p>Include pre-processed data without modifications</p>
   </div>
   <div class="benefit-card">
-    <span class="benefit-icon">🔢</span>
-    <h3>Custom Vectors</h3>
-    <p>Use pre-computed embeddings and vectors</p>
-  </div>
-  <div class="benefit-card">
-    <span class="benefit-icon">📊</span>
-    <h3>Raw Values</h3>
-    <p>Preserve exact original values in your model</p>
-  </div>
-  <div class="benefit-card">
     <span class="benefit-icon">🔄</span>
-    <h3>Flexible Integration</h3>
-    <p>Seamlessly combine with other feature types</p>
+    <h3>Flexible Output</h3>
+    <p>Choose between processed inclusion or separate access</p>
   </div>
 </div>
 
@@ -40,35 +40,65 @@
 
 <div class="use-cases-container">
   <div class="use-case-card">
-    <span class="use-case-icon">🔄</span>
-    <h3>Pre-processed Data</h3>
-    <p>You have already processed the data externally</p>
+    <span class="use-case-icon">🔑</span>
+    <h3>IDs & Identifiers</h3>
+    <p>Product IDs, user IDs, transaction IDs that you need for mapping results but shouldn't influence the model</p>
+  </div>
+
+  <div class="use-case-card">
+    <span class="use-case-icon">🏷️</span>
+    <h3>Metadata</h3>
+    <p>Timestamps, source information, or other metadata needed for post-processing but not for ML</p>
   </div>
 
   <div class="use-case-card">
     <span class="use-case-icon">🔢</span>
-    <h3>Custom Vectors</h3>
-    <p>You want to include pre-computed embeddings or vectors</p>
+    <h3>Pre-computed Features</h3>
+    <p>Pre-computed embeddings or features that should be included in model processing</p>
   </div>
 
   <div class="use-case-card">
     <span class="use-case-icon">📊</span>
     <h3>Raw Values</h3>
-    <p>You need the exact original values in your model</p>
+    <p>Exact original values that need to be preserved without any transformations</p>
   </div>
 
   <div class="use-case-card">
     <span class="use-case-icon">🔍</span>
     <h3>Feature Testing</h3>
-    <p>You want to compare raw vs processed feature performance</p>
-  </div>
-
-  <div class="use-case-card">
-    <span class="use-case-icon">🔄</span>
-    <h3>Gradual Migration</h3>
-    <p>You're moving from a legacy system and need compatibility</p>
+    <p>Compare raw vs processed feature performance in experiments</p>
   </div>
 </div>
+
+## 💡 Two Modes of Operation
+
+<div class="important-note">
+  <p><strong>KDP v1.11.1+ introduces two distinct modes for passthrough features:</strong></p>
+</div>
+
+### 🔄 Legacy Mode (Processed Output)
+**When:** `include_passthrough_in_output=True` (default for backwards compatibility)
+**Use case:** Pre-computed features that should be part of model processing
+
+```python
+preprocessor = PreprocessingModel(
+    path_data="data.csv",
+    features_specs=features,
+    include_passthrough_in_output=True  # Default - backwards compatible
+)
+```
+
+### 🎯 Recommended Mode (Separate Access)
+**When:** `include_passthrough_in_output=False`
+**Use case:** IDs, metadata that should be preserved but not processed
+
+```python
+preprocessor = PreprocessingModel(
+    path_data="data.csv",
+    features_specs=features,
+    include_passthrough_in_output=False  # Recommended for IDs/metadata
+)
+```
 
 ## 💡 Defining Passthrough Features
 
@@ -81,30 +111,78 @@ import tensorflow as tf
 
 # Simple approach using enum
 features = {
-    "embedding_vector": FeatureType.PASSTHROUGH,
-    "age": FeatureType.FLOAT_NORMALIZED,
+    "product_id": FeatureType.PASSTHROUGH,  # Will use default tf.float32
+    "price": FeatureType.FLOAT_NORMALIZED,
     "category": FeatureType.STRING_CATEGORICAL
 }
 
-# Advanced configuration with PassthroughFeature class
+# Advanced configuration with explicit dtype
 features = {
+    "product_id": PassthroughFeature(
+        name="product_id",
+        dtype=tf.string  # Specify string for IDs
+    ),
+    "user_id": PassthroughFeature(
+        name="user_id",
+        dtype=tf.int64   # Specify int for numeric IDs
+    ),
     "embedding_vector": PassthroughFeature(
         name="embedding_vector",
-        dtype=tf.float32  # Specify the data type
+        dtype=tf.float32  # For pre-computed features
     ),
-    "raw_text_embedding": PassthroughFeature(
-        name="raw_text_embedding",
-        dtype=tf.float32
-    ),
-    "age": FeatureType.FLOAT_NORMALIZED,
+    "price": FeatureType.FLOAT_NORMALIZED,
     "category": FeatureType.STRING_CATEGORICAL
 }
+```
 
-# Create your preprocessor
+</div>
+
+## 🏗️ Real-World Example: E-commerce Recommendation
+
+<div class="example-card">
+  <div class="code-container">
+
+```python
+import pandas as pd
+from kdp import PreprocessingModel, FeatureType
+from kdp.features import PassthroughFeature
+import tensorflow as tf
+
+# Sample e-commerce data
+data = pd.DataFrame({
+    'product_id': ['P001', 'P002', 'P003'],      # String ID - for mapping
+    'user_id': [1001, 1002, 1003],              # Numeric ID - for mapping
+    'price': [29.99, 49.99, 19.99],             # ML feature
+    'category': ['electronics', 'books', 'clothing'],  # ML feature
+    'rating': [4.5, 3.8, 4.2]                   # ML feature
+})
+
+# Define features with proper separation
+features = {
+    # IDs for mapping - should NOT influence the model
+    'product_id': PassthroughFeature(name='product_id', dtype=tf.string),
+    'user_id': PassthroughFeature(name='user_id', dtype=tf.int64),
+
+    # Actual ML features - should be processed
+    'price': FeatureType.FLOAT_NORMALIZED,
+    'category': FeatureType.STRING_CATEGORICAL,
+    'rating': FeatureType.FLOAT_NORMALIZED
+}
+
+# Create preprocessor with separate passthrough access
 preprocessor = PreprocessingModel(
-    path_data="customer_data.csv",
-    features_specs=features
+    path_data="ecommerce_data.csv",
+    features_specs=features,
+    output_mode='dict',
+    include_passthrough_in_output=False  # Keep IDs separate
 )
+
+model = preprocessor.build_preprocessor()
+
+# Now you can:
+# 1. Use the model for ML predictions (price, category, rating)
+# 2. Access product_id and user_id separately for mapping results
+# 3. No dtype concatenation issues between string IDs and numeric features
 ```
 
 </div>
@@ -114,33 +192,49 @@ preprocessor = PreprocessingModel(
 <div class="architecture-diagram">
   <img src="imgs/models/basic_passthrough.png" alt="Passthrough Feature Model" class="architecture-image">
   <div class="diagram-caption">
-    <p>Passthrough features are included in model inputs without any transformations, maintaining their original values throughout the pipeline.</p>
+    <p>Passthrough features create input signatures but can be processed or kept separate based on your configuration.</p>
   </div>
 </div>
 
+### Legacy Mode Flow (include_passthrough_in_output=True)
 <div class="workflow-container">
   <div class="workflow-card">
     <span class="workflow-icon">➕</span>
-    <h3>Added to Inputs</h3>
-    <p>Included in model inputs like other features</p>
+    <h3>Input Signature</h3>
+    <p>Added to model inputs with proper dtype</p>
   </div>
 
   <div class="workflow-card">
     <span class="workflow-icon">🔄</span>
-    <h3>Type Casting</h3>
-    <p>Cast to specified dtype for compatibility</p>
+    <h3>Minimal Processing</h3>
+    <p>Type casting and optional reshaping only</p>
   </div>
 
   <div class="workflow-card">
-    <span class="workflow-icon">⚡</span>
-    <h3>No Transformation</h3>
-    <p>Pass through without normalization or encoding</p>
+    <span class="workflow-icon">🔗</span>
+    <h3>Concatenated</h3>
+    <p>Included in main model output (grouped by dtype)</p>
+  </div>
+</div>
+
+### Recommended Mode Flow (include_passthrough_in_output=False)
+<div class="workflow-container">
+  <div class="workflow-card">
+    <span class="workflow-icon">➕</span>
+    <h3>Input Signature</h3>
+    <p>Added to model inputs with proper dtype</p>
   </div>
 
   <div class="workflow-card">
-    <span class="workflow-icon">🎯</span>
-    <h3>Feature Selection</h3>
-    <p>Optional feature selection if enabled</p>
+    <span class="workflow-icon">🚫</span>
+    <h3>No Processing</h3>
+    <p>Completely bypasses KDP transformations</p>
+  </div>
+
+  <div class="workflow-card">
+    <span class="workflow-icon">📦</span>
+    <h3>Separate Access</h3>
+    <p>Available separately for manual use</p>
   </div>
 </div>
 
@@ -171,103 +265,146 @@ preprocessor = PreprocessingModel(
         <td>tf.DType</td>
         <td>The data type of the feature (default: tf.float32)</td>
       </tr>
+      <tr>
+        <td><code>include_passthrough_in_output</code></td>
+        <td>bool</td>
+        <td>Whether to include in main output (True) or keep separate (False)</td>
+      </tr>
     </tbody>
   </table>
 </div>
 
-## 🎯 Example: Using Pre-computed Embeddings
+## 🎯 Advanced Examples
 
-<div class="example-card">
-  <div class="code-container">
+### Example 1: Mixed Dtype IDs
+<div class="code-container">
 
 ```python
-import pandas as pd
-from kdp import PreprocessingModel, FeatureType
-from kdp.features import PassthroughFeature, NumericalFeature
-import tensorflow as tf
-
-# Define features
+# Handles both string and numeric IDs without concatenation errors
 features = {
-    # Regular features
-    "age": NumericalFeature(
-        name="age",
-        feature_type=FeatureType.FLOAT_NORMALIZED
-    ),
-    "category": FeatureType.STRING_CATEGORICAL,
-
-    # Passthrough features for pre-computed embeddings
-    "product_embedding": PassthroughFeature(
-        name="product_embedding",
-        dtype=tf.float32
-    )
+    'product_id': PassthroughFeature(name='product_id', dtype=tf.string),
+    'user_id': PassthroughFeature(name='user_id', dtype=tf.int64),
+    'session_id': PassthroughFeature(name='session_id', dtype=tf.string),
+    'price': FeatureType.FLOAT_NORMALIZED
 }
 
-# Create your preprocessor
 preprocessor = PreprocessingModel(
     path_data="data.csv",
-    features_specs=features
+    features_specs=features,
+    include_passthrough_in_output=False  # No dtype mixing issues
 )
-
-# Build the model
-model = preprocessor.build_preprocessor()
 ```
 
+</div>
+
+### Example 2: Pre-computed Embeddings
+<div class="code-container">
+
+```python
+# Include pre-computed features in model processing
+features = {
+    'text_embedding': PassthroughFeature(
+        name='text_embedding',
+        dtype=tf.float32
+    ),
+    'image_embedding': PassthroughFeature(
+        name='image_embedding',
+        dtype=tf.float32
+    ),
+    'user_age': FeatureType.FLOAT_NORMALIZED
+}
+
+preprocessor = PreprocessingModel(
+    path_data="embeddings.csv",
+    features_specs=features,
+    include_passthrough_in_output=True  # Include in model processing
+)
+```
+
+</div>
+
+### Example 3: Metadata Preservation
+<div class="code-container">
+
+```python
+# Keep metadata for post-processing without affecting the model
+features = {
+    'timestamp': PassthroughFeature(name='timestamp', dtype=tf.string),
+    'source_system': PassthroughFeature(name='source_system', dtype=tf.string),
+    'batch_id': PassthroughFeature(name='batch_id', dtype=tf.int64),
+    'sales_amount': FeatureType.FLOAT_NORMALIZED,
+    'product_category': FeatureType.STRING_CATEGORICAL
+}
+
+preprocessor = PreprocessingModel(
+    path_data="sales_data.csv",
+    features_specs=features,
+    include_passthrough_in_output=False  # Metadata separate from ML
+)
+```
+
+</div>
+
+## ⚠️ Important Considerations
+
+<div class="warning-container">
+  <div class="warning-card">
+    <span class="warning-icon">⚠️</span>
+    <h3>Dtype Compatibility</h3>
+    <p>When using <code>include_passthrough_in_output=True</code>, passthrough features are grouped by dtype to prevent concatenation errors. String and numeric passthrough features are handled separately.</p>
+  </div>
+
+  <div class="warning-card">
+    <span class="warning-icon">🎯</span>
+    <h3>Recommended Usage</h3>
+    <p>Use <code>include_passthrough_in_output=False</code> for IDs and metadata that shouldn't influence your model. Use <code>True</code> only for pre-processed features that should be part of model processing.</p>
+  </div>
+
+  <div class="warning-card">
+    <span class="warning-icon">🔄</span>
+    <h3>Backwards Compatibility</h3>
+    <p>The default is <code>True</code> to maintain backwards compatibility with existing code. New projects should explicitly choose the appropriate mode.</p>
   </div>
 </div>
 
-## ⚠️ Things to Consider
+## 🔍 Troubleshooting
 
-<div class="considerations-container">
-  <div class="consideration-card">
-    <span class="consideration-icon">🔍</span>
-    <h3>Data Type Compatibility</h3>
-    <p>Ensure the data type of your passthrough feature is compatible with the overall model</p>
+<div class="troubleshooting-container">
+  <div class="trouble-card">
+    <h3>❌ "Cannot concatenate tensors of different dtypes"</h3>
+    <p><strong>Solution:</strong> Set <code>include_passthrough_in_output=False</code> for ID/metadata features, or ensure all passthrough features have compatible dtypes.</p>
   </div>
 
-  <div class="consideration-card">
-    <span class="consideration-icon">📊</span>
-    <h3>Dimensionality</h3>
-    <p>Make sure the feature dimensions fit your model architecture</p>
+  <div class="trouble-card">
+    <h3>❌ "inputs not connected to outputs"</h3>
+    <p><strong>Solution:</strong> This can happen with passthrough-only models. Ensure you have at least one processed feature, or use dict mode for passthrough-only scenarios.</p>
   </div>
 
-  <div class="consideration-card">
-    <span class="consideration-icon">🧹</span>
-    <h3>Data Quality</h3>
-    <p>Since no preprocessing is applied, ensure your data is clean and ready for use</p>
-  </div>
-
-  <div class="consideration-card">
-    <span class="consideration-icon">⚡</span>
-    <h3>Performance Impact</h3>
-    <p>Using raw data may affect model performance; test both approaches</p>
+  <div class="trouble-card">
+    <h3>❌ String features showing as tf.float32</h3>
+    <p><strong>Solution:</strong> Explicitly specify dtype in PassthroughFeature: <code>dtype=tf.string</code></p>
   </div>
 </div>
 
-## 🚀 Best Practices
+## 📈 Performance Tips
 
-<div class="best-practices-container">
-  <div class="best-practice-card">
-    <span class="best-practice-icon">📝</span>
-    <h3>Document Your Decision</h3>
-    <p>Make it clear why certain features are passed through</p>
+<div class="tips-container">
+  <div class="tip-card">
+    <span class="tip-icon">⚡</span>
+    <h3>Reduce Model Complexity</h3>
+    <p>Use <code>include_passthrough_in_output=False</code> for IDs to keep your model focused on actual ML features</p>
   </div>
 
-  <div class="best-practice-card">
-    <span class="best-practice-icon">🔍</span>
-    <h3>Test Both Approaches</h3>
-    <p>Compare passthrough vs preprocessed features for performance</p>
+  <div class="tip-card">
+    <span class="tip-icon">🎯</span>
+    <h3>Clear Separation</h3>
+    <p>Separate concerns: IDs for mapping, features for ML, metadata for analysis</p>
   </div>
 
-  <div class="best-practice-card">
-    <span class="best-practice-icon">🎯</span>
-    <h3>Feature Importance</h3>
-    <p>Use feature selection to see if passthrough features contribute meaningfully</p>
-  </div>
-
-  <div class="best-practice-card">
-    <span class="best-practice-icon">📈</span>
-    <h3>Monitor Gradients</h3>
-    <p>Watch for gradient issues since passthrough features may have different scales</p>
+  <div class="tip-card">
+    <span class="tip-icon">🔄</span>
+    <h3>Choose the Right Mode</h3>
+    <p>Legacy mode for pre-computed features, recommended mode for identifiers and metadata</p>
   </div>
 </div>
 

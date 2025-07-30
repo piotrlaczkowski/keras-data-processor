@@ -47,8 +47,8 @@
         </tr>
         <tr>
           <td>🔍 <strong>Passthrough</strong></td>
-          <td>Pre-processed data, custom vectors</td>
-          <td>No modification, type casting only</td>
+          <td>IDs, metadata, pre-processed data</td>
+          <td>Input signatures without processing (v1.11.1+: separate or included)</td>
         </tr>
       </tbody>
     </table>
