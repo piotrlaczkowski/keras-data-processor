@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import tensorflow as tf
+import pytest
 
 from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.layers.distribution_aware_encoder_layer import (
