@@ -314,6 +314,7 @@ class PreprocessingModel:
         feature_moe_dropout: float = 0.1,
         feature_moe_freeze_experts: bool = False,
         feature_moe_use_residual: bool = True,
+        include_passthrough_in_output: bool = True,
     ) -> None:
         """Initialize a preprocessing model.
 
@@ -419,6 +420,9 @@ class PreprocessingModel:
         self.feature_moe_freeze_experts = feature_moe_freeze_experts
         self.feature_moe_use_residual = feature_moe_use_residual
 
+        # Passthrough features control
+        self.include_passthrough_in_output = include_passthrough_in_output
+
         # Initialize feature type lists
         self.numeric_features = []
         self.categorical_features = []
@@ -433,6 +437,7 @@ class PreprocessingModel:
         self.signature = {}
         self.outputs = {}  # Final outputs for DICT mode
         self.processed_features = {}  # All processed features before final output
+        self.passthrough_outputs = {}  # Passthrough features (unprocessed)
         self.concat_all = None  # Final concatenated output for CONCAT mode
         self._preprocessed_cache = {} if use_caching else None
 
@@ -1400,7 +1405,11 @@ class PreprocessingModel:
 
     @_monitor_performance
     def _add_pipeline_passthrough(self, feature_name: str, input_layer) -> None:
-        """Add a passthrough feature to the pipeline without preprocessing.
+        """Add a passthrough feature to the pipeline.
+
+        Depending on include_passthrough_in_output setting:
+        - If True: Process minimally and include in main output (legacy behavior)
+        - If False: Store unprocessed for separate access (recommended for IDs/metadata)
 
         Args:
             feature_name (str): The name of the feature to be passed through.
@@ -1409,6 +1418,17 @@ class PreprocessingModel:
         # getting feature object
         _feature = self.features_specs[feature_name]
 
+        if self.include_passthrough_in_output:
+            # Legacy behavior: minimal processing and include in main output
+            self._process_passthrough_for_output(feature_name, input_layer, _feature)
+        else:
+            # New behavior: store unprocessed for separate access
+            self._store_passthrough_unprocessed(feature_name, input_layer, _feature)
+
+    def _process_passthrough_for_output(
+        self, feature_name: str, input_layer, _feature
+    ) -> None:
+        """Process passthrough feature minimally for inclusion in main output."""
         # initializing preprocessor
         preprocessor = FeaturePreprocessor(name=feature_name)
 
@@ -1451,6 +1471,17 @@ class PreprocessingModel:
         )
 
         self.processed_features[feature_name] = _output_pipeline
+
+    def _store_passthrough_unprocessed(
+        self, feature_name: str, input_layer, _feature
+    ) -> None:
+        """Store passthrough feature unprocessed for separate access."""
+        logger.info(
+            f"Storing passthrough feature '{feature_name}' unprocessed for separate access"
+        )
+        # Store the raw input layer for this passthrough feature
+        # This will be available in the model outputs but not processed by KDP
+        self.passthrough_outputs[feature_name] = input_layer
 
     @_monitor_performance
     def _add_pipeline_time_series(
@@ -1650,6 +1681,37 @@ class PreprocessingModel:
 
         logger.info("Concatenating outputs mode enabled")
 
+    def _combine_all_features(
+        self, concat_num: Optional[tf.Tensor], concat_cat: Optional[tf.Tensor]
+    ) -> None:
+        """Combine numeric and categorical features.
+
+        Args:
+            concat_num: Concatenated numeric features tensor
+            concat_cat: Concatenated categorical features tensor
+
+        Raises:
+            ValueError: If no features are available for concatenation
+        """
+        if concat_num is not None and concat_cat is not None:
+            self.concat_all = tf.keras.layers.Concatenate(
+                name="ConcatenateAll",
+                axis=-1,
+            )([concat_num, concat_cat])
+        elif concat_num is not None:
+            self.concat_all = concat_num
+        elif concat_cat is not None:
+            self.concat_all = concat_cat
+        else:
+            # Check if we have passthrough features that are stored separately
+            if self.passthrough_outputs and not self.include_passthrough_in_output:
+                logger.info(
+                    "No processed features to concatenate - only passthrough features exist"
+                )
+                self.concat_all = None  # Will be handled in model building
+            else:
+                raise ValueError("No features available for concatenation")
+
     def _group_features_by_type(self) -> Tuple[List, List]:
         """Group processed features by type for concatenation.
 
@@ -1659,7 +1721,8 @@ class PreprocessingModel:
         # Initialize lists for features of different types
         numeric_features = []
         categorical_features = []
-        passthrough_features = []
+        passthrough_features_numeric = []
+        passthrough_features_string = []
 
         # Group processed features by type
         for feature_name, feature in self.processed_features.items():
@@ -1688,14 +1751,36 @@ class PreprocessingModel:
                 logger.debug(f"Adding {feature_name} to categorical features")
                 categorical_features.append(feature)
             elif feature_name in self.passthrough_features:
-                logger.debug(f"Adding {feature_name} to passthrough features")
-                passthrough_features.append(feature)
+                # Only include passthrough features in concatenation if they're meant to be in output
+                # When include_passthrough_in_output=False, they should be stored separately
+                if self.include_passthrough_in_output:
+                    # Separate passthrough features by dtype to avoid concatenation issues
+                    feature_dtype = getattr(feature_spec, "dtype", tf.float32)
+                    if feature_dtype == tf.string:
+                        logger.debug(
+                            f"Adding {feature_name} to string passthrough features"
+                        )
+                        passthrough_features_string.append(feature)
+                    else:
+                        logger.debug(
+                            f"Adding {feature_name} to numeric passthrough features"
+                        )
+                        passthrough_features_numeric.append(feature)
+                else:
+                    logger.debug(
+                        f"Skipping {feature_name} from concatenation (stored separately)"
+                    )
             else:
                 logger.warning(f"Unknown feature type for {feature_name}")
 
-        # For concatenation purposes, add passthrough features to numeric features
-        if passthrough_features:
-            numeric_features.extend(passthrough_features)
+        # Add numeric passthrough features to numeric features (only if include_passthrough_in_output=True)
+        if passthrough_features_numeric:
+            numeric_features.extend(passthrough_features_numeric)
+
+        # Add string passthrough features to categorical features (only if include_passthrough_in_output=True)
+        # (since categorical features are typically strings and handled separately)
+        if passthrough_features_string:
+            categorical_features.extend(passthrough_features_string)
 
         return numeric_features, categorical_features
 
@@ -1752,30 +1837,6 @@ class PreprocessingModel:
         )(categorical_features)
 
         return concat_cat
-
-    def _combine_all_features(
-        self, concat_num: Optional[tf.Tensor], concat_cat: Optional[tf.Tensor]
-    ) -> None:
-        """Combine numeric and categorical features.
-
-        Args:
-            concat_num: Concatenated numeric features tensor
-            concat_cat: Concatenated categorical features tensor
-
-        Raises:
-            ValueError: If no features are available for concatenation
-        """
-        if concat_num is not None and concat_cat is not None:
-            self.concat_all = tf.keras.layers.Concatenate(
-                name="ConcatenateAll",
-                axis=-1,
-            )([concat_num, concat_cat])
-        elif concat_num is not None:
-            self.concat_all = concat_num
-        elif concat_cat is not None:
-            self.concat_all = concat_cat
-        else:
-            raise ValueError("No features available for concatenation")
 
     def _apply_multi_resolution_attention(
         self, concat_num: tf.Tensor, concat_cat: tf.Tensor
@@ -2388,24 +2449,77 @@ class PreprocessingModel:
             # Build the model based on output mode
             logger.info("Building preprocessor Model")
             if self.output_mode == OutputModeOptions.CONCAT.value:
-                if self.concat_all is None:
+                # Handle case where only passthrough features exist
+                if (
+                    self.concat_all is None
+                    and self.passthrough_outputs
+                    and not self.include_passthrough_in_output
+                ):
+                    logger.info(
+                        "Only passthrough features detected - creating passthrough-only model"
+                    )
+                    self.model = tf.keras.Model(
+                        inputs=self.inputs,
+                        outputs=self.passthrough_outputs,
+                        name="preprocessor",
+                    )
+                    _output_dims = "passthrough_only"
+                elif self.concat_all is None:
                     raise ValueError(
                         "No features were concatenated. Check if features were properly processed."
                     )
-                self.model = tf.keras.Model(
-                    inputs=self.inputs,
-                    outputs=self.concat_all,  # Use concat_all for CONCAT mode
-                    name="preprocessor",
-                )
-                _output_dims = self.model.output_shape[1]
+                else:
+                    # Determine outputs based on passthrough settings
+                    if (
+                        self.passthrough_outputs
+                        and not self.include_passthrough_in_output
+                    ):
+                        # Include both processed (concat) and passthrough outputs
+                        model_outputs = {
+                            "processed": self.concat_all,
+                            "passthrough": self.passthrough_outputs,
+                        }
+                        logger.info(
+                            f"Creating model with separate passthrough outputs: {list(self.passthrough_outputs.keys())}"
+                        )
+                    else:
+                        # Standard concat output
+                        model_outputs = self.concat_all
+
+                    self.model = tf.keras.Model(
+                        inputs=self.inputs,
+                        outputs=model_outputs,
+                        name="preprocessor",
+                    )
+                    _output_dims = (
+                        self.model.output_shape[1]
+                        if isinstance(model_outputs, tf.Tensor)
+                        else "mixed"
+                    )
+
             else:  # DICT mode
-                if not self.outputs:
+                if not self.outputs and not self.passthrough_outputs:
                     raise ValueError(
                         "No outputs were created. Check if features were properly processed."
                     )
+
+                # Include passthrough outputs in dict mode if they exist
+                final_outputs = self.outputs.copy() if self.outputs else {}
+                if self.passthrough_outputs and not self.include_passthrough_in_output:
+                    final_outputs.update(self.passthrough_outputs)
+                    logger.info(
+                        f"Adding passthrough outputs to dict mode: {list(self.passthrough_outputs.keys())}"
+                    )
+                elif not final_outputs:
+                    # Only passthrough features exist
+                    final_outputs = self.passthrough_outputs
+                    logger.info(
+                        "Only passthrough features detected - creating passthrough-only dict model"
+                    )
+
                 self.model = tf.keras.Model(
                     inputs=self.inputs,
-                    outputs=self.outputs,  # Use outputs dict for DICT mode
+                    outputs=final_outputs,
                     name="preprocessor",
                 )
                 _output_dims = self.model.output_shape
