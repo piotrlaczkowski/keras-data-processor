@@ -1,3 +1,10 @@
+## <small>1.11.2 (2025-07-30)</small>
+
+* fix(KDP): adding docs for passthrough ([7164ce2](https://github.com/piotrlaczkowski/keras-data-processor/commit/7164ce2))
+* fix(KDP): implementing reall passthrough (skipping all preocessing but adding inputs and ouputs ([3540a70](https://github.com/piotrlaczkowski/keras-data-processor/commit/3540a70))
+* fix(KDP): preserve dtype for passthrough features and handle empty categorical vocabulary ([cc3d533](https://github.com/piotrlaczkowski/keras-data-processor/commit/cc3d533))
+* chore: save last release version for recovery [skip ci] ([04a879a](https://github.com/piotrlaczkowski/keras-data-processor/commit/04a879a))
+
 ## <small>1.11.1 (2025-07-30)</small>
 
 * fix(KDP): fixing tests ([6326dbf](https://github.com/piotrlaczkowski/keras-data-processor/commit/6326dbf))
