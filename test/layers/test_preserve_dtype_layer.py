@@ -1,10 +1,15 @@
 import unittest
 import numpy as np
 import tensorflow as tf
+import pytest
 
 from kdp.layers.preserve_dtype import PreserveDtypeLayer
 
 
+@pytest.mark.layers
+@pytest.mark.unit
+@pytest.mark.fast
+@pytest.mark.micro
 class TestPreserveDtypeLayer(unittest.TestCase):
     """Test cases for PreserveDtypeLayer."""
 

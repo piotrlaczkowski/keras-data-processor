@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 import tensorflow as tf
 
 from kdp.layers.distribution_aware_encoder_layer import DistributionType
@@ -119,6 +120,8 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
     return pd.DataFrame(data)
 
 
+@pytest.mark.unit
+@pytest.mark.fast
 class TestFeatureSpaceConverter(unittest.TestCase):
     def setUp(self):
         """Setup test case environment."""
@@ -322,6 +325,8 @@ class TestFeatureSpaceConverter(unittest.TestCase):
         self.assertEqual(feat9_instance.feature_type, FeatureType.DATE)
 
 
+@pytest.mark.processor
+@pytest.mark.integration
 class TestPreprocessingModel(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1628,6 +1633,8 @@ class TestPreprocessingModel(unittest.TestCase):
                 )  # Periodic features add 2 additional dimensions (sin and cos)
 
 
+@pytest.mark.processor
+@pytest.mark.integration
 class TestPreprocessingModel_Combinations(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1801,6 +1808,7 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
                         )  # (batch_size, feature_dim)
                         # You can add more specific checks for each feature if needed
 
+    @pytest.mark.micro
     def test_preprocessor_with_passthrough_feature(self):
         """Test preprocessor with a passthrough feature."""
         # Create features specs with a passthrough feature
@@ -2046,6 +2054,8 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
         )
 
 
+@pytest.mark.processor
+@pytest.mark.integration
 class TestPreprocessingModel_åNumericalEmbedding(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -2255,6 +2265,8 @@ class TestPreprocessingModel_åNumericalEmbedding(unittest.TestCase):
         )
 
 
+@pytest.mark.processor
+@pytest.mark.integration
 class TestPreprocessingModel_GlobalNumericalEmbedding(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -2722,6 +2734,8 @@ class TestPreprocessingModel_GlobalNumericalEmbedding(unittest.TestCase):
             next(invalid_ppr.batch_predict(dataset))
 
 
+@pytest.mark.processor
+@pytest.mark.integration
 class TestPreprocessingModel_FeatureMoE(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

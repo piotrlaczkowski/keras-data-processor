@@ -26,6 +26,10 @@ from kdp.layers.gated_linear_unit_layer import GatedLinearUnit
 from kdp.layers.gated_residual_network_layer import GatedResidualNetwork
 
 
+@pytest.mark.layers
+@pytest.mark.unit
+@pytest.mark.fast
+@pytest.mark.micro
 class TestPreprocessorLayerFactory(unittest.TestCase):
     def setUp(self):
         # Set seeds for reproducibility
