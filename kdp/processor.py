@@ -1126,6 +1126,15 @@ class PreprocessingModel:
         if feature.category_encoding == CategoryEncodingOptions.HASHING:
             return
 
+        # Handle empty vocabulary by providing a fallback
+        if not vocab:
+            logger.warning(
+                f"Empty vocabulary for categorical feature '{feature_name}'. "
+                "Using fallback vocabulary with placeholder values."
+            )
+            # Provide a minimal vocabulary with unknown/placeholder values
+            vocab = ["<UNK>"]
+
         # Default behavior if no specific preprocessing is defined
         if feature.feature_type == FeatureType.STRING_CATEGORICAL:
             preprocessor.add_processing_step(
