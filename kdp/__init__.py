@@ -11,6 +11,7 @@ from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.pipeline import FeaturePreprocessor, Pipeline, ProcessingStep
 from kdp.processor import (
     CategoryEncodingOptions,
+    ContrastiveLearningPlacementOptions,
     OutputModeOptions,
     PreprocessingModel,
     TabularAttentionPlacementOptions,
@@ -35,6 +36,7 @@ __all__ = [
     "PreprocessorLayerFactory",
     "PreprocessingModel",
     "CategoryEncodingOptions",
+    "ContrastiveLearningPlacementOptions",
     "TransformerBlockPlacementOptions",
     "OutputModeOptions",
     "TabularAttentionPlacementOptions",
