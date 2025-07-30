@@ -145,6 +145,9 @@ class NumericalFeature(Feature):
         use_embedding: bool = False,
         embedding_dim: int = 8,
         num_bins: int = 10,
+        embedding_type: str = "dual_branch",
+        num_frequencies: int = 4,
+        num_segments: int = 8,
         **kwargs,
     ) -> None:
         """Initializes a NumericalFeature instance.
@@ -156,6 +159,9 @@ class NumericalFeature(Feature):
             use_embedding (bool): Whether to use advanced numerical embedding.
             embedding_dim (int): Dimension of the embedding space.
             num_bins (int): Number of bins for discretization.
+            embedding_type (str): Type of embedding to use ('dual_branch', 'periodic', 'ple', 'combined').
+            num_frequencies (int): Number of frequency components for periodic embedding.
+            num_segments (int): Number of segments for PLE embedding.
             **kwargs: Additional keyword arguments for the feature.
         """
         super().__init__(name, feature_type, **kwargs)
@@ -164,22 +170,78 @@ class NumericalFeature(Feature):
         self.use_embedding = use_embedding
         self.embedding_dim = embedding_dim
         self.num_bins = num_bins
+        self.embedding_type = embedding_type
+        self.num_frequencies = num_frequencies
+        self.num_segments = num_segments
 
     def get_embedding_layer(self, input_shape: tuple) -> tf.keras.layers.Layer:
-        """Creates and returns an NumericalEmbedding layer configured for this feature."""
+        """Creates and returns an embedding layer configured for this feature."""
         # TODO: check why to use input_shape ?
-        from kdp.layers.numerical_embedding_layer import NumericalEmbedding
-
-        return NumericalEmbedding(
-            embedding_dim=self.embedding_dim,
-            mlp_hidden_units=max(16, self.embedding_dim * 2),
-            num_bins=self.num_bins,
-            init_min=self.kwargs.get("init_min", -3.0),
-            init_max=self.kwargs.get("init_max", 3.0),
-            dropout_rate=self.kwargs.get("dropout_rate", 0.1),
-            use_batch_norm=self.kwargs.get("use_batch_norm", True),
-            name=f"{self.name}_embedding",
-        )
+        
+        if self.embedding_type == "periodic":
+            from kdp.layers.periodic_embedding_layer import PeriodicEmbedding
+            return PeriodicEmbedding(
+                embedding_dim=self.embedding_dim,
+                num_frequencies=self.num_frequencies,
+                mlp_hidden_units=max(16, self.embedding_dim * 2),
+                use_mlp=True,
+                dropout_rate=self.kwargs.get("dropout_rate", 0.1),
+                use_batch_norm=self.kwargs.get("use_batch_norm", True),
+                frequency_init=self.kwargs.get("frequency_init", "log_uniform"),
+                min_frequency=self.kwargs.get("min_frequency", 1e-4),
+                max_frequency=self.kwargs.get("max_frequency", 1e2),
+                use_residual=self.kwargs.get("use_residual", True),
+                name=f"{self.name}_periodic_embedding",
+            )
+        elif self.embedding_type == "ple":
+            from kdp.layers.ple_embedding_layer import PLEEmbedding
+            return PLEEmbedding(
+                embedding_dim=self.embedding_dim,
+                num_segments=self.num_segments,
+                mlp_hidden_units=max(16, self.embedding_dim * 2),
+                use_mlp=True,
+                dropout_rate=self.kwargs.get("dropout_rate", 0.1),
+                use_batch_norm=self.kwargs.get("use_batch_norm", True),
+                segment_init=self.kwargs.get("segment_init", "uniform"),
+                use_residual=self.kwargs.get("use_residual", True),
+                activation=self.kwargs.get("ple_activation", "relu"),
+                name=f"{self.name}_ple_embedding",
+            )
+        elif self.embedding_type == "combined":
+            from kdp.layers.advanced_numerical_embedding_layer import AdvancedNumericalEmbedding
+            return AdvancedNumericalEmbedding(
+                embedding_dim=self.embedding_dim,
+                embedding_types=self.kwargs.get("embedding_types", ["periodic", "ple", "dual_branch"]),
+                num_frequencies=self.num_frequencies,
+                num_segments=self.num_segments,
+                mlp_hidden_units=max(16, self.embedding_dim * 2),
+                num_bins=self.num_bins,
+                init_min=self.kwargs.get("init_min", -3.0),
+                init_max=self.kwargs.get("init_max", 3.0),
+                dropout_rate=self.kwargs.get("dropout_rate", 0.1),
+                use_batch_norm=self.kwargs.get("use_batch_norm", True),
+                frequency_init=self.kwargs.get("frequency_init", "log_uniform"),
+                min_frequency=self.kwargs.get("min_frequency", 1e-4),
+                max_frequency=self.kwargs.get("max_frequency", 1e2),
+                segment_init=self.kwargs.get("segment_init", "uniform"),
+                ple_activation=self.kwargs.get("ple_activation", "relu"),
+                use_residual=self.kwargs.get("use_residual", True),
+                use_gating=self.kwargs.get("use_gating", True),
+                name=f"{self.name}_combined_embedding",
+            )
+        else:
+            # Default to traditional dual-branch embedding
+            from kdp.layers.numerical_embedding_layer import NumericalEmbedding
+            return NumericalEmbedding(
+                embedding_dim=self.embedding_dim,
+                mlp_hidden_units=max(16, self.embedding_dim * 2),
+                num_bins=self.num_bins,
+                init_min=self.kwargs.get("init_min", -3.0),
+                init_max=self.kwargs.get("init_max", 3.0),
+                dropout_rate=self.kwargs.get("dropout_rate", 0.1),
+                use_batch_norm=self.kwargs.get("use_batch_norm", True),
+                name=f"{self.name}_embedding",
+            )
 
 
 class CategoricalFeature(Feature):

@@ -315,6 +315,20 @@ class PreprocessingModel:
         feature_moe_freeze_experts: bool = False,
         feature_moe_use_residual: bool = True,
         include_passthrough_in_output: bool = True,
+        # Advanced numerical embedding types
+        use_periodic_embedding: bool = False,
+        use_ple_embedding: bool = False,
+        use_advanced_combined_embedding: bool = False,
+        embedding_types: list[str] = None,
+        num_frequencies: int = 4,
+        num_segments: int = 8,
+        frequency_init: str = "log_uniform",
+        min_frequency: float = 1e-4,
+        max_frequency: float = 1e2,
+        segment_init: str = "uniform",
+        ple_activation: str = "relu",
+        use_residual: bool = True,
+        use_gating: bool = True,
     ) -> None:
         """Initialize a preprocessing model.
 
@@ -407,6 +421,21 @@ class PreprocessingModel:
         self.global_dropout_rate = global_dropout_rate
         self.global_use_batch_norm = global_use_batch_norm
         self.global_pooling = global_pooling
+
+        # Advanced numerical embedding types control
+        self.use_periodic_embedding = use_periodic_embedding
+        self.use_ple_embedding = use_ple_embedding
+        self.use_advanced_combined_embedding = use_advanced_combined_embedding
+        self.embedding_types = embedding_types
+        self.num_frequencies = num_frequencies
+        self.num_segments = num_segments
+        self.frequency_init = frequency_init
+        self.min_frequency = min_frequency
+        self.max_frequency = max_frequency
+        self.segment_init = segment_init
+        self.ple_activation = ple_activation
+        self.use_residual = use_residual
+        self.use_gating = use_gating
 
         # MoE control
         self.use_feature_moe = use_feature_moe
@@ -1045,21 +1074,78 @@ class PreprocessingModel:
             feature: Feature object with settings
             input_layer: Input layer for the feature
         """
-        logger.info(f"Using NumericalEmbedding for {feature_name}")
-        # Obtain the embedding layer.
-        embedding_layer = feature.get_embedding_layer(input_shape=input_layer.shape)
-        preprocessor.add_processing_step(
-            layer_creator=lambda **kwargs: embedding_layer,
-            layer_class="NumericalEmbedding",
-            name=f"advanced_embedding_{feature_name}",
-            embedding_dim=self.embedding_dim,
-            mlp_hidden_units=self.mlp_hidden_units,
-            num_bins=self.num_bins,
-            init_min=self.init_min,
-            init_max=self.init_max,
-            dropout_rate=self.dropout_rate,
-            use_batch_norm=self.use_batch_norm,
-        )
+        # Determine which embedding type to use
+        if self.use_advanced_combined_embedding:
+            logger.info(f"Using AdvancedNumericalEmbedding for {feature_name}")
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.advanced_numerical_embedding_layer,
+                name=f"advanced_combined_embedding_{feature_name}",
+                embedding_dim=self.embedding_dim,
+                embedding_types=self.embedding_types,
+                num_frequencies=self.num_frequencies,
+                num_segments=self.num_segments,
+                mlp_hidden_units=self.mlp_hidden_units,
+                num_bins=self.num_bins,
+                init_min=self.init_min,
+                init_max=self.init_max,
+                dropout_rate=self.dropout_rate,
+                use_batch_norm=self.use_batch_norm,
+                frequency_init=self.frequency_init,
+                min_frequency=self.min_frequency,
+                max_frequency=self.max_frequency,
+                segment_init=self.segment_init,
+                ple_activation=self.ple_activation,
+                use_residual=self.use_residual,
+                use_gating=self.use_gating,
+            )
+        elif self.use_periodic_embedding:
+            logger.info(f"Using PeriodicEmbedding for {feature_name}")
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.periodic_embedding_layer,
+                name=f"periodic_embedding_{feature_name}",
+                embedding_dim=self.embedding_dim,
+                num_frequencies=self.num_frequencies,
+                mlp_hidden_units=self.mlp_hidden_units,
+                use_mlp=True,
+                dropout_rate=self.dropout_rate,
+                use_batch_norm=self.use_batch_norm,
+                frequency_init=self.frequency_init,
+                min_frequency=self.min_frequency,
+                max_frequency=self.max_frequency,
+                use_residual=self.use_residual,
+            )
+        elif self.use_ple_embedding:
+            logger.info(f"Using PLEEmbedding for {feature_name}")
+            preprocessor.add_processing_step(
+                layer_creator=PreprocessorLayerFactory.ple_embedding_layer,
+                name=f"ple_embedding_{feature_name}",
+                embedding_dim=self.embedding_dim,
+                num_segments=self.num_segments,
+                mlp_hidden_units=self.mlp_hidden_units,
+                use_mlp=True,
+                dropout_rate=self.dropout_rate,
+                use_batch_norm=self.use_batch_norm,
+                segment_init=self.segment_init,
+                use_residual=self.use_residual,
+                activation=self.ple_activation,
+            )
+        else:
+            # Default to traditional numerical embedding
+            logger.info(f"Using NumericalEmbedding for {feature_name}")
+            # Obtain the embedding layer.
+            embedding_layer = feature.get_embedding_layer(input_shape=input_layer.shape)
+            preprocessor.add_processing_step(
+                layer_creator=lambda **kwargs: embedding_layer,
+                layer_class="NumericalEmbedding",
+                name=f"advanced_embedding_{feature_name}",
+                embedding_dim=self.embedding_dim,
+                mlp_hidden_units=self.mlp_hidden_units,
+                num_bins=self.num_bins,
+                init_min=self.init_min,
+                init_max=self.init_max,
+                dropout_rate=self.dropout_rate,
+                use_batch_norm=self.use_batch_norm,
+            )
 
     @_monitor_performance
     def _add_pipeline_categorical(
