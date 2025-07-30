@@ -1,106 +1,69 @@
-# Self-Supervised Contrastive Pretraining for KDP
+# 🧠 Self-Supervised Contrastive Learning for KDP
 
-This document describes the implementation of self-supervised contrastive pretraining inspired by ReConTab, integrated into the Keras Data Processor (KDP) framework.
+**Enhance your tabular data preprocessing with self-supervised contrastive learning inspired by ReConTab!**
 
-## Overview
+This feature adds a powerful self-supervised learning stage to KDP that learns robust, invariant representations of your features through contrastive learning. It's particularly effective for improving downstream task performance when you have limited labeled data.
 
-The contrastive learning implementation provides an asymmetric autoencoder with regularization that selects salient features and a contrastive loss that distills robust, invariant embeddings. This feature can be activated and deactivated as needed, making it a flexible addition to the KDP pipeline.
+## 🎯 Overview
 
-## Key Features
+The contrastive learning module implements an **asymmetric autoencoder** with regularization that:
 
-### 🎯 **Self-Supervised Learning**
-- **Asymmetric Autoencoder**: Feature selection network that learns to identify salient features
-- **Contrastive Loss**: InfoNCE-based loss for learning robust representations
-- **Reconstruction Loss**: Ensures feature preservation during encoding
-- **Regularization**: L1/L2 regularization for sparsity and smoothness
+1. **Selects salient features** through a feature selection network
+2. **Creates robust embeddings** through contrastive learning with InfoNCE loss
+3. **Ensures invariance** to noise through data augmentation and regularization
+4. **Learns from unlabeled data** using self-supervised learning principles
 
-### 🔧 **Configurable Architecture**
-- **Embedding Dimensions**: Customizable embedding and projection dimensions
-- **Feature Selection**: Configurable network architecture for feature selection
-- **Normalization**: Optional batch and layer normalization
-- **Data Augmentation**: Gaussian noise and random masking for contrastive learning
+## ✨ Key Features
 
-### 🎛️ **Flexible Placement**
-- **Feature-Specific**: Apply to numeric, categorical, text, or date features
-- **All Features**: Apply contrastive learning to all feature types
-- **Selective**: Choose which feature types to apply contrastive learning to
+- 🎯 **Self-Supervised Learning**: Learn from unlabeled data using contrastive learning
+- 🔄 **Multi-View Learning**: Creates two augmented views for contrastive learning
+- 🎲 **Data Augmentation**: Gaussian noise and random masking for robust representations
+- 🧠 **Asymmetric Autoencoder**: Feature selection with reconstruction for regularization
+- ⚙️ **Flexible Placement**: Apply to specific feature types or all features
+- 🔧 **Highly Configurable**: 15+ parameters for fine-tuning
+- 🚀 **Production Ready**: Seamlessly integrated with existing KDP pipelines
 
-### ⚡ **Performance Optimized**
-- **Optional Feature**: Disabled by default, no performance impact when not used
-- **Efficient Implementation**: Optimized for both training and inference
-- **Memory Efficient**: Minimal memory overhead when enabled
-
-## Architecture
-
-### Core Components
-
-1. **Feature Selector Network**
-   - Dense layers with ReLU activation
-   - Dropout for regularization
-   - Outputs selected features
-
-2. **Feature Reconstructor Network**
-   - Reconstructs original features from selected features
-   - Used for reconstruction loss computation
-
-3. **Embedding Network**
-   - Creates final embeddings from selected features
-   - Configurable architecture
-
-4. **Projection Head**
-   - Projects embeddings for contrastive learning
-   - Used only during training
-
-5. **Contrastive Learning Components**
-   - Data augmentation (noise + masking)
-   - InfoNCE loss computation
-   - Multi-view learning with two augmented views
-
-### Loss Functions
-
-- **Contrastive Loss**: InfoNCE loss for learning invariant representations
-- **Reconstruction Loss**: MSE loss for feature reconstruction
-- **Regularization Loss**: L1/L2 regularization for sparsity
-
-## Usage
+## 🚀 Quick Start
 
 ### Basic Usage
 
 ```python
-from kdp import PreprocessingModel, ContrastiveLearningPlacementOptions
-from kdp.features import NumericalFeature, FeatureType
+from kdp import PreprocessingModel, ContrastiveLearningPlacementOptions, FeatureType
 
-# Create model with contrastive learning
-model = PreprocessingModel(
-    features_specs={
-        "numeric_feature": NumericalFeature(
-            name="numeric_feature",
-            feature_type=FeatureType.FLOAT_NORMALIZED
-        )
-    },
+# Define your features
+features_specs = {
+    "age": FeatureType.FLOAT_NORMALIZED,
+    "income": FeatureType.FLOAT_RESCALED,
+    "occupation": FeatureType.STRING_CATEGORICAL,
+    "description": FeatureType.TEXT
+}
+
+# Create preprocessor with contrastive learning
+preprocessor = PreprocessingModel(
+    path_data="data/my_data.csv",
+    features_specs=features_specs,
+    # Enable contrastive learning
     use_contrastive_learning=True,
     contrastive_learning_placement=ContrastiveLearningPlacementOptions.NUMERIC.value,
     contrastive_embedding_dim=64
 )
 
-# Build preprocessor
-preprocessor = model.build_preprocessor()
+# Build and use the preprocessor
+result = preprocessor.build_preprocessor()
+model = result["model"]
+processed_features = model(input_data)
 ```
 
 ### Advanced Configuration
 
 ```python
-model = PreprocessingModel(
-    features_specs={
-        "numeric_feature": NumericalFeature(
-            name="numeric_feature",
-            feature_type=FeatureType.FLOAT_NORMALIZED
-        ),
-        "categorical_feature": CategoricalFeature(
-            name="categorical_feature",
-            feature_type=FeatureType.CATEGORICAL
-        )
-    },
+from kdp import PreprocessingModel, ContrastiveLearningPlacementOptions, FeatureType
+
+# Advanced contrastive learning configuration
+preprocessor = PreprocessingModel(
+    path_data="data/my_data.csv",
+    features_specs=features_specs,
+    
     # Enable contrastive learning
     use_contrastive_learning=True,
     contrastive_learning_placement=ContrastiveLearningPlacementOptions.ALL_FEATURES.value,
@@ -112,266 +75,333 @@ model = PreprocessingModel(
     contrastive_feature_selection_dropout=0.3,
     
     # Loss weights
-    contrastive_temperature=0.1,
+    contrastive_temperature=0.07,
     contrastive_weight=1.0,
     contrastive_reconstruction_weight=0.1,
     contrastive_regularization_weight=0.01,
     
-    # Normalization options
+    # Normalization and augmentation
     contrastive_use_batch_norm=True,
     contrastive_use_layer_norm=True,
-    
-    # Augmentation strength
-    contrastive_augmentation_strength=0.1
+    contrastive_augmentation_strength=0.15
 )
 ```
 
-### Placement Options
+## 📊 Placement Options
+
+You can control where contrastive learning is applied using the `contrastive_learning_placement` parameter:
 
 ```python
 from kdp import ContrastiveLearningPlacementOptions
 
-# Apply to specific feature types
-ContrastiveLearningPlacementOptions.NUMERIC.value      # Only numeric features
-ContrastiveLearningPlacementOptions.CATEGORICAL.value  # Only categorical features
-ContrastiveLearningPlacementOptions.TEXT.value         # Only text features
-ContrastiveLearningPlacementOptions.DATE.value         # Only date features
-
-# Apply to all features
-ContrastiveLearningPlacementOptions.ALL_FEATURES.value
-
-# Disable contrastive learning
-ContrastiveLearningPlacementOptions.NONE.value
+# Apply to different feature types
+options = {
+    "none": ContrastiveLearningPlacementOptions.NONE.value,  # Disabled
+    "numeric": ContrastiveLearningPlacementOptions.NUMERIC.value,  # Only numeric features
+    "categorical": ContrastiveLearningPlacementOptions.CATEGORICAL.value,  # Only categorical features
+    "text": ContrastiveLearningPlacementOptions.TEXT.value,  # Only text features
+    "date": ContrastiveLearningPlacementOptions.DATE.value,  # Only date features
+    "all_features": ContrastiveLearningPlacementOptions.ALL_FEATURES.value  # All features
+}
 ```
 
-## Configuration Parameters
+### Example: Selective Application
+
+```python
+# Apply contrastive learning only to numeric features
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
+    use_contrastive_learning=True,
+    contrastive_learning_placement=ContrastiveLearningPlacementOptions.NUMERIC.value,
+    contrastive_embedding_dim=64
+)
+
+# Apply to all features for maximum learning
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
+    use_contrastive_learning=True,
+    contrastive_learning_placement=ContrastiveLearningPlacementOptions.ALL_FEATURES.value,
+    contrastive_embedding_dim=64
+)
+```
+
+## 🔧 Configuration Parameters
 
 ### Core Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `use_contrastive_learning` | bool | False | Enable/disable contrastive learning |
-| `contrastive_learning_placement` | str | "none" | Where to apply contrastive learning |
-| `contrastive_embedding_dim` | int | 64 | Dimension of final embeddings |
-| `contrastive_projection_dim` | int | 32 | Dimension of projection head |
+| `use_contrastive_learning` | bool | `False` | Enable/disable contrastive learning |
+| `contrastive_learning_placement` | str | `"none"` | Where to apply contrastive learning |
+| `contrastive_embedding_dim` | int | `64` | Dimension of final embeddings |
+| `contrastive_projection_dim` | int | `32` | Dimension of projection head |
 
 ### Architecture Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `contrastive_feature_selection_units` | int | 128 | Units in feature selection layers |
-| `contrastive_feature_selection_dropout` | float | 0.2 | Dropout rate for feature selection |
-| `contrastive_use_batch_norm` | bool | True | Use batch normalization |
-| `contrastive_use_layer_norm` | bool | True | Use layer normalization |
+| `contrastive_feature_selection_units` | int | `128` | Units in feature selection layers |
+| `contrastive_feature_selection_dropout` | float | `0.2` | Dropout rate for feature selection |
+| `contrastive_use_batch_norm` | bool | `True` | Use batch normalization |
+| `contrastive_use_layer_norm` | bool | `True` | Use layer normalization |
 
 ### Loss Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `contrastive_temperature` | float | 0.1 | Temperature for contrastive loss |
-| `contrastive_weight` | float | 1.0 | Weight for contrastive loss |
-| `contrastive_reconstruction_weight` | float | 0.1 | Weight for reconstruction loss |
-| `contrastive_regularization_weight` | float | 0.01 | Weight for regularization loss |
+| `contrastive_temperature` | float | `0.1` | Temperature for contrastive loss |
+| `contrastive_weight` | float | `1.0` | Weight for contrastive loss |
+| `contrastive_reconstruction_weight` | float | `0.1` | Weight for reconstruction loss |
+| `contrastive_regularization_weight` | float | `0.01` | Weight for regularization loss |
 
 ### Augmentation Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `contrastive_augmentation_strength` | float | 0.1 | Strength of data augmentation |
+| `contrastive_augmentation_strength` | float | `0.1` | Strength of data augmentation |
 
-## Integration with Existing Features
+## 🏗️ Architecture Details
+
+### Asymmetric Autoencoder
+
+The contrastive learning layer uses an asymmetric autoencoder structure:
+
+```
+Input → Feature Selector → Embedding Network → Projection Head
+                ↓
+        Feature Reconstructor → Reconstruction Loss
+```
+
+- **Feature Selector**: Learns to select salient features
+- **Embedding Network**: Creates robust embeddings
+- **Projection Head**: Projects embeddings for contrastive learning
+- **Feature Reconstructor**: Reconstructs input for regularization
+
+### Contrastive Learning Process
+
+1. **Data Augmentation**: Creates two augmented views of input data
+2. **Feature Selection**: Processes both views through feature selector
+3. **Embedding Creation**: Generates embeddings for both views
+4. **Contrastive Loss**: Computes InfoNCE loss between embeddings
+5. **Reconstruction**: Reconstructs original input for regularization
+6. **Total Loss**: Combines contrastive, reconstruction, and regularization losses
+
+### Loss Components
+
+```python
+total_loss = (
+    contrastive_weight * contrastive_loss +
+    reconstruction_weight * reconstruction_loss +
+    regularization_weight * regularization_loss
+)
+```
+
+## 🔄 Integration with Existing Features
+
+Contrastive learning integrates seamlessly with all existing KDP features:
 
 ### Feature Selection
-Contrastive learning works seamlessly with existing feature selection:
+
 ```python
-model = PreprocessingModel(
-    # ... features ...
-    feature_selection_placement="numeric",
+# Works with feature selection
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
     use_contrastive_learning=True,
+    feature_selection_placement="numeric",  # Existing feature
     contrastive_learning_placement=ContrastiveLearningPlacementOptions.NUMERIC.value
 )
 ```
 
 ### Transformer Blocks
-Compatible with transformer blocks:
+
 ```python
-model = PreprocessingModel(
-    # ... features ...
-    transfo_nr_blocks=2,
+# Works with transformer blocks
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
     use_contrastive_learning=True,
-    contrastive_learning_placement=ContrastiveLearningPlacementOptions.CATEGORICAL.value
+    transfo_nr_blocks=2,  # Existing feature
+    contrastive_learning_placement=ContrastiveLearningPlacementOptions.ALL_FEATURES.value
 )
 ```
 
 ### Tabular Attention
-Works with tabular attention:
+
 ```python
-model = PreprocessingModel(
-    # ... features ...
-    tabular_attention=True,
+# Works with tabular attention
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
     use_contrastive_learning=True,
+    tabular_attention=True,  # Existing feature
     contrastive_learning_placement=ContrastiveLearningPlacementOptions.ALL_FEATURES.value
 )
 ```
 
 ### Feature MoE
-Compatible with feature mixture of experts:
+
 ```python
-model = PreprocessingModel(
-    # ... features ...
-    use_feature_moe=True,
+# Works with feature-wise mixture of experts
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
     use_contrastive_learning=True,
+    feature_moe=True,  # Existing feature
     contrastive_learning_placement=ContrastiveLearningPlacementOptions.ALL_FEATURES.value
 )
 ```
 
-## Training and Inference
+## 📈 Training and Inference
 
 ### Training Mode
-During training, the contrastive learning layer:
-1. Creates two augmented views of the input
-2. Processes both views through the feature selector
-3. Computes embeddings and projections
-4. Calculates contrastive, reconstruction, and regularization losses
-5. Returns embeddings and loss dictionary
+
+During training, the layer:
+- Creates two augmented views of input data
+- Computes contrastive loss between views
+- Computes reconstruction loss
+- Computes regularization loss
+- Returns embeddings and loss dictionary
+
+```python
+# Training mode (default)
+embeddings, losses = contrastive_layer(inputs, training=True)
+print(losses)
+# Output: {
+#     'contrastive_loss': tensor(...),
+#     'reconstruction_loss': tensor(...),
+#     'regularization_loss': tensor(...),
+#     'total_loss': tensor(...)
+# }
+```
 
 ### Inference Mode
+
 During inference, the layer:
-1. Processes input through feature selector
-2. Returns embeddings only (no losses computed)
-3. No data augmentation applied
+- Processes input through feature selector and embedding network
+- Returns only the embeddings (no losses)
 
-## Model Persistence
-
-Models with contrastive learning can be saved and loaded:
 ```python
-# Save model
-model.save_model("path/to/model")
-
-# Load model
-loaded_model, preprocessor = PreprocessingModel.load_model("path/to/model")
-
-# Contrastive learning settings are preserved
-assert loaded_model.use_contrastive_learning is True
-assert loaded_model.contrastive_embedding_dim == 64
+# Inference mode
+embeddings = contrastive_layer(inputs, training=False)
+# embeddings shape: [batch_size, embedding_dim]
 ```
 
-## Performance Considerations
+## 💾 Model Persistence
 
-### Memory Usage
-- **Disabled**: No additional memory overhead
-- **Enabled**: Additional memory for contrastive learning components
-- **Scales with**: Embedding dimensions and batch size
+Contrastive learning layers are fully serializable and can be saved/loaded with your models:
 
-### Computational Cost
-- **Training**: ~2x forward passes due to two augmented views
-- **Inference**: Single forward pass, minimal overhead
-- **Optimized**: Efficient implementation with minimal computational cost
-
-### Recommendations
-- Start with default parameters for most use cases
-- Increase embedding dimensions for complex datasets
-- Adjust loss weights based on task requirements
-- Monitor training metrics for optimal performance
-
-## Examples
-
-### Simple Example
 ```python
-from kdp import PreprocessingModel, ContrastiveLearningPlacementOptions
-from kdp.features import NumericalFeature, FeatureType
+# Save model with contrastive learning
+model.save("model_with_contrastive_learning.keras")
 
-# Basic setup
-model = PreprocessingModel(
-    features_specs={
-        "feature1": NumericalFeature(
-            name="feature1",
-            feature_type=FeatureType.FLOAT_NORMALIZED
-        )
-    },
+# Load model with contrastive learning
+loaded_model = tf.keras.models.load_model("model_with_contrastive_learning.keras")
+```
+
+## 🎯 Best Practices
+
+### When to Use Contrastive Learning
+
+- **Limited labeled data**: When you have more unlabeled than labeled data
+- **Domain adaptation**: When source and target domains differ
+- **Robust representations**: When you need features invariant to noise
+- **Transfer learning**: When you want to pretrain on unlabeled data
+
+### Recommended Configurations
+
+#### For Small Datasets (< 10K samples)
+```python
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
     use_contrastive_learning=True,
-    contrastive_learning_placement=ContrastiveLearningPlacementOptions.NUMERIC.value
+    contrastive_learning_placement=ContrastiveLearningPlacementOptions.NUMERIC.value,
+    contrastive_embedding_dim=32,
+    contrastive_projection_dim=16,
+    contrastive_feature_selection_units=64,
+    contrastive_augmentation_strength=0.05
 )
-
-preprocessor = model.build_preprocessor()
 ```
 
-### Advanced Example
+#### For Medium Datasets (10K - 100K samples)
 ```python
-# Complex setup with multiple features
-model = PreprocessingModel(
-    features_specs={
-        "numeric": NumericalFeature(name="numeric", feature_type=FeatureType.FLOAT_NORMALIZED),
-        "categorical": CategoricalFeature(name="categorical", feature_type=FeatureType.CATEGORICAL),
-        "text": TextFeature(name="text", feature_type=FeatureType.TEXT),
-    },
-    # Contrastive learning
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
+    use_contrastive_learning=True,
+    contrastive_learning_placement=ContrastiveLearningPlacementOptions.ALL_FEATURES.value,
+    contrastive_embedding_dim=64,
+    contrastive_projection_dim=32,
+    contrastive_feature_selection_units=128,
+    contrastive_augmentation_strength=0.1
+)
+```
+
+#### For Large Datasets (> 100K samples)
+```python
+preprocessor = PreprocessingModel(
+    features_specs=features_specs,
     use_contrastive_learning=True,
     contrastive_learning_placement=ContrastiveLearningPlacementOptions.ALL_FEATURES.value,
     contrastive_embedding_dim=128,
     contrastive_projection_dim=64,
-    
-    # Other features
-    feature_selection_placement="all_features",
-    tabular_attention=True,
-    transfo_nr_blocks=2,
+    contrastive_feature_selection_units=256,
+    contrastive_augmentation_strength=0.15,
+    contrastive_temperature=0.07
 )
-
-preprocessor = model.build_preprocessor()
 ```
 
-## Testing
+### Performance Tips
 
-Comprehensive tests are included to ensure functionality:
+1. **Start with numeric features**: Apply to numeric features first, then expand
+2. **Monitor losses**: Track contrastive, reconstruction, and regularization losses
+3. **Adjust temperature**: Lower temperature (0.05-0.1) for better contrastive learning
+4. **Tune augmentation**: Stronger augmentation for more robust representations
+5. **Use appropriate embedding dimensions**: Larger for complex datasets
+
+## 🔍 Monitoring and Debugging
+
+### Accessing Loss Metrics
+
+```python
+# Access loss metrics from the layer
+contrastive_layer = model.get_layer("contrastive_learning_feature1")
+print(f"Contrastive Loss: {contrastive_layer.contrastive_loss_metric.result()}")
+print(f"Reconstruction Loss: {contrastive_layer.reconstruction_loss_metric.result()}")
+print(f"Regularization Loss: {contrastive_layer.regularization_loss_metric.result()}")
+```
+
+### Custom Callbacks
+
+```python
+class ContrastiveLearningCallback(tf.keras.callbacks.Callback):
+    def on_epoch_end(self, epoch, logs=None):
+        # Access contrastive learning losses
+        for layer in self.model.layers:
+            if hasattr(layer, 'contrastive_loss_metric'):
+                print(f"Epoch {epoch} - Contrastive Loss: {layer.contrastive_loss_metric.result()}")
+```
+
+## 🧪 Testing
+
+Run the comprehensive test suite to verify functionality:
 
 ```bash
-# Run layer tests
-python -m pytest test/layers/test_contrastive_learning_layer.py
+# Run structure tests (no TensorFlow required)
+python test_contrastive_learning_structure.py
 
-# Run integration tests
-python -m pytest test/test_contrastive_learning_integration.py
-
-# Run simple test script
-python test_contrastive_learning.py
+# Run full tests (requires TensorFlow)
+python -m pytest test/layers/test_contrastive_learning_layer.py -v
+python -m pytest test/test_contrastive_learning_integration.py -v
 ```
 
-## Backward Compatibility
-
-The contrastive learning implementation is fully backward compatible:
-- **Default behavior**: Contrastive learning is disabled
-- **Existing code**: Works without modification
-- **Optional feature**: Can be enabled/disabled as needed
-- **No breaking changes**: All existing functionality preserved
-
-## Future Enhancements
-
-Potential future improvements:
-- **Advanced Augmentations**: More sophisticated data augmentation strategies
-- **Multi-Modal Support**: Support for different data modalities
-- **Adaptive Loss Weights**: Dynamic loss weight adjustment
-- **Distributed Training**: Support for distributed contrastive learning
-- **Custom Loss Functions**: User-defined contrastive loss functions
-
-## Contributing
-
-When contributing to the contrastive learning implementation:
-1. Follow existing code style and patterns
-2. Add comprehensive tests for new features
-3. Update documentation for any API changes
-4. Ensure backward compatibility
-5. Test with various feature types and configurations
-
-## References
+## 📚 References
 
 This implementation is inspired by:
+
 - **ReConTab**: Self-supervised contrastive learning for tabular data
-- **InfoNCE**: Contrastive learning with noise-contrastive estimation
-- **SimCLR**: Simple framework for contrastive learning of visual representations
+- **SimCLR**: A simple framework for contrastive learning of visual representations
+- **InfoNCE**: Representation learning with contrastive predictive coding
 
-## Support
+## 🤝 Contributing
 
-For questions or issues with the contrastive learning implementation:
-1. Check the test files for usage examples
-2. Review the integration tests for common patterns
-3. Ensure all dependencies are properly installed
-4. Verify configuration parameters are correct
+Contributions to improve the contrastive learning functionality are welcome! Please see the main [Contributing Guide](docs/contributing.md) for details.
+
+## 📄 License
+
+This feature is part of KDP and follows the same license terms. See the main [LICENSE](LICENSE) file for details.

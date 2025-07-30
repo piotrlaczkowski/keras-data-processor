@@ -15,6 +15,7 @@ KDP provides a state-of-the-art preprocessing system built on TensorFlow Keras. 
 - 👁️ **Tabular Attention**: Captures complex feature interactions for better model performance
 - 🔍 **Feature Selection**: Automatically identifies and focuses on the most important features
 - 🔄 **Feature-wise Mixture of Experts**: Specialized processing for different feature types
+- 🧠 **Self-Supervised Contrastive Learning**: Learn robust representations from unlabeled data
 - 📦 **Production-Ready**: Deploy your preprocessing along with your model as a single unit
 
 ## 🚀 Quick Installation
@@ -46,7 +47,8 @@ preprocessor = PreprocessingModel(
     features_specs=features_specs,
     # Enable advanced features
     use_distribution_aware=True,
-    tabular_attention=True
+    tabular_attention=True,
+    use_contrastive_learning=True  # Learn robust representations
 )
 result = preprocessor.build_preprocessor()
 model = result["model"]
@@ -73,6 +75,7 @@ We've built an extensive documentation system to help you get the most from KDP:
 - [🤖 Transformer Blocks](docs/transformer_blocks.md) - Apply transformer architecture to tabular data
 - [🎯 Feature Selection](docs/feature_selection.md) - Focus on what matters in your data
 - [🧠 Feature-wise Mixture of Experts](docs/feature_moe.md) - Specialized processing per feature
+- [🧠 Self-Supervised Contrastive Learning](CONTRASTIVE_LEARNING_README.md) - Learn robust representations from unlabeled data
 
 ### Integration & Performance
 
