@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 import tensorflow as tf
+import pytest
 
 from kdp.layers_factory import PreprocessorLayerFactory
 from kdp.layers.distribution_aware_encoder_layer import (
@@ -10,6 +11,7 @@ from kdp.layers.distribution_aware_encoder_layer import (
 from kdp.layers.distribution_transform_layer import DistributionTransformLayer
 from kdp.layers.text_preprocessing_layer import TextPreprocessingLayer
 from kdp.layers.cast_to_float import CastToFloat32Layer
+from kdp.layers.preserve_dtype import PreserveDtypeLayer
 from kdp.layers.date_parsing_layer import DateParsingLayer
 from kdp.layers.date_encoding_layer import DateEncodingLayer
 from kdp.layers.season_layer import SeasonLayer
@@ -25,6 +27,10 @@ from kdp.layers.gated_linear_unit_layer import GatedLinearUnit
 from kdp.layers.gated_residual_network_layer import GatedResidualNetwork
 
 
+@pytest.mark.layers
+@pytest.mark.unit
+@pytest.mark.fast
+@pytest.mark.micro
 class TestPreprocessorLayerFactory(unittest.TestCase):
     def setUp(self):
         # Set seeds for reproducibility
@@ -139,6 +145,28 @@ class TestPreprocessorLayerFactory(unittest.TestCase):
 
         # Test with integer data
         int_data = np.array([[1], [2], [3]], dtype=np.int32)
+        output = cast_layer(int_data)
+        self.assertEqual(output.dtype, tf.float32)
+
+    def test_preserve_dtype_layer(self):
+        # Test preserving original dtype
+        preserve_layer = PreprocessorLayerFactory.preserve_dtype_layer(
+            name="preserve_layer"
+        )
+        self.assertIsInstance(preserve_layer, PreserveDtypeLayer)
+
+        # Test with integer data - should preserve int32
+        int_data = np.array([[1], [2], [3]], dtype=np.int32)
+        output = preserve_layer(int_data)
+        self.assertEqual(output.dtype, tf.int32)
+
+        # Test with target dtype
+        cast_layer = PreprocessorLayerFactory.preserve_dtype_layer(
+            name="cast_layer", target_dtype=tf.float32
+        )
+        self.assertIsInstance(cast_layer, PreserveDtypeLayer)
+
+        # Test casting to float32
         output = cast_layer(int_data)
         self.assertEqual(output.dtype, tf.float32)
 

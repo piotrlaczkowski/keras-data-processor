@@ -1126,6 +1126,15 @@ class PreprocessingModel:
         if feature.category_encoding == CategoryEncodingOptions.HASHING:
             return
 
+        # Handle empty vocabulary by providing a fallback
+        if not vocab:
+            logger.warning(
+                f"Empty vocabulary for categorical feature '{feature_name}'. "
+                "Using fallback vocabulary with placeholder values."
+            )
+            # Provide a minimal vocabulary with unknown/placeholder values
+            vocab = ["<UNK>"]
+
         # Default behavior if no specific preprocessing is defined
         if feature.feature_type == FeatureType.STRING_CATEGORICAL:
             preprocessor.add_processing_step(
@@ -1414,10 +1423,12 @@ class PreprocessingModel:
                 feature_name=feature_name,
             )
         else:
-            # For passthrough features, we only ensure type consistency by casting to float32
+            # For passthrough features, preserve the original dtype or cast to specified dtype
+            target_dtype = getattr(_feature, "dtype", None)
             preprocessor.add_processing_step(
-                layer_creator=PreprocessorLayerFactory.cast_to_float32_layer,
-                name=f"cast_to_float_{feature_name}",
+                layer_creator=PreprocessorLayerFactory.preserve_dtype_layer,
+                name=f"preserve_dtype_{feature_name}",
+                target_dtype=target_dtype,
             )
 
             # Optionally reshape if needed

@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 import tensorflow as tf
 
 from kdp.layers.distribution_aware_encoder_layer import DistributionType
@@ -119,6 +120,8 @@ def generate_fake_data(features_specs: dict, num_rows: int = 10) -> pd.DataFrame
     return pd.DataFrame(data)
 
 
+@pytest.mark.unit
+@pytest.mark.fast
 class TestFeatureSpaceConverter(unittest.TestCase):
     def setUp(self):
         """Setup test case environment."""
@@ -322,6 +325,8 @@ class TestFeatureSpaceConverter(unittest.TestCase):
         self.assertEqual(feat9_instance.feature_type, FeatureType.DATE)
 
 
+@pytest.mark.processor
+@pytest.mark.integration
 class TestPreprocessingModel(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1628,6 +1633,8 @@ class TestPreprocessingModel(unittest.TestCase):
                 )  # Periodic features add 2 additional dimensions (sin and cos)
 
 
+@pytest.mark.processor
+@pytest.mark.integration
 class TestPreprocessingModel_Combinations(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1801,6 +1808,7 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
                         )  # (batch_size, feature_dim)
                         # You can add more specific checks for each feature if needed
 
+    @pytest.mark.micro
     def test_preprocessor_with_passthrough_feature(self):
         """Test preprocessor with a passthrough feature."""
         # Create features specs with a passthrough feature
@@ -1857,7 +1865,197 @@ class TestPreprocessingModel_Combinations(unittest.TestCase):
             outputs["raw_feature"].numpy(), test_data["raw_feature"].numpy()
         )
 
+    def test_passthrough_feature_preserves_string_dtype(self):
+        """Test that passthrough features with string dtype preserve their original type."""
+        # Create features specs with a string passthrough feature
+        features = {
+            "string_feature": PassthroughFeature(
+                name="string_feature",
+                feature_type=FeatureType.PASSTHROUGH,
+                dtype=tf.string,
+            ),
+        }
 
+        # Generate and save fake data
+        df = generate_fake_data(features, num_rows=20)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor with string passthrough feature
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.DICT,
+        )
+
+        result = ppr.build_preprocessor()
+
+        # Create test data with string values
+        test_data = {
+            "string_feature": tf.constant([["hello"], ["world"], ["test"]]),
+        }
+
+        # Run prediction
+        outputs = result["model"](test_data)
+
+        # Check that the output is still string type
+        self.assertEqual(outputs["string_feature"].dtype, tf.string)
+
+        # Verify that the string values are unchanged
+        np.testing.assert_array_equal(
+            outputs["string_feature"].numpy(), test_data["string_feature"].numpy()
+        )
+
+    def test_passthrough_feature_preserves_int_dtype(self):
+        """Test that passthrough features with int dtype preserve their original type."""
+        # Create features specs with an int passthrough feature
+        features = {
+            "int_feature": PassthroughFeature(
+                name="int_feature",
+                feature_type=FeatureType.PASSTHROUGH,
+                dtype=tf.int32,
+            ),
+        }
+
+        # Generate and save fake data
+        df = generate_fake_data(features, num_rows=20)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor with int passthrough feature
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.DICT,
+        )
+
+        result = ppr.build_preprocessor()
+
+        # Create test data with int values
+        test_data = {
+            "int_feature": tf.constant([[1], [2], [3]]),
+        }
+
+        # Run prediction
+        outputs = result["model"](test_data)
+
+        # Check that the output is still int32 type
+        self.assertEqual(outputs["int_feature"].dtype, tf.int32)
+
+        # Verify that the int values are unchanged
+        np.testing.assert_array_equal(
+            outputs["int_feature"].numpy(), test_data["int_feature"].numpy()
+        )
+
+    def test_passthrough_feature_preserves_float_dtype(self):
+        """Test that passthrough features with float dtype preserve their original type."""
+        # Create features specs with a float passthrough feature
+        features = {
+            "float_feature": PassthroughFeature(
+                name="float_feature",
+                feature_type=FeatureType.PASSTHROUGH,
+                dtype=tf.float64,
+            ),
+        }
+
+        # Generate and save fake data
+        df = generate_fake_data(features, num_rows=20)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor with float passthrough feature
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.DICT,
+        )
+
+        result = ppr.build_preprocessor()
+
+        # Create test data with float64 values
+        test_data = {
+            "float_feature": tf.constant([[1.5], [2.7], [3.9]], dtype=tf.float64),
+        }
+
+        # Run prediction
+        outputs = result["model"](test_data)
+
+        # Check that the output is still float64 type
+        self.assertEqual(outputs["float_feature"].dtype, tf.float64)
+
+        # Verify that the float values are unchanged
+        np.testing.assert_array_almost_equal(
+            outputs["float_feature"].numpy(), test_data["float_feature"].numpy()
+        )
+
+    def test_passthrough_feature_mixed_types(self):
+        """Test that multiple passthrough features with different dtypes preserve their types."""
+        # Create features specs with mixed dtype passthrough features
+        features = {
+            "string_feature": PassthroughFeature(
+                name="string_feature",
+                feature_type=FeatureType.PASSTHROUGH,
+                dtype=tf.string,
+            ),
+            "int_feature": PassthroughFeature(
+                name="int_feature",
+                feature_type=FeatureType.PASSTHROUGH,
+                dtype=tf.int32,
+            ),
+            "float_feature": PassthroughFeature(
+                name="float_feature",
+                feature_type=FeatureType.PASSTHROUGH,
+                dtype=tf.float32,
+            ),
+        }
+
+        # Generate and save fake data
+        df = generate_fake_data(features, num_rows=20)
+        df.to_csv(self._path_data, index=False)
+
+        # Create preprocessor with mixed passthrough features
+        ppr = PreprocessingModel(
+            path_data=str(self._path_data),
+            features_specs=features,
+            features_stats_path=self.features_stats_path,
+            overwrite_stats=True,
+            output_mode=OutputModeOptions.DICT,
+        )
+
+        result = ppr.build_preprocessor()
+
+        # Create test data with mixed types
+        test_data = {
+            "string_feature": tf.constant([["hello"], ["world"]]),
+            "int_feature": tf.constant([[1], [2]]),
+            "float_feature": tf.constant([[1.5], [2.7]]),
+        }
+
+        # Run prediction
+        outputs = result["model"](test_data)
+
+        # Check that each output preserves its original dtype
+        self.assertEqual(outputs["string_feature"].dtype, tf.string)
+        self.assertEqual(outputs["int_feature"].dtype, tf.int32)
+        self.assertEqual(outputs["float_feature"].dtype, tf.float32)
+
+        # Verify that all values are unchanged
+        np.testing.assert_array_equal(
+            outputs["string_feature"].numpy(), test_data["string_feature"].numpy()
+        )
+        np.testing.assert_array_equal(
+            outputs["int_feature"].numpy(), test_data["int_feature"].numpy()
+        )
+        np.testing.assert_array_almost_equal(
+            outputs["float_feature"].numpy(), test_data["float_feature"].numpy()
+        )
+
+
+@pytest.mark.processor
+@pytest.mark.integration
 class TestPreprocessingModel_åNumericalEmbedding(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -2067,6 +2265,8 @@ class TestPreprocessingModel_åNumericalEmbedding(unittest.TestCase):
         )
 
 
+@pytest.mark.processor
+@pytest.mark.integration
 class TestPreprocessingModel_GlobalNumericalEmbedding(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -2534,6 +2734,8 @@ class TestPreprocessingModel_GlobalNumericalEmbedding(unittest.TestCase):
             next(invalid_ppr.batch_predict(dataset))
 
 
+@pytest.mark.processor
+@pytest.mark.integration
 class TestPreprocessingModel_FeatureMoE(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
