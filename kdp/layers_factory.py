@@ -21,6 +21,9 @@ from kdp.layers.multi_resolution_tabular_attention_layer import (
 from kdp.layers.variable_selection_layer import VariableSelection
 from kdp.layers.numerical_embedding_layer import NumericalEmbedding
 from kdp.layers.global_numerical_embedding_layer import GlobalNumericalEmbedding
+from kdp.layers.periodic_embedding_layer import PeriodicEmbedding
+from kdp.layers.ple_embedding_layer import PLEEmbedding
+from kdp.layers.advanced_numerical_embedding_layer import AdvancedNumericalEmbedding
 from kdp.layers.gated_linear_unit_layer import GatedLinearUnit
 from kdp.layers.gated_residual_network_layer import GatedResidualNetwork
 from kdp.layers.distribution_transform_layer import DistributionTransformLayer
@@ -441,6 +444,171 @@ class PreprocessorLayerFactory:
             global_dropout_rate=global_dropout_rate,
             global_use_batch_norm=global_use_batch_norm,
             global_pooling=global_pooling,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def periodic_embedding_layer(
+        embedding_dim: int = 8,
+        num_frequencies: int = 4,
+        mlp_hidden_units: int = 16,
+        use_mlp: bool = True,
+        dropout_rate: float = 0.1,
+        use_batch_norm: bool = True,
+        frequency_init: str = "log_uniform",
+        min_frequency: float = 1e-4,
+        max_frequency: float = 1e2,
+        use_residual: bool = True,
+        name: str = "periodic_embedding",
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a PeriodicEmbedding layer.
+
+        Args:
+            embedding_dim (int): Dimension of the output embedding
+            num_frequencies (int): Number of frequency components for periodic expansion
+            mlp_hidden_units (int): Number of hidden units in the MLP
+            use_mlp (bool): Whether to apply MLP after periodic expansion
+            dropout_rate (float): Dropout rate for regularization
+            use_batch_norm (bool): Whether to use batch normalization
+            frequency_init (str): Initialization method for frequencies
+            min_frequency (float): Minimum frequency for initialization
+            max_frequency (float): Maximum frequency for initialization
+            use_residual (bool): Whether to use residual connections
+            name (str): Name of the layer
+            **kwargs: Additional arguments to pass to the layer
+
+        Returns:
+            PeriodicEmbedding: A PeriodicEmbedding layer instance
+        """
+        return PeriodicEmbedding(
+            embedding_dim=embedding_dim,
+            num_frequencies=num_frequencies,
+            mlp_hidden_units=mlp_hidden_units,
+            use_mlp=use_mlp,
+            dropout_rate=dropout_rate,
+            use_batch_norm=use_batch_norm,
+            frequency_init=frequency_init,
+            min_frequency=min_frequency,
+            max_frequency=max_frequency,
+            use_residual=use_residual,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def ple_embedding_layer(
+        embedding_dim: int = 8,
+        num_segments: int = 8,
+        mlp_hidden_units: int = 16,
+        use_mlp: bool = True,
+        dropout_rate: float = 0.1,
+        use_batch_norm: bool = True,
+        segment_init: str = "uniform",
+        use_residual: bool = True,
+        activation: str = "relu",
+        name: str = "ple_embedding",
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create a PLEEmbedding layer.
+
+        Args:
+            embedding_dim (int): Dimension of the output embedding
+            num_segments (int): Number of linear segments for piecewise approximation
+            mlp_hidden_units (int): Number of hidden units in the MLP
+            use_mlp (bool): Whether to apply MLP after PLE transformation
+            dropout_rate (float): Dropout rate for regularization
+            use_batch_norm (bool): Whether to use batch normalization
+            segment_init (str): Initialization method for segment boundaries
+            use_residual (bool): Whether to use residual connections
+            activation (str): Activation function for the PLE transformation
+            name (str): Name of the layer
+            **kwargs: Additional arguments to pass to the layer
+
+        Returns:
+            PLEEmbedding: A PLEEmbedding layer instance
+        """
+        return PLEEmbedding(
+            embedding_dim=embedding_dim,
+            num_segments=num_segments,
+            mlp_hidden_units=mlp_hidden_units,
+            use_mlp=use_mlp,
+            dropout_rate=dropout_rate,
+            use_batch_norm=use_batch_norm,
+            segment_init=segment_init,
+            use_residual=use_residual,
+            activation=activation,
+            name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def advanced_numerical_embedding_layer(
+        embedding_dim: int = 8,
+        embedding_types: list[str] = None,
+        num_frequencies: int = 4,
+        num_segments: int = 8,
+        mlp_hidden_units: int = 16,
+        num_bins: int = 10,
+        init_min: float = -3.0,
+        init_max: float = 3.0,
+        dropout_rate: float = 0.1,
+        use_batch_norm: bool = True,
+        frequency_init: str = "log_uniform",
+        min_frequency: float = 1e-4,
+        max_frequency: float = 1e2,
+        segment_init: str = "uniform",
+        ple_activation: str = "relu",
+        use_residual: bool = True,
+        use_gating: bool = True,
+        name: str = "advanced_numerical_embedding",
+        **kwargs: dict,
+    ) -> tf.keras.layers.Layer:
+        """Create an AdvancedNumericalEmbedding layer.
+
+        Args:
+            embedding_dim (int): Dimension of the output embedding
+            embedding_types (list): List of embedding types to use
+            num_frequencies (int): Number of frequency components for periodic embedding
+            num_segments (int): Number of segments for PLE embedding
+            mlp_hidden_units (int): Number of hidden units in MLPs
+            num_bins (int): Number of bins for discrete branch
+            init_min (float): Initial minimum for discrete branch
+            init_max (float): Initial maximum for discrete branch
+            dropout_rate (float): Dropout rate for regularization
+            use_batch_norm (bool): Whether to use batch normalization
+            frequency_init (str): Initialization method for periodic frequencies
+            min_frequency (float): Minimum frequency for periodic embedding
+            max_frequency (float): Maximum frequency for periodic embedding
+            segment_init (str): Initialization method for PLE segments
+            ple_activation (str): Activation function for PLE embedding
+            use_residual (bool): Whether to use residual connections
+            use_gating (bool): Whether to use learnable gates to combine embeddings
+            name (str): Name of the layer
+            **kwargs: Additional arguments to pass to the layer
+
+        Returns:
+            AdvancedNumericalEmbedding: An AdvancedNumericalEmbedding layer instance
+        """
+        return AdvancedNumericalEmbedding(
+            embedding_dim=embedding_dim,
+            embedding_types=embedding_types,
+            num_frequencies=num_frequencies,
+            num_segments=num_segments,
+            mlp_hidden_units=mlp_hidden_units,
+            num_bins=num_bins,
+            init_min=init_min,
+            init_max=init_max,
+            dropout_rate=dropout_rate,
+            use_batch_norm=use_batch_norm,
+            frequency_init=frequency_init,
+            min_frequency=min_frequency,
+            max_frequency=max_frequency,
+            segment_init=segment_init,
+            ple_activation=ple_activation,
+            use_residual=use_residual,
+            use_gating=use_gating,
             name=name,
             **kwargs,
         )
