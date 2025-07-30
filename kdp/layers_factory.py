@@ -9,6 +9,7 @@ from kdp.layers.distribution_aware_encoder_layer import (
 
 from kdp.layers.text_preprocessing_layer import TextPreprocessingLayer
 from kdp.layers.cast_to_float import CastToFloat32Layer
+from kdp.layers.preserve_dtype import PreserveDtypeLayer
 from kdp.layers.date_parsing_layer import DateParsingLayer
 from kdp.layers.date_encoding_layer import DateEncodingLayer
 from kdp.layers.season_layer import SeasonLayer
@@ -180,6 +181,27 @@ class PreprocessorLayerFactory:
         return PreprocessorLayerFactory.create_layer(
             layer_class=CastToFloat32Layer,
             name=name,
+            **kwargs,
+        )
+
+    @staticmethod
+    def preserve_dtype_layer(
+        name: str = "preserve_dtype", target_dtype=None, **kwargs: dict
+    ) -> tf.keras.layers.Layer:
+        """Create a PreserveDtypeLayer layer.
+
+        Args:
+            name: The name of the layer.
+            target_dtype: Optional target dtype to cast to. If None, preserves original dtype.
+            **kwargs: Additional keyword arguments to pass to the layer constructor.
+
+        Returns:
+            An instance of the PreserveDtypeLayer layer.
+        """
+        return PreprocessorLayerFactory.create_layer(
+            layer_class=PreserveDtypeLayer,
+            name=name,
+            target_dtype=target_dtype,
             **kwargs,
         )
 
