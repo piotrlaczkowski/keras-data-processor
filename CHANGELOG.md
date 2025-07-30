@@ -1,3 +1,16 @@
+## <small>1.11.1 (2025-07-30)</small>
+
+* fix(KDP): fixing tests ([6326dbf](https://github.com/piotrlaczkowski/keras-data-processor/commit/6326dbf))
+* fix(KDP): formatting issues fixes ([6c60aed](https://github.com/piotrlaczkowski/keras-data-processor/commit/6c60aed))
+* fix(KDP): increasing package version ([ce0dbf3](https://github.com/piotrlaczkowski/keras-data-processor/commit/ce0dbf3))
+* fix(KDP): Preserve original dtype for PASSTHROUGH features (#30) ([82b6d7e](https://github.com/piotrlaczkowski/keras-data-processor/commit/82b6d7e)), closes [#30](https://github.com/piotrlaczkowski/keras-data-processor/issues/30)
+* fix(KDP): update upload-artifact action to v4 in GitHub workflow ([68ee7c5](https://github.com/piotrlaczkowski/keras-data-processor/commit/68ee7c5))
+* Add preserve dtype layer and update passthrough feature handling ([a700bad](https://github.com/piotrlaczkowski/keras-data-processor/commit/a700bad))
+* Add pytest markers and improve test categorization for GitHub workflow ([06b5112](https://github.com/piotrlaczkowski/keras-data-processor/commit/06b5112))
+* Checkpoint before follow-up message ([47ec0ef](https://github.com/piotrlaczkowski/keras-data-processor/commit/47ec0ef))
+* chore: save last release version for recovery [skip ci] ([84e0b1f](https://github.com/piotrlaczkowski/keras-data-processor/commit/84e0b1f))
+* refactor(KDP): improving tests execution ([b9d237e](https://github.com/piotrlaczkowski/keras-data-processor/commit/b9d237e))
+
 ## 1.11.0 (2025-05-28)
 
 * feat(KDP): adding new layers / features to timeseries ([519bb06](https://github.com/piotrlaczkowski/keras-data-processor/commit/519bb06))
