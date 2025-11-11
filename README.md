@@ -106,6 +106,12 @@ KDP outperforms alternative preprocessing approaches, especially as data size in
 
 We welcome contributions! Please check out our [Contributing Guide](docs/contributing.md) for guidelines on how to proceed.
 
+## 💬 Join Our Community
+
+Have questions or want to connect with other KDP users? Join us on Discord:
+
+[![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289DA?logo=discord&logoColor=white)](https://discord.gg/tXWmJsmc)
+
 ## 🛠️ Development Tools
 
 KDP includes tools to help developers:
