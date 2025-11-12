@@ -110,7 +110,7 @@ We welcome contributions! Please check out our [Contributing Guide](docs/contrib
 
 Have questions or want to connect with other KDP users? Join us on Discord:
 
-[![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289DA?logo=discord&logoColor=white)](https://discord.gg/tXWmJsmc)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289DA?logo=discord&logoColor=white)](https://discord.gg/ZQHk5fV7mt)
 
 ## 🛠️ Development Tools
 
