@@ -11,13 +11,9 @@
 </div>
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-
 [![TensorFlow 2.18+](https://img.shields.io/badge/tensorflow-2.18+-orange.svg)](https://www.tensorflow.org/)
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 [![🦄 UnicoLab](https://img.shields.io/badge/UnicoLab-Enterprise%20AI-blue.svg)](https://unicolab.ai)
-
 [![Documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://unicolab.github.io/keras-data-processor/)
 
 **Transform your raw data into ML-ready features with just a few lines of code!**
