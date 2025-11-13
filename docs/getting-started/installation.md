@@ -79,7 +79,7 @@ poetry add kdp
 
 ```bash
 # Clone the repository
-git clone https://github.com/piotrlaczkowski/keras-data-processor.git
+git clone https://github.com/UnicoLab/keras-data-processor.git
 cd keras-data-processor
 
 # Install using pip

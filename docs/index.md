@@ -1,10 +1,19 @@
-# 🌟 Keras Data Processor (KDP)
+# 🌟 Keras Data Processor (KDP) 🌟
+
+<div align="center">
+
+  <img src="getting-started/imgs/kdp_logo.png" width="350" alt="Keras Data Processor Logo"/>
+
+
+
+  <p><strong>Provided and maintained by <a href="https://unicolab.ai">🦄 UnicoLab</a></strong></p>
+
+</div>
 
 <div class="header-container">
-  <img src="getting-started/imgs/kdp_logo.png" width="350" alt="Keras Data Processor Logo" class="logo"/>
   <div class="tagline">
     <h2>Transform your raw data into powerful ML-ready features</h2>
-    <p>A high-performance preprocessing library for tabular data built on TensorFlow. KDP combines the best of traditional preprocessing with advanced neural approaches to create state-of-the-art feature transformations.</p>
+    <p>A high-performance preprocessing library for tabular data built on TensorFlow. KDP combines the best of traditional preprocessing with advanced neural approaches to create state-of-the-art feature transformations. Built with ❤️ by <a href="https://unicolab.ai">🦄 UnicoLab</a> for enterprise AI applications.</p>
   </div>
 </div>
 
@@ -233,19 +242,31 @@ graph TD
 ## 📣 Community & Support
 
 <div class="community-container">
-  <a href="https://github.com/piotrlaczkowski/keras-data-processor" class="community-item">
+  <a href="https://github.com/UnicoLab/keras-data-processor" class="community-item">
     <span class="community-icon">🐙</span>
     <span class="community-text">GitHub Repository</span>
   </a>
-  <a href="https://github.com/piotrlaczkowski/keras-data-processor/issues" class="community-item">
+  <a href="https://github.com/UnicoLab/keras-data-processor/issues" class="community-item">
     <span class="community-icon">🐛</span>
     <span class="community-text">Issue Tracker</span>
+  </a>
+  <a href="https://unicolab.ai" class="community-item">
+    <span class="community-icon">🦄</span>
+    <span class="community-text">UnicoLab - Enterprise AI</span>
   </a>
   <div class="community-item">
     <span class="community-icon">📜</span>
     <span class="community-text">MIT License - Open source and free to use</span>
   </div>
 </div>
+
+---
+
+<p align="center">
+
+  <strong>Built with ❤️ for the ML community by 🦄 UnicoLab.ai</strong>
+
+</p>
 
 <style>
 /* Base styling */

@@ -2,8 +2,8 @@
 name = "kdp"
 # This version is managed by semantic-release and will be updated automatically during release
 version = "1.11.2"
-documentation = "http://piotrlaczkowski.github.io/keras-data-processor/"
-repository = "https://github.com/piotrlaczkowski/keras-data-processor"
+documentation = "https://unicolab.github.io/keras-data-processor/"
+repository = "https://github.com/UnicoLab/keras-data-processor"
 description = "Data Preprocessing model based on Keras preprocessing layers"
 authors = ["Piotr Laczkowski <piotr.laczkowski@gmail.com>"]
 license = "MIT"

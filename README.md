@@ -1,12 +1,28 @@
-# 🌟 Keras Data Processor (KDP) - Powerful Data Preprocessing for TensorFlow
+# 🌟 Keras Data Processor (KDP) - Powerful Data Preprocessing for TensorFlow 🌟
 
-<p align="center">
-  <img src="docs/getting-started/imgs/kdp_logo.png" width="350"/>
-</p>
+<div align="center">
+
+  <img src="docs/getting-started/imgs/kdp_logo.png" width="350" alt="Keras Data Processor Logo"/>
+
+
+
+  <p><strong>Provided and maintained by <a href="https://unicolab.ai">🦄 UnicoLab</a></strong></p>
+
+</div>
+
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+
+[![TensorFlow 2.18+](https://img.shields.io/badge/tensorflow-2.18+-orange.svg)](https://www.tensorflow.org/)
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+[![🦄 UnicoLab](https://img.shields.io/badge/UnicoLab-Enterprise%20AI-blue.svg)](https://unicolab.ai)
+
+[![Documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://unicolab.github.io/keras-data-processor/)
 
 **Transform your raw data into ML-ready features with just a few lines of code!**
 
-KDP provides a state-of-the-art preprocessing system built on TensorFlow Keras. It handles everything from feature normalization to advanced embedding techniques, making your ML pipelines faster, more robust, and easier to maintain.
+KDP provides a state-of-the-art preprocessing system built on TensorFlow Keras. It handles everything from feature normalization to advanced embedding techniques, making your ML pipelines faster, more robust, and easier to maintain. Built with ❤️ by [🦄 UnicoLab](https://unicolab.ai), it provides a clean, efficient, and extensible foundation for building sophisticated machine learning models for enterprise AI applications.
 
 ## ✨ Key Features
 
@@ -129,5 +145,15 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-- The TensorFlow and Keras teams for their amazing work
+- Built with [TensorFlow](https://www.tensorflow.org/) and [Keras](https://keras.io/)
+- Inspired by modern deep learning research
+- Community-driven development
 - All contributors who help make KDP better
+
+---
+
+<p align="center">
+
+  <strong>Built with ❤️ for the ML community by 🦄 UnicoLab.ai</strong>
+
+</p>

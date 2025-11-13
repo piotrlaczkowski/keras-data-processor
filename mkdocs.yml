@@ -1,5 +1,5 @@
 site_name: KDP - Keras Data Preprocessor
-site_url: https://example.com/kdp
+site_url: https://unicolab.github.io/keras-data-processor
 docs_dir: docs
 theme:
   name: "material"
@@ -78,7 +78,7 @@ nav:
       - 📚 API Index: generated/api_index.md
 
 repo_name: Keras Data Preprocessor
-repo_url: https://github.com/piotrlaczkowski/keras-data-processor
+repo_url: https://github.com/UnicoLab/keras-data-processor
 
 markdown_extensions:
   - attr_list
@@ -164,7 +164,7 @@ extra:
     provider: mike
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/piotrlaczkowski/keras-data-processor
+      link: https://github.com/UnicoLab/keras-data-processor
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/keras-data-processor/
 

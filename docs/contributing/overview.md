@@ -90,7 +90,7 @@ fix(KDP): Resolve memory leak in feature selection
       <li>Suggest new features or improvements</li>
       <li>Discuss implementation approaches</li>
     </ul>
-    <a href="https://github.com/piotrlaczkowski/keras-data-processor/issues" class="action-button">Open an Issue</a>
+    <a href="https://github.com/UnicoLab/keras-data-processor/issues" class="action-button">Open an Issue</a>
   </div>
 </div>
 

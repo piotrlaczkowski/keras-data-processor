@@ -39,7 +39,7 @@ jobs:
 
       - name: Semantic Release
         id: semantic-release
-        uses: "piotrlaczkowski/keras-data-processor/.github/templates/github/semantic_release@main"
+        uses: "UnicoLab/keras-data-processor/.github/templates/github/semantic_release@main"
         with:
           PROJECT_NAME: KDP
           PROJECT_DIRECTORY: .
