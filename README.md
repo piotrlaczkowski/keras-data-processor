@@ -33,10 +33,10 @@ KDP provides a state-of-the-art preprocessing system built on TensorFlow Keras. 
 
 ```bash
 # Using pip
-pip install keras-data-processor
+pip install kdp
 
 # Using Poetry
-poetry add keras-data-processor
+poetry add kdp
 ```
 
 ## 📋 Simple Example
