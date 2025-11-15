@@ -132,6 +132,18 @@ class FeatureSelectionPlacementOptions(str, Enum):
     ALL_FEATURES = "all_features"
 
 
+class ContrastiveLearningPlacementOptions(str, Enum):
+    """Placement options for contrastive learning."""
+
+    NONE = "none"
+    NUMERIC = "numeric"
+    CATEGORICAL = "categorical"
+    TEXT = "text"
+    DATE = "date"
+    TIME_SERIES = "time_series"
+    ALL_FEATURES = "all_features"
+
+
 class FeatureSpaceConverter:
     def __init__(self) -> None:
         """Initialize a feature space converter."""
@@ -315,6 +327,19 @@ class PreprocessingModel:
         feature_moe_freeze_experts: bool = False,
         feature_moe_use_residual: bool = True,
         include_passthrough_in_output: bool = True,
+        use_contrastive_learning: bool = False,
+        contrastive_learning_placement: str = ContrastiveLearningPlacementOptions.NONE.value,
+        contrastive_embedding_dim: int = 64,
+        contrastive_projection_dim: int = 32,
+        contrastive_feature_selection_units: int = 128,
+        contrastive_feature_selection_dropout: float = 0.2,
+        contrastive_temperature: float = 0.1,
+        contrastive_weight: float = 1.0,
+        contrastive_reconstruction_weight: float = 0.1,
+        contrastive_regularization_weight: float = 0.01,
+        contrastive_use_batch_norm: bool = True,
+        contrastive_use_layer_norm: bool = True,
+        contrastive_augmentation_strength: float = 0.1,
     ) -> None:
         """Initialize a preprocessing model.
 
@@ -354,6 +379,19 @@ class PreprocessingModel:
             num_bins (int): Number of bins for discretization in advanced numerical embedding.
             init_min (float): Minimum value for the embedding in advanced numerical embedding.
             init_max (float): Maximum value for the embedding in advanced numerical embedding.
+            use_contrastive_learning (bool): Whether to use contrastive learning for self-supervised pretraining.
+            contrastive_learning_placement (str): Where to apply contrastive learning (none|numeric|categorical|all_features).
+            contrastive_embedding_dim (int): Dimension of the final embeddings for contrastive learning.
+            contrastive_projection_dim (int): Dimension of the projection head for contrastive learning.
+            contrastive_feature_selection_units (int): Number of units in feature selection layers for contrastive learning.
+            contrastive_feature_selection_dropout (float): Dropout rate for feature selection in contrastive learning.
+            contrastive_temperature (float): Temperature parameter for contrastive loss.
+            contrastive_weight (float): Weight for contrastive loss.
+            contrastive_reconstruction_weight (float): Weight for reconstruction loss in contrastive learning.
+            contrastive_regularization_weight (float): Weight for regularization loss in contrastive learning.
+            contrastive_use_batch_norm (bool): Whether to use batch normalization in contrastive learning.
+            contrastive_use_layer_norm (bool): Whether to use layer normalization in contrastive learning.
+            contrastive_augmentation_strength (float): Strength of data augmentation for contrastive learning.
         """
         self.path_data = path_data
         self.batch_size = batch_size or 50_000
@@ -422,6 +460,21 @@ class PreprocessingModel:
 
         # Passthrough features control
         self.include_passthrough_in_output = include_passthrough_in_output
+
+        # Contrastive learning control
+        self.use_contrastive_learning = use_contrastive_learning
+        self.contrastive_learning_placement = contrastive_learning_placement
+        self.contrastive_embedding_dim = contrastive_embedding_dim
+        self.contrastive_projection_dim = contrastive_projection_dim
+        self.contrastive_feature_selection_units = contrastive_feature_selection_units
+        self.contrastive_feature_selection_dropout = contrastive_feature_selection_dropout
+        self.contrastive_temperature = contrastive_temperature
+        self.contrastive_weight = contrastive_weight
+        self.contrastive_reconstruction_weight = contrastive_reconstruction_weight
+        self.contrastive_regularization_weight = contrastive_regularization_weight
+        self.contrastive_use_batch_norm = contrastive_use_batch_norm
+        self.contrastive_use_layer_norm = contrastive_use_layer_norm
+        self.contrastive_augmentation_strength = contrastive_augmentation_strength
 
         # Initialize feature type lists
         self.numeric_features = []
@@ -792,6 +845,62 @@ class PreprocessingModel:
             )
         return preprocessor
 
+    def _apply_contrastive_learning(
+        self, feature_name: str, output_pipeline: tf.Tensor, feature_type: str
+    ) -> tf.Tensor:
+        """Apply contrastive learning to the feature output.
+
+        Args:
+            feature_name: Name of the feature
+            output_pipeline: Output tensor from the feature pipeline
+            feature_type: Type of the feature
+
+        Returns:
+            Tensor with contrastive learning applied
+        """
+        if not self.use_contrastive_learning:
+            return output_pipeline
+
+        # Check if contrastive learning should be applied to this feature type
+        # Note: Passthrough features are intentionally excluded from contrastive learning
+        should_apply = (
+            (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.ALL_FEATURES.value) or
+            (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.NUMERIC.value and feature_type == "numeric") or
+            (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.CATEGORICAL.value and feature_type == "categorical") or
+            (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.TEXT.value and feature_type == "text") or
+            (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.DATE.value and feature_type == "date") or
+            (self.contrastive_learning_placement == ContrastiveLearningPlacementOptions.TIME_SERIES.value and feature_type == "time_series")
+        )
+
+        if not should_apply:
+            return output_pipeline
+
+        # Create contrastive learning layer
+        contrastive_layer = PreprocessorLayerFactory.contrastive_learning_layer(
+            embedding_dim=self.contrastive_embedding_dim,
+            projection_dim=self.contrastive_projection_dim,
+            feature_selection_units=self.contrastive_feature_selection_units,
+            feature_selection_dropout=self.contrastive_feature_selection_dropout,
+            temperature=self.contrastive_temperature,
+            contrastive_weight=self.contrastive_weight,
+            reconstruction_weight=self.contrastive_reconstruction_weight,
+            regularization_weight=self.contrastive_regularization_weight,
+            use_batch_norm=self.contrastive_use_batch_norm,
+            use_layer_norm=self.contrastive_use_layer_norm,
+            augmentation_strength=self.contrastive_augmentation_strength,
+            name=f"contrastive_learning_{feature_name}"
+        )
+
+        # Apply contrastive learning
+        contrastive_output = contrastive_layer(output_pipeline)
+        
+        # Store the layer for later access
+        if not hasattr(self, 'contrastive_layers'):
+            self.contrastive_layers = {}
+        self.contrastive_layers[feature_name] = contrastive_layer
+
+        return contrastive_output
+
     def _apply_feature_selection(
         self, feature_name: str, output_pipeline: tf.Tensor, feature_type: str
     ) -> tf.Tensor:
@@ -909,6 +1018,13 @@ class PreprocessingModel:
 
         # Apply feature selection if needed
         _output_pipeline = self._apply_feature_selection(
+            feature_name=feature_name,
+            output_pipeline=_output_pipeline,
+            feature_type="numeric",
+        )
+
+        # Apply contrastive learning if needed
+        _output_pipeline = self._apply_contrastive_learning(
             feature_name=feature_name,
             output_pipeline=_output_pipeline,
             feature_type="numeric",
@@ -1105,6 +1221,13 @@ class PreprocessingModel:
 
         # Apply feature selection if needed
         _output_pipeline = self._apply_feature_selection(
+            feature_name=feature_name,
+            output_pipeline=_output_pipeline,
+            feature_type="categorical",
+        )
+
+        # Apply contrastive learning if needed
+        _output_pipeline = self._apply_contrastive_learning(
             feature_name=feature_name,
             output_pipeline=_output_pipeline,
             feature_type="categorical",
@@ -1309,7 +1432,7 @@ class PreprocessingModel:
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
 
-        # Apply feature selection if enabled for categorical features
+        # Apply feature selection if enabled for text features
         if (
             self.feature_selection_placement == FeatureSelectionPlacementOptions.TEXT
             or self.feature_selection_placement
@@ -1323,6 +1446,13 @@ class PreprocessingModel:
             )
             _output_pipeline, feature_weights = feature_selector([_output_pipeline])
             self.processed_features[f"{feature_name}_weights"] = feature_weights
+
+        # Apply contrastive learning if needed
+        _output_pipeline = self._apply_contrastive_learning(
+            feature_name=feature_name,
+            output_pipeline=_output_pipeline,
+            feature_type="text",
+        )
 
         self.processed_features[feature_name] = _output_pipeline
 
@@ -1386,7 +1516,7 @@ class PreprocessingModel:
         # Process the feature
         _output_pipeline = preprocessor.chain(input_layer=input_layer)
 
-        # Apply feature selection if enabled for categorical features
+        # Apply feature selection if enabled for date features
         if (
             self.feature_selection_placement == FeatureSelectionPlacementOptions.DATE
             or self.feature_selection_placement
@@ -1400,6 +1530,13 @@ class PreprocessingModel:
             )
             _output_pipeline, feature_weights = feature_selector([_output_pipeline])
             self.processed_features[f"{feature_name}_weights"] = feature_weights
+
+        # Apply contrastive learning if needed
+        _output_pipeline = self._apply_contrastive_learning(
+            feature_name=feature_name,
+            output_pipeline=_output_pipeline,
+            feature_type="date",
+        )
 
         self.processed_features[feature_name] = _output_pipeline
 
@@ -1469,6 +1606,8 @@ class PreprocessingModel:
             output_pipeline=_output_pipeline,
             feature_type="passthrough",
         )
+
+
 
         self.processed_features[feature_name] = _output_pipeline
 
@@ -1542,6 +1681,13 @@ class PreprocessingModel:
 
         # Apply feature selection if needed
         _output_pipeline = self._apply_feature_selection(
+            feature_name=feature_name,
+            output_pipeline=_output_pipeline,
+            feature_type="time_series",
+        )
+
+        # Apply contrastive learning if needed
+        _output_pipeline = self._apply_contrastive_learning(
             feature_name=feature_name,
             output_pipeline=_output_pipeline,
             feature_type="time_series",
